@@ -507,6 +507,104 @@ PLL_EXPORT void pll_core_update_partial_ti(unsigned int states,
   }
 }
 
+PLL_EXPORT void pll_core_update_partial_repeats(unsigned int states,
+                                                unsigned int parent_sites,
+                                                unsigned int left_sites,
+                                                unsigned int right_sites,
+                                                unsigned int rate_cats,
+                                                double * parent_clv,
+                                                unsigned int * parent_scaler,
+                                                const double * left_clv,
+                                                const double * right_clv,
+                                                const double * left_matrix,
+                                                const double * right_matrix,
+                                                const unsigned int * left_scaler,
+                                                const unsigned int * right_scaler,
+                                                const unsigned int * parent_id_site,
+                                                const unsigned int * left_site_id,
+                                                const unsigned int * right_site_id,
+                                                double * bclv_buffer,
+                                                unsigned int attrib)
+{
+  void (*core_update_partials) (unsigned int states,
+                               unsigned int parent_sites,
+                               unsigned int left_sites,
+                               unsigned int right_sites,
+                               unsigned int rate_cats,
+                               double * parent_clv,
+                               unsigned int * parent_scaler,
+                               const double * left_clv,
+                               const double * right_clv,
+                               const double * left_matrix,
+                               const double * right_matrix,
+                               const unsigned int * left_scaler,
+                               const unsigned int * right_scaler,
+                               const unsigned int * parent_id_site,
+                               const unsigned int * left_site_id,
+                               const unsigned int * right_site_id,
+                               double * bclv_buffer,
+                               unsigned int attrib) = 0x0;
+
+  unsigned int use_bclv = (bclv_buffer && (left_sites < ((parent_sites * 2) / 3) + 1));
+
+  if (use_bclv) 
+    core_update_partials = pll_core_update_partial_repeatsbclv_generic;
+  else  
+    core_update_partials = pll_core_update_partial_repeats_generic;
+#ifdef HAVE_AVX 
+  if (attrib & PLL_ATTRIB_ARCH_AVX &&  PLL_STAT(avx_present))
+  { 
+    core_update_partials = pll_core_update_partial_repeats_generic_avx;
+    if (states == 4) 
+    {
+      if (use_bclv)
+        core_update_partials = pll_core_update_partial_repeatsbclv_4x4_avx;
+      else  
+        core_update_partials = pll_core_update_partial_repeats_4x4_avx;
+    }
+  }
+#endif
+#ifdef HAVE_SSE3
+  if (attrib & PLL_ATTRIB_ARCH_SSE &&  PLL_STAT(sse3_present))
+  {
+    core_update_partials = pll_core_update_partial_repeats_generic_sse;
+  }
+
+#endif
+#ifdef HAVE_AVX2 
+  if (attrib & PLL_ATTRIB_ARCH_AVX2 &&  PLL_STAT(avx2_present))
+  { 
+    core_update_partials = pll_core_update_partial_repeats_generic_avx2;
+    if (states == 4) 
+    {
+      // for DNA, avx is faster than avx2
+      if (use_bclv)
+        core_update_partials = pll_core_update_partial_repeatsbclv_4x4_avx;
+      else  
+        core_update_partials = pll_core_update_partial_repeats_4x4_avx;
+    }
+  }
+#endif
+   core_update_partials(states,
+                parent_sites,
+                left_sites,
+                right_sites,
+                rate_cats,
+                parent_clv,
+                parent_scaler,
+                left_clv,
+                right_clv,
+                left_matrix,
+                right_matrix,
+                left_scaler,
+                right_scaler,
+                parent_id_site,
+                left_site_id,
+                right_site_id,
+                bclv_buffer,
+                attrib);
+}
+
 PLL_EXPORT void pll_core_update_partial_ii(unsigned int states,
                                            unsigned int sites,
                                            unsigned int rate_cats,
@@ -648,6 +746,252 @@ PLL_EXPORT void pll_core_update_partial_ii(unsigned int states,
       parent_clv += states;
       left_clv   += states;
       right_clv  += states;
+    }
+    /* PER-SITE SCALING: if *all* entries of the *site* CLV were below
+     * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+    if (site_scale)
+    {
+      parent_clv -= span;
+      for (i = 0; i < span; ++i)
+        parent_clv[i] *= PLL_SCALE_FACTOR;
+      parent_clv += span;
+      parent_scaler[n] += 1;
+    }
+  }
+}
+
+PLL_EXPORT void pll_core_update_partial_repeats_generic(unsigned int states,
+                                                        unsigned int parent_sites,
+                                                        unsigned int left_sites,
+                                                        unsigned int right_sites,
+                                                        unsigned int rate_cats,
+                                                        double * parent_clv,
+                                                        unsigned int * parent_scaler,
+                                                        const double * left_clv,
+                                                        const double * right_clv,
+                                                        const double * left_matrix,
+                                                        const double * right_matrix,
+                                                        const unsigned int * left_scaler,
+                                                        const unsigned int * right_scaler,
+                                                        const unsigned int * parent_id_site,
+                                                        const unsigned int * left_site_id,
+                                                        const unsigned int * right_site_id,
+                                                        double * bclv_buffer,
+                                                        unsigned int attrib)
+{
+  unsigned int i,j,k,n;
+
+  unsigned int scale_mode;  /* 0 = none, 1 = per-site, 2 = per-rate */
+  unsigned int site_scale;
+  unsigned int init_mask;
+
+  const double * lmat;
+  const double * rmat;
+
+  unsigned int span = states * rate_cats;
+
+  /* init scaling-related stuff */
+  if (parent_scaler)
+  {
+    /* determine the scaling mode and init the vars accordingly */
+    scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
+    init_mask = (scale_mode == 1) ? 1 : 0;
+    
+    /* add up the scale vectors of the two children if available */
+    if (scale_mode == 2) 
+      pll_fill_parent_scaler_repeats_per_rate(parent_sites, rate_cats, parent_scaler, parent_id_site, 
+        left_scaler, left_site_id, right_scaler, right_site_id);
+    else
+      pll_fill_parent_scaler_repeats(parent_sites, parent_scaler, parent_id_site, 
+        left_scaler, left_site_id, right_scaler, right_site_id);
+  }
+  else
+  {
+    /* scaling disabled / not required */
+    scale_mode = init_mask = 0;
+  }
+
+  /* compute CLV */
+  for (n = 0; n < parent_sites; ++n)
+  {
+    unsigned int site = parent_id_site ? parent_id_site[n] : n;
+    unsigned int lid = left_site_id ? left_site_id[site] : site;
+    unsigned int rid = right_site_id ? right_site_id[site] : site;
+    const double *lclv = &left_clv[lid * span];
+    const double *rclv = &right_clv[rid * span];
+    lmat = left_matrix;
+    rmat = right_matrix;
+    site_scale = init_mask;
+
+    for (k = 0; k < rate_cats; ++k)
+    {
+      unsigned int rate_scale = 1;
+      for (i = 0; i < states; ++i)
+      {
+        double terma = 0;
+        double termb = 0;
+        for (j = 0; j < states; ++j)
+        {
+          terma += lmat[j] * lclv[j];
+          termb += rmat[j] * rclv[j];
+        }
+        parent_clv[i] = terma*termb;
+
+        rate_scale &= (parent_clv[i] < PLL_SCALE_THRESHOLD);
+
+        lmat += states;
+        rmat += states;
+      }
+
+      /* check if scaling is needed for the current rate category */
+      if (scale_mode == 2)
+      {
+        /* PER-RATE SCALING: if *all* entries of the *rate* CLV were below
+         * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+        if (rate_scale)
+        {
+          for (i = 0; i < states; ++i)
+            parent_clv[i] *= PLL_SCALE_FACTOR;
+          parent_scaler[n*rate_cats + k] += 1;
+        }
+      }
+      else
+        site_scale = site_scale && rate_scale;
+
+      parent_clv += states;
+      lclv   += states;
+      rclv  += states;
+    }
+    /* PER-SITE SCALING: if *all* entries of the *site* CLV were below
+     * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+    if (site_scale)
+    {
+      parent_clv -= span;
+      for (i = 0; i < span; ++i)
+        parent_clv[i] *= PLL_SCALE_FACTOR;
+      parent_clv += span;
+      parent_scaler[n] += 1;
+    }
+  }
+}
+
+PLL_EXPORT void pll_core_update_partial_repeatsbclv_generic(unsigned int states,
+                                                            unsigned int parent_sites,
+                                                            unsigned int left_sites,
+                                                            unsigned int right_sites,
+                                                            unsigned int rate_cats,
+                                                            double * parent_clv,
+                                                            unsigned int * parent_scaler,
+                                                            const double * left_clv,
+                                                            const double * right_clv,
+                                                            const double * left_matrix,
+                                                            const double * right_matrix,
+                                                            const unsigned int * left_scaler,
+                                                            const unsigned int * right_scaler,
+                                                            const unsigned int * parent_id_site,
+                                                            const unsigned int * left_site_id,
+                                                            const unsigned int * right_site_id,
+                                                            double * bclv_buffer,
+                                                            unsigned int attrib)
+{
+  unsigned int i,j,k,n;
+
+  unsigned int scale_mode;  /* 0 = none, 1 = per-site, 2 = per-rate */
+  unsigned int site_scale;
+  unsigned int init_mask;
+
+  const double * lmat;
+  const double * rmat;
+
+  unsigned int span = states * rate_cats;
+
+  /* init scaling-related stuff */
+  if (parent_scaler)
+  {
+    /* determine the scaling mode and init the vars accordingly */
+    scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
+    init_mask = (scale_mode == 1) ? 1 : 0;
+    
+    /* add up the scale vectors of the two children if available */
+    if (scale_mode == 2) 
+      pll_fill_parent_scaler_repeats_per_rate(parent_sites, rate_cats, parent_scaler, parent_id_site, 
+        left_scaler, left_site_id, right_scaler, right_site_id);
+    else
+      pll_fill_parent_scaler_repeats(parent_sites, parent_scaler, parent_id_site, 
+        left_scaler, left_site_id, right_scaler, right_site_id);
+  }
+  else
+  {
+    /* scaling disabled / not required */
+    scale_mode = init_mask = 0;
+  }
+  const double *lclv = left_clv;
+  double *lbclv = bclv_buffer;
+  /* compute bclv */
+  for (n = 0; n < left_sites; ++n)
+  {
+    lmat = left_matrix;
+    for (k = 0; k < rate_cats; ++k)
+    {
+      for (i = 0; i < states; ++i)
+      {
+        double terma = 0;
+        for (j = 0; j < states; ++j)
+        {
+          terma += lmat[j] * lclv[j];
+        }
+        lbclv[i] = terma;
+        lmat += states;
+      }
+      lbclv += states;
+      lclv += states;
+    }
+  }
+  /* compute CLV */
+  for (n = 0; n < parent_sites; ++n)
+  {
+    unsigned int site = parent_id_site ? parent_id_site[n] : n;
+    unsigned int lid = left_site_id ? left_site_id[site] : site;
+    unsigned int rid = right_site_id ? right_site_id[site] : site;
+    lbclv = &bclv_buffer[lid * span];
+    const double *rclv = &right_clv[rid * span];
+    rmat = right_matrix;
+    site_scale = init_mask;
+
+    for (k = 0; k < rate_cats; ++k)
+    {
+      unsigned int rate_scale = 1;
+      for (i = 0; i < states; ++i)
+      {
+        double termb = 0;
+        for (j = 0; j < states; ++j)
+        {
+          termb += rmat[j] * rclv[j];
+        }
+        parent_clv[i] = lbclv[i]*termb;
+
+        rate_scale &= (parent_clv[i] < PLL_SCALE_THRESHOLD);
+        rmat += states;
+      }
+
+      /* check if scaling is needed for the current rate category */
+      if (scale_mode == 2)
+      {
+        /* PER-RATE SCALING: if *all* entries of the *rate* CLV were below
+         * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+        if (rate_scale)
+        {
+          for (i = 0; i < states; ++i)
+            parent_clv[i] *= PLL_SCALE_FACTOR;
+          parent_scaler[n*rate_cats + k] += 1;
+        }
+      }
+      else
+        site_scale = site_scale && rate_scale;
+
+      parent_clv += states;
+      lbclv += states;
+      rclv  += states;
     }
     /* PER-SITE SCALING: if *all* entries of the *site* CLV were below
      * the threshold then scale (all) entries by PLL_SCALE_FACTOR */

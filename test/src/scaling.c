@@ -24,7 +24,7 @@
 #define N_STATES_AA 20
 #define N_STATES_ODD 5
 #define N_CAT_GAMMA 4
-#define N_SITES 5
+#define N_SITES 17
 #define FLOAT_PRECISION 4
 
 #define TREEFILE   "testdata/2000.tree"
@@ -72,13 +72,17 @@ unsigned int scaler_idx(const pll_partition_t * p, unsigned int clv_idx)
 
 void show_scaler(const pll_partition_t * p, unsigned int clv_idx)
 {
+  unsigned int *site_id = 0;
+  if (pll_repeats_enabled(p) && p->repeats->pernode_max_id[clv_idx])
+    site_id = p->repeats->pernode_site_id[clv_idx];
   unsigned int scaler = scaler_idx(p, clv_idx);
   if (scaler != PLL_SCALE_BUFFER_NONE)
   {
-    unsigned int i, j;
+    unsigned int s, i, j;
     printf("scaler %u: [ ", scaler);
-    for (i = 0; i < p->sites; ++i)
+    for (s = 0; s < p->sites; ++s)
     {
+      i = site_id ? site_id[s] : s;
       if (p->attributes & PLL_ATTRIB_RATE_SCALERS)
       {
         unsigned int * scalev = p->scale_buffer[scaler] + i*p->rate_cats;
