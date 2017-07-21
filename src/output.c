@@ -68,7 +68,7 @@ PLL_EXPORT void pll_show_clv(const pll_partition_t * partition,
   unsigned int rates = partition->rate_cats;
   double prob;
   unsigned int *site_id = 0;
-  if (pll_repeats_enabled(partition) && partition->repeats->pernode_max_id[clv_index]) {
+  if (pll_repeats_enabled(partition) && partition->repeats->pernode_ids[clv_index]) {
     site_id = partition->repeats->pernode_site_id[clv_index];
   }
 

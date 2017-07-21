@@ -257,8 +257,8 @@ PLL_EXPORT void pll_update_partials_rep(pll_partition_t * partition,
       pll_update_repeats(partition, op);
 
     if (pll_repeats_enabled(partition)
-        && (partition->repeats->pernode_max_id[op->child1_clv_index]
-            ||  partition->repeats->pernode_max_id[op->child2_clv_index]))
+        && (partition->repeats->pernode_ids[op->child1_clv_index]
+            ||  partition->repeats->pernode_ids[op->child2_clv_index]))
     {
       case_repeats(partition, op);
     }

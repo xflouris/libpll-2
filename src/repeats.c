@@ -25,7 +25,7 @@ const unsigned int EMPTY_ELEMENT = (unsigned int) -1;
 
 PLL_EXPORT int pll_repeats_enabled(const pll_partition_t *partition)
 {
-  return PLL_ATTRIB_SITES_REPEATS & partition->attributes;
+  return PLL_ATTRIB_SITE_REPEATS & partition->attributes;
 }
 
 PLL_EXPORT void pll_resize_repeats_lookup(pll_partition_t *partition, size_t size)
@@ -42,8 +42,8 @@ PLL_EXPORT void pll_resize_repeats_lookup(pll_partition_t *partition, size_t siz
 PLL_EXPORT unsigned int pll_get_sites_number(const pll_partition_t * partition,
                                              unsigned int clv_index)
 {
-  unsigned int sites = partition->attributes & PLL_ATTRIB_SITES_REPEATS ?
-      partition->repeats->pernode_max_id[clv_index] : 0;
+  unsigned int sites = partition->attributes & PLL_ATTRIB_SITE_REPEATS ?
+      partition->repeats->pernode_ids[clv_index] : 0;
   sites = sites ? sites : partition->sites;
   sites += partition->asc_bias_alloc ? partition->states : 0;
   return sites;
@@ -61,7 +61,7 @@ PLL_EXPORT unsigned int * pll_get_site_id(const pll_partition_t *partition,
 {
   unsigned int *site_id = 0;
   if (pll_repeats_enabled(partition) 
-      && partition->repeats->pernode_max_id[clv_index])
+      && partition->repeats->pernode_ids[clv_index])
     site_id = partition->repeats->pernode_site_id[clv_index];
   return site_id;
 }
@@ -71,7 +71,7 @@ PLL_EXPORT unsigned int * pll_get_id_site(const pll_partition_t *partition,
 {
   unsigned int *id_site = 0;
   if (pll_repeats_enabled(partition) 
-      && partition->repeats->pernode_max_id[clv_index])
+      && partition->repeats->pernode_ids[clv_index])
     id_site = partition->repeats->pernode_id_site[clv_index];
   return id_site;
 }
@@ -81,11 +81,11 @@ PLL_EXPORT unsigned int pll_default_enable_repeats(pll_partition_t *partition,
     unsigned int right_clv)
 {
   pll_repeats_t * repeats = partition->repeats;
-  unsigned int min_size = repeats->pernode_max_id[left_clv] 
-                          * repeats->pernode_max_id[right_clv];
+  unsigned int min_size = repeats->pernode_ids[left_clv] 
+                          * repeats->pernode_ids[right_clv];
   return !(!min_size || (repeats->lookup_buffer_size <= min_size)
-      || (repeats->pernode_max_id[left_clv] > (partition->sites / 2))
-      || (repeats->pernode_max_id[right_clv] > (partition->sites / 2)));
+      || (repeats->pernode_ids[left_clv] > (partition->sites / 2))
+      || (repeats->pernode_ids[right_clv] > (partition->sites / 2)));
 }
 
 PLL_EXPORT unsigned int pll_no_enable_repeats(pll_partition_t *partition,
@@ -138,8 +138,8 @@ PLL_EXPORT int pll_repeats_initialize(pll_partition_t *partition)
       return PLL_FAILURE;
     }
   }
-  repeats->pernode_max_id = calloc(partition->nodes, sizeof(unsigned int));
-  repeats->perscale_max_id = calloc(partition->scale_buffers, sizeof(unsigned int));
+  repeats->pernode_ids = calloc(partition->nodes, sizeof(unsigned int));
+  repeats->perscale_ids = calloc(partition->scale_buffers, sizeof(unsigned int));
   repeats->pernode_allocated_clvs = 
     calloc(partition->nodes, sizeof(unsigned int));
   repeats->lookup_buffer = 0;
@@ -149,7 +149,7 @@ PLL_EXPORT int pll_repeats_initialize(pll_partition_t *partition)
   repeats->bclv_buffer = pll_aligned_alloc(sites_alloc 
       * partition->rate_cats * partition->states_padded
       * sizeof(double), partition->alignment);
-  if (!(repeats->pernode_max_id
+  if (!(repeats->pernode_ids
        && repeats->pernode_allocated_clvs && repeats->bclv_buffer
        && repeats->toclean_buffer && repeats->id_site_buffer))
   {
@@ -176,7 +176,7 @@ PLL_EXPORT int pll_update_repeats_tips(pll_partition_t * partition,
   unsigned int additional_sites = 
     partition->asc_bias_alloc ? partition->states : 0;
 
-  repeats->pernode_max_id[tip_index] = 0;
+  repeats->pernode_ids[tip_index] = 0;
   unsigned int curr_id = 0;
   /* fill pernode_site_id */
   for (s = 0; s < partition->sites; ++s) 
@@ -191,7 +191,7 @@ PLL_EXPORT int pll_update_repeats_tips(pll_partition_t * partition,
     repeats->pernode_site_id[tip_index][s] = repeats->lookup_buffer[index_lookup];
   }
   unsigned int ids = curr_id;
-  repeats->pernode_max_id[tip_index] = ids;
+  repeats->pernode_ids[tip_index] = ids;
   free(id_site[tip_index]);
   id_site[tip_index] = malloc(sizeof(unsigned int) 
       * (ids + additional_sites));
@@ -285,7 +285,7 @@ PLL_EXPORT void pll_update_repeats(pll_partition_t * partition,
   unsigned int * site_id_parent = site_ids[parent];
   const unsigned int * site_id_left = site_ids[left];
   const unsigned int * site_id_right = site_ids[right];
-  const unsigned int max_id_left = repeats->pernode_max_id[left];
+  const unsigned int ids_left = repeats->pernode_ids[left];
   unsigned int ** id_site = repeats->pernode_id_site;
   unsigned int * toclean_buffer = repeats->toclean_buffer;
   unsigned int * id_site_buffer = repeats->id_site_buffer;
@@ -299,9 +299,9 @@ PLL_EXPORT void pll_update_repeats(pll_partition_t * partition,
   if (!partition->repeats->enable_repeats(partition, left, right))
   {
     sites_to_alloc = partition->sites + additional_sites;
-    repeats->pernode_max_id[parent] = 0;
+    repeats->pernode_ids[parent] = 0;
     if (op->parent_scaler_index != PLL_SCALE_BUFFER_NONE)
-      repeats->perscale_max_id[op->parent_scaler_index] = 0;
+      repeats->perscale_ids[op->parent_scaler_index] = 0;
   } 
   else
   {
@@ -309,7 +309,7 @@ PLL_EXPORT void pll_update_repeats(pll_partition_t * partition,
     for (s = 0; s < partition->sites; ++s) 
     {
       unsigned int index_lookup = site_id_left[s] +
-        site_id_right[s] * max_id_left;
+        site_id_right[s] * ids_left;
       unsigned int id = repeats->lookup_buffer[index_lookup];
       if (EMPTY_ELEMENT == id) 
       {
@@ -325,9 +325,9 @@ PLL_EXPORT void pll_update_repeats(pll_partition_t * partition,
     {
       site_id_parent[s + partition->sites] = ids + s;
     }
-    repeats->pernode_max_id[parent] = ids;
+    repeats->pernode_ids[parent] = ids;
     if (op->parent_scaler_index != PLL_SCALE_BUFFER_NONE)
-      repeats->perscale_max_id[op->parent_scaler_index] = ids;
+      repeats->perscale_ids[op->parent_scaler_index] = ids;
     sites_to_alloc = ids + additional_sites;
   }
 
@@ -336,12 +336,12 @@ PLL_EXPORT void pll_update_repeats(pll_partition_t * partition,
                           op->parent_scaler_index, 
                           sites_to_alloc);
 
-  // there is no repeats. Set pernode_max_id to 0
+  // there is no repeats. Set pernode_ids to 0
   // to force the core functions not to use repeats
   if (sites_to_alloc >= partition->sites + additional_sites) {
-    repeats->pernode_max_id[parent] = 0;
+    repeats->pernode_ids[parent] = 0;
     if (op->parent_scaler_index != PLL_SCALE_BUFFER_NONE)
-      repeats->perscale_max_id[op->parent_scaler_index] = 0;
+      repeats->perscale_ids[op->parent_scaler_index] = 0;
   }
 
   // set id to site lookups

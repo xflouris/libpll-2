@@ -117,8 +117,8 @@ static void dealloc_partition_data(pll_partition_t * partition)
     }
     free(repeats->pernode_site_id);
     free(repeats->pernode_id_site);
-    free(repeats->pernode_max_id);
-    free(repeats->perscale_max_id);
+    free(repeats->pernode_ids);
+    free(repeats->perscale_ids);
     free(repeats->pernode_allocated_clvs);
     free(repeats->lookup_buffer);
     free(repeats->toclean_buffer);
@@ -438,9 +438,9 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
   }
  
   /* disable repeats if there are to few sites */
-  if (sites < 16 && (attributes & PLL_ATTRIB_SITES_REPEATS)) 
+  if (sites < 16 && (attributes & PLL_ATTRIB_SITE_REPEATS)) 
   {
-    attributes &= ~PLL_ATTRIB_SITES_REPEATS;
+    attributes &= ~PLL_ATTRIB_SITE_REPEATS;
   }
 
 
@@ -958,10 +958,10 @@ static int set_tipclv(pll_partition_t * partition,
 
   pll_repeats_t * repeats = partition->repeats;
   unsigned int use_repeats = pll_repeats_enabled(partition);
-  unsigned int max_id = use_repeats ?  
-                    repeats->pernode_max_id[tip_index] : partition->sites;
+  unsigned int ids = use_repeats ?  
+                    repeats->pernode_ids[tip_index] : partition->sites;
   /* iterate through sites */
-  for (i = 0; i < max_id; ++i)
+  for (i = 0; i < ids; ++i)
   {
     unsigned int index = use_repeats ? 
                     repeats->pernode_id_site[tip_index][i] : i;

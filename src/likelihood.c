@@ -136,7 +136,7 @@ PLL_EXPORT double pll_compute_root_loglikelihood(pll_partition_t * partition,
 
   /* compute log-likelihood via the core function */
   if (pll_repeats_enabled(partition) &&
-      partition->repeats->pernode_max_id[clv_index]) 
+      partition->repeats->pernode_ids[clv_index]) 
   {
     logl = pll_core_root_loglikelihood_repeats(partition->states,
                                      partition->sites,
@@ -595,8 +595,8 @@ PLL_EXPORT double pll_compute_edge_loglikelihood(pll_partition_t * partition,
   double logl;
   
   if (pll_repeats_enabled(partition) 
-      && (partition->repeats->pernode_max_id[parent_clv_index] 
-          || partition->repeats->pernode_max_id[child_clv_index]))
+      && (partition->repeats->pernode_ids[parent_clv_index] 
+          || partition->repeats->pernode_ids[child_clv_index]))
   {
     return edge_loglikelihood_repeats(partition,
                             parent_clv_index,

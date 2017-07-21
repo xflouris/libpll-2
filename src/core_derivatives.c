@@ -702,7 +702,7 @@ PLL_EXPORT int pll_core_likelihood_derivatives(unsigned int states,
                                                const unsigned int * parent_scaler,
                                                const unsigned int * child_scaler,
                                                unsigned int parent_sites,
-                                               unsigned int child_max_id,
+                                               unsigned int child_ids,
                                                const int * invariant,
                                                const unsigned int * pattern_weights,
                                                double branch_length,
@@ -881,7 +881,7 @@ PLL_EXPORT int pll_core_likelihood_derivatives(unsigned int states,
 
         /* apply scaling */
         scale_factors = (parent_scaler) ? parent_scaler[parent_sites + n] : 0;
-        scale_factors += (child_scaler) ? child_scaler[child_max_id + n] : 0;
+        scale_factors += (child_scaler) ? child_scaler[child_ids + n] : 0;
         asc_scaling = pow(PLL_SCALE_THRESHOLD, (double)scale_factors);
 
         /* sum over likelihood and 1st and 2nd derivative / apply scaling */

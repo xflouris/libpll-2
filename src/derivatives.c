@@ -202,13 +202,13 @@ static int sumtable_repeats(pll_partition_t * partition,
   const unsigned int * child_site_id = 
     pll_get_site_id(partition, child_clv_index);
 
-  unsigned int parent_max_id = pll_get_sites_number(partition, parent_clv_index);
-  unsigned int child_max_id = pll_get_sites_number(partition, child_clv_index);
-  unsigned int inv = parent_max_id > child_max_id;
+  unsigned int parent_ids = pll_get_sites_number(partition, parent_clv_index);
+  unsigned int child_ids = pll_get_sites_number(partition, child_clv_index);
+  unsigned int inv = parent_ids > child_ids;
   retval =
     pll_core_update_sumtable_repeats(partition->states,
                         sites,
-                        inv ? child_max_id : parent_max_id,
+                        inv ? child_ids : parent_ids,
                         partition->rate_cats,
                         partition->clv[inv ? child_clv_index : parent_clv_index],
                         partition->clv[!inv ? child_clv_index : parent_clv_index],
@@ -260,8 +260,8 @@ PLL_EXPORT int pll_update_sumtable(pll_partition_t * partition,
 
 
   if (pll_repeats_enabled(partition) && 
-      (partition->repeats->pernode_max_id[parent_clv_index] 
-       || partition->repeats->pernode_max_id[child_clv_index])) 
+      (partition->repeats->pernode_ids[parent_clv_index] 
+       || partition->repeats->pernode_ids[child_clv_index])) 
   {
     retval = sumtable_repeats(partition,
                                  parent_clv_index,
@@ -372,18 +372,18 @@ PLL_EXPORT int pll_compute_likelihood_derivatives(pll_partition_t * partition,
     child_scaler = partition->scale_buffer[child_scaler_index];
 
 
-  unsigned int parent_max_id = partition->sites;
-  unsigned int child_max_id = partition->sites;
+  unsigned int parent_ids = partition->sites;
+  unsigned int child_ids = partition->sites;
   if (pll_repeats_enabled(partition))
   {
-    parent_max_id = parent_scaler_index != PLL_SCALE_BUFFER_NONE 
-      ? partition->repeats->perscale_max_id[parent_scaler_index]
+    parent_ids = parent_scaler_index != PLL_SCALE_BUFFER_NONE 
+      ? partition->repeats->perscale_ids[parent_scaler_index]
       : 0;
-    parent_max_id = parent_max_id ? parent_max_id : partition->sites;
-    child_max_id = child_scaler_index != PLL_SCALE_BUFFER_NONE 
-      ? partition->repeats->perscale_max_id[child_scaler_index]
+    parent_ids = parent_ids ? parent_ids : partition->sites;
+    child_ids = child_scaler_index != PLL_SCALE_BUFFER_NONE 
+      ? partition->repeats->perscale_ids[child_scaler_index]
       : 0;
-    child_max_id = child_max_id ? child_max_id : partition->sites;
+    child_ids = child_ids ? child_ids : partition->sites;
   }
   int retval = pll_core_likelihood_derivatives(partition->states,
                                                partition->sites,
@@ -391,8 +391,8 @@ PLL_EXPORT int pll_compute_likelihood_derivatives(pll_partition_t * partition,
                                                partition->rate_weights,
                                                parent_scaler,
                                                child_scaler,
-                                               parent_max_id,
-                                               child_max_id,
+                                               parent_ids,
+                                               child_ids,
                                                partition->invariant,
                                                partition->pattern_weights,
                                                branch_length,

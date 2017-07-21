@@ -621,7 +621,7 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
     for (i = 0; i < tips; ++i)
     {
       const unsigned int * site_id = NULL;
-      if (partition->repeats && partition->repeats->pernode_max_id[i]) 
+      if (partition->repeats && partition->repeats->pernode_ids[i]) 
       {
         site_id = partition->repeats->pernode_site_id[i];
       }

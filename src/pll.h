@@ -123,7 +123,7 @@
 
 /* site repeats */
 
-#define PLL_ATTRIB_SITES_REPEATS    (1 << 10)
+#define PLL_ATTRIB_SITE_REPEATS    (1 << 10)
 #define PLL_REPEATS_LOOKUP_SIZE  2000000 
 
 /* topological rearrangements */
@@ -261,10 +261,10 @@ typedef struct pll_repeats
   unsigned int ** pernode_site_id; 
   // (node,id) -> class site   
   unsigned int ** pernode_id_site; 
-  // (node) -> max class identifier. 
-  unsigned int * pernode_max_id;
-  // (node) -> max class identifier. 
-  unsigned int * perscale_max_id;
+  // (node) -> numer of class ids 
+  unsigned int * pernode_ids;
+  // (scale) -> number of class ids
+  unsigned int * perscale_ids;
   // (node) -> number of allocated clvs
   unsigned int * pernode_allocated_clvs;
 
@@ -1153,8 +1153,8 @@ PLL_EXPORT int pll_core_likelihood_derivatives(unsigned int states,
                                                const double * rate_weights,
                                                const unsigned int * parent_scaler,
                                                const unsigned int * child_scaler,
-                                               unsigned int parent_max_id,
-                                               unsigned int child_max_id,
+                                               unsigned int parent_ids,
+                                               unsigned int child_ids,
                                                const int * invariant,
                                                const unsigned int * pattern_weights,
                                                double branch_length,
