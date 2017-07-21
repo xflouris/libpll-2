@@ -42,7 +42,7 @@ import time
 #####################
 do_memtest       =  0                 # Evaluate memory leaks
 num_replicates   = 20                 # Number of samples for the speed test
-all_args         = [16,18,20,24,0,1,2,3,4,5,8,9]
+all_args         = [18,16,20,24,0,1,2,3,4,5,8,9]
                                       # 0: No vector / No tip pattern
                                       # 1: No vector / Tip pattern
                                       # 2: AVX / No tip pattern

@@ -1579,6 +1579,24 @@ PLL_EXPORT void pll_core_update_partial_repeatsbclv_4x4_avx(unsigned int states,
                                                             double * bclv_buffer,
                                                             unsigned int attrib);
 
+PLL_EXPORT void pll_core_update_partial_repeatsbclv_generic_avx(unsigned int states,
+                                                            unsigned int parent_sites,
+                                                            unsigned int left_sites,
+                                                            unsigned int right_sites,
+                                                            unsigned int rate_cats,
+                                                            double * parent_clv,
+                                                            unsigned int * parent_scaler,
+                                                            const double * left_clv,
+                                                            const double * right_clv,
+                                                            const double * left_matrix,
+                                                            const double * right_matrix,
+                                                            const unsigned int * left_scaler,
+                                                            const unsigned int * right_scaler,
+                                                            const unsigned int * parent_id_site,
+                                                            const unsigned int * left_site_id,
+                                                            const unsigned int * right_site_id,
+                                                            double * bclv_buffer,
+                                                            unsigned int attrib);
 #endif
 
 /* functions in core_partials_avx2.c */

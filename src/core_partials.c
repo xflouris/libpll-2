@@ -554,13 +554,17 @@ PLL_EXPORT void pll_core_update_partial_repeats(unsigned int states,
 #ifdef HAVE_AVX 
   if (attrib & PLL_ATTRIB_ARCH_AVX &&  PLL_STAT(avx_present))
   { 
-    core_update_partials = pll_core_update_partial_repeats_generic_avx;
     if (states == 4) 
     {
       if (use_bclv)
         core_update_partials = pll_core_update_partial_repeatsbclv_4x4_avx;
       else  
         core_update_partials = pll_core_update_partial_repeats_4x4_avx;
+    } else {
+      if (use_bclv)
+        core_update_partials = pll_core_update_partial_repeatsbclv_generic_avx;
+      else  
+        core_update_partials = pll_core_update_partial_repeats_generic_avx;
     }
   }
 #endif
