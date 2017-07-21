@@ -56,6 +56,25 @@ PLL_EXPORT unsigned int pll_get_clv_size(const pll_partition_t * partition,
     partition->states_padded * partition->rate_cats;
 }
 
+PLL_EXPORT unsigned int * pll_get_site_id(const pll_partition_t *partition,
+                                                  unsigned int clv_index)
+{
+  unsigned int *site_id = 0;
+  if (pll_repeats_enabled(partition) 
+      && partition->repeats->pernode_max_id[clv_index])
+    site_id = partition->repeats->pernode_site_id[clv_index];
+  return site_id;
+}
+
+PLL_EXPORT unsigned int * pll_get_id_site(const pll_partition_t *partition,
+                                                  unsigned int clv_index)
+{
+  unsigned int *id_site = 0;
+  if (pll_repeats_enabled(partition) 
+      && partition->repeats->pernode_max_id[clv_index])
+    id_site = partition->repeats->pernode_id_site[clv_index];
+  return id_site;
+}
 
 PLL_EXPORT unsigned int pll_default_enable_repeats(pll_partition_t *partition,
     unsigned int left_clv,
@@ -202,6 +221,7 @@ PLL_EXPORT int pll_update_repeats_tips(pll_partition_t * partition,
   }
   /* zero-out CLV vectors to avoid valgrind warnings when using odd number of
        states with vectorized code */
+   repeats->pernode_allocated_clvs[tip_index] = ids;
   memset(partition->clv[tip_index],
           0,
           sizealloc);

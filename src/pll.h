@@ -613,12 +613,21 @@ PLL_EXPORT void pll_fill_parent_scaler(unsigned int scaler_size,
 
 /* functions in repeats.c */
 
+#define PLL_GET_ID(site_id, site) ((site_id) ? ((site_id)[(site)]) : (site))
+#define PLL_GET_SITE(id_site, site) ((id_site) ? ((id_site)[(site)]) : (site))
+
 PLL_EXPORT int pll_repeats_enabled(const pll_partition_t *partition);
 
 PLL_EXPORT void pll_resize_repeats_lookup(pll_partition_t *partition, size_t size);
 
 PLL_EXPORT unsigned int pll_get_sites_number(const pll_partition_t * partition,
                                              unsigned int clv_index);
+
+PLL_EXPORT unsigned int * pll_get_site_id(const pll_partition_t *partition,
+                                                  unsigned int clv_index);
+
+PLL_EXPORT unsigned int * pll_get_id_site(const pll_partition_t *partition,
+                                                  unsigned int clv_index);
 
 PLL_EXPORT unsigned int pll_get_clv_size(const pll_partition_t * partition,
                                              unsigned int clv_index);

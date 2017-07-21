@@ -237,7 +237,7 @@ PLL_EXPORT double pll_core_root_loglikelihood_repeats_generic(unsigned int state
   /* iterate through sites */
   for (i = 0; i < sites; ++i)
   {
-    unsigned int id = site_id ? site_id[i] : i;
+    unsigned int id = PLL_GET_ID(site_id, i);
     const double *clvp = &clv[id * span];
     term = 0;
     for (j = 0; j < rate_cats; ++j)
@@ -1010,8 +1010,8 @@ double pll_core_edge_loglikelihood_repeats_generic(unsigned int states,
 
   for (n = 0; n < sites; ++n)
   {
-    unsigned int pid = parent_site_id ? parent_site_id[n] : n;
-    unsigned int cid = child_site_id ? child_site_id[n] : n;
+    unsigned int pid = PLL_GET_ID(parent_site_id, n);
+    unsigned int cid = PLL_GET_ID(child_site_id, n);
     const double *clvp = &parent_clv[pid * span];
     const double *clvc = &child_clv[cid * span];
     if (per_rate_scaling)

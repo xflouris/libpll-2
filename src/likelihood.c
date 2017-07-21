@@ -517,16 +517,14 @@ static double edge_loglikelihood_repeats(pll_partition_t * partition,
   const double * clvp = partition->clv[parent_clv_index];
   const double * clvc = partition->clv[child_clv_index];
 
-  pll_repeats_t * repeats = partition->repeats;
-  const unsigned int * parent_site_id = 
-    repeats->pernode_max_id[parent_clv_index] ?
-    repeats->pernode_site_id[parent_clv_index] : 0x0;
+  const unsigned int * parent_site_id =
+    pll_get_site_id(partition, parent_clv_index);
   const unsigned int * child_site_id = 
-    repeats->pernode_max_id[child_clv_index] ?
-    repeats->pernode_site_id[child_clv_index] : 0x0;
-  
-  unsigned int parent_sites = pll_get_sites_number(partition, parent_clv_index);
-  unsigned int child_sites = pll_get_sites_number(partition, child_clv_index);
+    pll_get_site_id(partition, child_clv_index);
+  unsigned int parent_sites = 
+    pll_get_sites_number(partition, parent_clv_index);
+  unsigned int child_sites = 
+    pll_get_sites_number(partition, child_clv_index);
   unsigned int inv = parent_sites > child_sites;
   
   unsigned int * parent_scaler;

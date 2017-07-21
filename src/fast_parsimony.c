@@ -95,6 +95,8 @@ static int check_informative_extended(const pll_partition_t * partition,
 
   memset(map,0,range*sizeof(unsigned int));
 
+  unsigned int *site_id = pll_get_site_id(partition, index);
+
   for (i = 0; i < partition->tips; ++i)
   {
     c = 0;

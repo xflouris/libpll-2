@@ -607,7 +607,7 @@ PLL_EXPORT void pll_core_update_partial_repeatsbclv_4x4_avx(unsigned int states,
   const double *rclv = right_clv;
   for (n = 0; n < parent_sites; ++n)
   {
-    unsigned int site = parent_id_site ? parent_id_site[n] : n;
+    unsigned int site = PLL_GET_SITE(parent_id_site, n);
     lres = &bclv_buffer[left_site_id[site] * span];
     if (right_site_id) 
     {
@@ -758,9 +758,9 @@ PLL_EXPORT void pll_core_update_partial_repeats_4x4_avx(unsigned int states,
 
   for (n = 0; n < parent_sites; ++n)
   {
-    unsigned int site = parent_id_site ? parent_id_site[n] : n;
-    unsigned int lid = left_site_id ? left_site_id[site] : site;
-    unsigned int rid = right_site_id ? right_site_id[site] : site;
+    unsigned int site = PLL_GET_SITE(parent_id_site, n);
+    unsigned int lid = PLL_GET_ID(left_site_id, site);
+    unsigned int rid = PLL_GET_ID(right_site_id, site);
     const double *lclv = &left_clv[lid * span];
     const double *rclv = &right_clv[rid * span];
     lmat = left_matrix;
@@ -1750,9 +1750,9 @@ PLL_EXPORT void pll_core_update_partial_repeats_generic_avx(unsigned int states,
   /* compute CLV */
   for (n = 0; n < parent_sites; ++n)
   {
-    unsigned int site = parent_id_site ? parent_id_site[n] : n;
-    unsigned int lid = left_site_id ? left_site_id[site] : site;
-    unsigned int rid = right_site_id ? right_site_id[site] : site;
+    unsigned int site = PLL_GET_SITE(parent_id_site, n);
+    unsigned int lid = PLL_GET_ID(left_site_id, site);
+    unsigned int rid = PLL_GET_ID(right_site_id, site);
     const double *lclv = &left_clv[lid * span_padded];
     const double *rclv = &right_clv[rid * span_padded];
     lmat = left_matrix;

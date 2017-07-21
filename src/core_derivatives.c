@@ -263,8 +263,8 @@ PLL_EXPORT int pll_core_update_sumtable_repeats_generic(unsigned int states,
   /* build sumtable */
   for (n = 0; n < sites; n++)
   {
-    unsigned int pid = parent_site_id ? parent_site_id[n] : n;
-    unsigned int cid = child_site_id ? child_site_id[n] : n;
+    unsigned int pid = PLL_GET_ID(parent_site_id, n);
+    unsigned int cid = PLL_GET_ID(child_site_id, n);
     const double * t_clvp = &clvp[pid * span_padded];
     const double * t_clvc = &clvc[cid * span_padded];
     if (per_rate_scaling)

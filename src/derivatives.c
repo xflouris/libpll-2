@@ -198,13 +198,9 @@ static int sumtable_repeats(pll_partition_t * partition,
   }
 
   const unsigned int * parent_site_id =
-    partition->repeats->pernode_max_id[parent_clv_index]
-    ? partition->repeats->pernode_site_id[parent_clv_index]
-    : NULL;
-  const unsigned int * child_site_id =
-    partition->repeats->pernode_max_id[child_clv_index]
-    ? partition->repeats->pernode_site_id[child_clv_index]
-    : NULL;
+    pll_get_site_id(partition, parent_clv_index);
+  const unsigned int * child_site_id = 
+    pll_get_site_id(partition, child_clv_index);
 
   unsigned int parent_max_id = pll_get_sites_number(partition, parent_clv_index);
   unsigned int child_max_id = pll_get_sites_number(partition, child_clv_index);

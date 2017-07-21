@@ -187,12 +187,12 @@ static void case_repeats(pll_partition_t * partition,
   unsigned int * left_scaler;
   unsigned int * right_scaler;
   unsigned int parent_sites = pll_get_sites_number(partition, op->parent_clv_index);
-  const unsigned int * parent_id_site = 0x0;
-  const unsigned int * left_site_id = 0x0;
-  const unsigned int * right_site_id = 0x0;
+  const unsigned int * parent_id_site = pll_get_id_site(partition,  op->parent_clv_index);
+  const unsigned int * left_site_id = pll_get_site_id(partition, op->child1_clv_index);
+  const unsigned int * right_site_id = pll_get_site_id(partition, op->child2_clv_index);
   unsigned int left_sites = pll_get_sites_number(partition, op->child1_clv_index);
   unsigned int right_sites = pll_get_sites_number(partition, op->child2_clv_index);
-  double * bclv_buffer = 0x0;
+  double * bclv_buffer = partition->repeats ? partition->repeats->bclv_buffer : 0;;
   unsigned int inv = left_sites < right_sites;
 
 
@@ -213,16 +213,6 @@ static void case_repeats(pll_partition_t * partition,
   else
     right_scaler = NULL;
 
-  if (partition->repeats)
-  {
-    if (partition->repeats->pernode_max_id[op->parent_clv_index])
-      parent_id_site = partition->repeats->pernode_id_site[op->parent_clv_index];
-    if (partition->repeats->pernode_max_id[op->child1_clv_index])
-      left_site_id = partition->repeats->pernode_site_id[op->child1_clv_index];
-    if (partition->repeats->pernode_max_id[op->child2_clv_index])
-      right_site_id = partition->repeats->pernode_site_id[op->child2_clv_index];
-    bclv_buffer = partition->repeats->bclv_buffer;
-  }
   /* call the function with the shortest clv on the left */
   pll_core_update_partial_repeats(partition->states,
                                 parent_sites,
