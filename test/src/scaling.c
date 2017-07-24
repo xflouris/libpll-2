@@ -73,7 +73,7 @@ unsigned int scaler_idx(const pll_partition_t * p, unsigned int clv_idx)
 void show_scaler(const pll_partition_t * p, unsigned int clv_idx)
 {
   unsigned int *site_id = 0;
-  if (pll_repeats_enabled(p) && p->repeats->pernode_max_id[clv_idx])
+  if (pll_repeats_enabled(p) && p->repeats->pernode_ids[clv_idx])
     site_id = p->repeats->pernode_site_id[clv_idx];
   unsigned int scaler = scaler_idx(p, clv_idx);
   if (scaler != PLL_SCALE_BUFFER_NONE)
