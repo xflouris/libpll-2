@@ -273,7 +273,8 @@ typedef struct pll_repeats
   unsigned int (*enable_repeats) (struct pll_partition *partition, 
       unsigned int left_clv, 
       unsigned int right_clv);
-  
+ 
+  /* reallocate repeats callback */
   void (*reallocate_repeats) (struct pll_partition *partition,
                               unsigned int parent,
                               int scaler_index,
