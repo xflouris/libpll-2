@@ -34,7 +34,7 @@ unsigned int get_attributes(int argc, char **argv)
     else if (!strcmp (argv[i], "sr"))
     {
       /* avx vectorization */
-      attributes |= PLL_ATTRIB_SITES_REPEATS;
+      attributes |= PLL_ATTRIB_SITE_REPEATS;
     }
     else if (!strcmp (argv[i], "avx"))
     {
