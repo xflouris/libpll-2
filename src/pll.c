@@ -110,6 +110,7 @@ static void dealloc_partition_data(pll_partition_t * partition)
   if (partition->repeats) 
   {
     pll_repeats_t *repeats = partition->repeats;
+    //fprintf(stderr, "pll destroy partition identical: %d different: %d\n", repeats->identical, repeats->different);
     for (i = 0; i < partition->nodes; ++i) 
     { 
       free(repeats->pernode_site_id[i]);
@@ -118,6 +119,11 @@ static void dealloc_partition_data(pll_partition_t * partition)
     free(repeats->pernode_site_id);
     free(repeats->pernode_id_site);
     free(repeats->pernode_ids);
+    free(repeats->pernode_gen);
+    free(repeats->pernode_last_left);
+    free(repeats->pernode_last_left_gen);
+    free(repeats->pernode_last_right);
+    free(repeats->pernode_last_right_gen);
     free(repeats->perscale_ids);
     free(repeats->pernode_allocated_clvs);
     free(repeats->lookup_buffer);

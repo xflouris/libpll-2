@@ -253,8 +253,35 @@ PLL_EXPORT void pll_update_partials_rep(pll_partition_t * partition,
   for (i = 0; i < count; ++i)
   {
     op = &(operations[i]);
-    if (pll_repeats_enabled(partition) && update_repeats) 
-      pll_update_repeats(partition, op);
+    if (pll_repeats_enabled(partition))
+    {
+      pll_repeats_t *rep = partition->repeats;
+      unsigned int parent = op->parent_clv_index;
+      unsigned int left = op->child1_clv_index;
+      unsigned int right = op->child2_clv_index;
+      unsigned int identical = 
+        (rep->pernode_last_left[parent] == left)
+        && (rep->pernode_last_right[parent] == right)
+        && (rep->pernode_last_left_gen[parent] == rep->pernode_gen[left])
+        && (rep->pernode_last_right_gen[parent] == rep->pernode_gen[right]);
+      if (identical)
+        rep->identical++;
+      else
+        rep->different++;
+      /*
+      fprintf(stderr, "%d %d %d %d\n", rep->pernode_last_left[parent], rep->pernode_last_right[parent], rep->pernode_last_left_gen[parent], rep->pernode_last_right_gen[parent]);
+      fprintf(stderr, "%d %d %d %d\n", left, right, rep->pernode_gen[left], rep->pernode_gen[right] );
+      fprintf(stderr, "%s\n", (identical ? "identical" : "different"));
+      */
+      if (update_repeats && !identical) {
+        rep->pernode_gen[parent]++;
+        pll_update_repeats(partition, op);
+        rep->pernode_last_right[parent] = right;
+        rep->pernode_last_left[parent] = left;
+        rep->pernode_last_left_gen[parent] = rep->pernode_gen[left];
+        rep->pernode_last_right_gen[parent] = rep->pernode_gen[right];
+      }
+    }
 
     if (pll_repeats_enabled(partition)
         && (partition->repeats->pernode_ids[op->child1_clv_index]
