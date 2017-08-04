@@ -165,6 +165,8 @@
 #define PLL_ERROR_STEPWISE_TIPS            128
 #define PLL_ERROR_STEPWISE_UNSUPPORTED     129
 #define PLL_ERROR_EINVAL                   130
+#define PLL_ERROR_MSA_EMPTY                131
+#define PLL_ERROR_MSA_MAP_INVALID          132
 
 /* utree specific */
 

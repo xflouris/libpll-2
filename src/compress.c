@@ -118,21 +118,35 @@ static unsigned int findmax(const unsigned int * map)
   return max;
 }
 
-static void encode(char ** sequence, const unsigned char * map, int count, int len)
+static int encode(char ** sequence, const unsigned char * map, int count, int len)
 {
   int i,j;
   char * p;
+  char c;
 
+  /* reset error */
+  pll_errno = 0;
+  
   for (i = 0; i < count; ++i)
   {
     p = sequence[i];
     j = len;
     while (j--)
     {
-      *p = map[(int)(*p)];
+      c = map[(int)(*p)];
+      if (!c)
+      {
+        pll_errno = PLL_ERROR_TIPDATA_ILLEGALSTATE;
+        snprintf (pll_errmsg, 200,
+                  "Cannot encode character %c.", *p);
+        return PLL_FAILURE;
+      }
+      *p = c;
       ++p;
     }
   }
+
+  return PLL_SUCCESS;
 }
 
 PLL_EXPORT unsigned int * pll_compress_site_patterns(char ** sequence,
@@ -149,13 +163,31 @@ PLL_EXPORT unsigned int * pll_compress_site_patterns(char ** sequence,
   unsigned char inv_charmap[PLL_ASCII_SIZE];
 
   /* check that at least one sequence is given */
-  if (!count) return NULL;
+  if (!count)
+  {
+    pll_errno = PLL_ERROR_MSA_EMPTY;
+    snprintf (pll_errmsg, 200,
+              "Number of sequences must be greater than 0.");
+    return NULL;
+  }
 
   /* a map must be given */
-  if (!map) return NULL;
+  if (!map)
+  {
+    pll_errno = PLL_ERROR_MSA_MAP_INVALID;
+    snprintf (pll_errmsg, 200,
+              "Map is undefined.");
+    return NULL;
+  }
 
   /* a zero can never be used as a state */
-  if (map[0]) return NULL;
+  if (map[0])
+  {
+    pll_errno = PLL_ERROR_MSA_MAP_INVALID;
+    snprintf (pll_errmsg, 200,
+              "'0' cannot be used as a state.");
+    return NULL;
+  }
 
   /* if map states are out of the BYTE range, remap */
   if (findmax(map) >= PLL_ASCII_SIZE)
@@ -175,7 +207,12 @@ PLL_EXPORT unsigned int * pll_compress_site_patterns(char ** sequence,
       inv_charmap[charmap[i]] = (unsigned char)i;
 
   /* encode sequences using charmap */
-  encode(sequence,charmap,count,*length);
+  if (!encode(sequence,charmap,count,*length))
+  {
+    /* spread errno and message */
+    assert(pll_errno);
+    return NULL;
+  }
 
   /* allocate memory for columns */
   column = (char **)malloc((size_t)(*length)*sizeof(char *));
@@ -280,7 +317,11 @@ PLL_EXPORT unsigned int * pll_compress_site_patterns(char ** sequence,
   *length = compressed_length;
 
   /* decode sequences using inv_charmap */
-  encode(sequence,inv_charmap,count,compressed_length);
+  if (!encode(sequence,inv_charmap,count,compressed_length))
+  {
+    /* if previous enconding was successful, decoding should not fail */
+    assert(0);
+  }
 
   return weight;
 }
