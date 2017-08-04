@@ -268,16 +268,6 @@ typedef struct pll_repeats
   // (node) -> number of allocated clvs
   unsigned int * pernode_allocated_clvs;
 
-  // detect if update_repeats is needed
-  unsigned int * pernode_gen;
-  unsigned int * pernode_last_left;
-  unsigned int * pernode_last_left_gen;
-  unsigned int * pernode_last_right;
-  unsigned int * pernode_last_right_gen;
-
-  // only for stats
-  unsigned int identical;
-  unsigned int different;
   /* return true if we should compute repeats on the current node
    default is pll_default_enable_repeats */
   unsigned int (*enable_repeats) (struct pll_partition *partition, 

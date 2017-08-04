@@ -138,8 +138,6 @@ PLL_EXPORT int pll_repeats_initialize(pll_partition_t *partition)
       return PLL_FAILURE;
     }
   }
-  repeats->identical = 0;
-  repeats->different = 0;
   repeats->pernode_ids = calloc(partition->nodes, sizeof(unsigned int));
   repeats->perscale_ids = calloc(partition->scale_buffers, sizeof(unsigned int));
   repeats->pernode_allocated_clvs = 
@@ -151,18 +149,6 @@ PLL_EXPORT int pll_repeats_initialize(pll_partition_t *partition)
   repeats->bclv_buffer = pll_aligned_alloc(sites_alloc 
       * partition->rate_cats * partition->states_padded
       * sizeof(double), partition->alignment);
-  repeats->pernode_gen = calloc(partition->nodes, sizeof(unsigned int));
-  repeats->pernode_last_left = calloc(partition->nodes, sizeof(unsigned int));
-  repeats->pernode_last_left_gen = calloc(partition->nodes, sizeof(unsigned int));
-  repeats->pernode_last_right = calloc(partition->nodes, sizeof(unsigned int));
-  repeats->pernode_last_right_gen = calloc(partition->nodes, sizeof(unsigned int));
-  for (i = 0; i < partition->nodes; ++i)
-  {
-    repeats->pernode_last_left[i] = (unsigned int)-1;
-    repeats->pernode_last_left_gen[i] = (unsigned int)-1;
-    repeats->pernode_last_right[i] = (unsigned int)-1;
-    repeats->pernode_last_right_gen[i] = (unsigned int)-1;
-  }
   if (!(repeats->pernode_ids
        && repeats->pernode_allocated_clvs && repeats->bclv_buffer
        && repeats->toclean_buffer && repeats->id_site_buffer))
