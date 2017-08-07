@@ -30,6 +30,11 @@ unsigned int get_attributes(int argc, char **argv)
     {
       /* tipvector */
       attributes |= PLL_ATTRIB_PATTERN_TIP;
+    } 
+    else if (!strcmp (argv[i], "sr"))
+    {
+      /* avx vectorization */
+      attributes |= PLL_ATTRIB_SITE_REPEATS;
     }
     else if (!strcmp (argv[i], "avx"))
     {

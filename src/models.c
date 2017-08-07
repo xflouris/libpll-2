@@ -620,16 +620,21 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
     unsigned int span_padded = rate_cats * states_padded;
     for (i = 0; i < tips; ++i)
     {
-      tipclv = partition->clv[i];
+      const unsigned int * site_id = NULL;
+      if (partition->repeats && partition->repeats->pernode_ids[i]) 
+      {
+        site_id = partition->repeats->pernode_site_id[i];
+      }
       for (j = 0; j < sites; ++j)
       {
+        unsigned int site = site_id ? site_id[j] : j;
+        tipclv = partition->clv[i] + span_padded * site;
         state = 0;
         for (k = 0; k < states; ++k)
         {
           state |= ((unsigned int)tipclv[k] << k);
         }
-          invariant[j] &= state;
-        tipclv += span_padded;
+        invariant[j] &= state;
       }
     }
   }

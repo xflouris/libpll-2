@@ -128,7 +128,7 @@ static int sumtable_innerinner(pll_partition_t * partition,
 
   /* ascertaiment bias correction */
   if (partition->asc_bias_alloc)
-    sites += partition->states;
+    sites += partition->asc_additional_sites;
 
   for (i = 0; i < partition->rate_cats; ++i)
   {
@@ -150,6 +150,79 @@ static int sumtable_innerinner(pll_partition_t * partition,
                               freqs,
                               sumtable,
                               partition->attributes);
+
+  free(freqs);
+  free(eigenvecs);
+  free(inv_eigenvecs);
+
+  return retval;
+}
+
+static int sumtable_repeats(pll_partition_t * partition,
+                                unsigned int parent_clv_index,
+                                unsigned int child_clv_index,
+                                const unsigned int * parent_scaler,
+                                const unsigned int * child_scaler,
+                                const unsigned int * params_indices,
+                                double *sumtable)
+{
+  unsigned int i, retval;
+  unsigned int sites = partition->sites;
+
+  double ** eigenvecs = (double **)malloc(partition->rate_cats *
+                                          sizeof(double *));
+  double ** inv_eigenvecs = (double **)malloc(partition->rate_cats *
+                                              sizeof(double *));
+  double ** freqs = (double **)malloc(partition->rate_cats *
+                                      sizeof(double *));
+  if (!eigenvecs || !inv_eigenvecs || !freqs)
+  {
+    if (eigenvecs) free(eigenvecs);
+    if (inv_eigenvecs) free(inv_eigenvecs);
+    if (freqs) free(freqs);
+
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
+    return PLL_FAILURE;
+  }
+
+  /* ascertaiment bias correction */
+  if (partition->asc_bias_alloc)
+    sites += partition->asc_additional_sites;
+
+  for (i = 0; i < partition->rate_cats; ++i)
+  {
+    eigenvecs[i] = partition->eigenvecs[params_indices[i]];
+    inv_eigenvecs[i] = partition->inv_eigenvecs[params_indices[i]];
+    freqs[i] = partition->frequencies[params_indices[i]];
+  }
+
+  const unsigned int * parent_site_id =
+    pll_get_site_id(partition, parent_clv_index);
+  const unsigned int * child_site_id = 
+    pll_get_site_id(partition, child_clv_index);
+
+  unsigned int parent_ids = pll_get_sites_number(partition, parent_clv_index);
+  unsigned int child_ids = pll_get_sites_number(partition, child_clv_index);
+  unsigned int inv = parent_ids > child_ids;
+  retval =
+    pll_core_update_sumtable_repeats(partition->states,
+                        sites,
+                        inv ? child_ids : parent_ids,
+                        partition->rate_cats,
+                        partition->clv[inv ? child_clv_index : parent_clv_index],
+                        partition->clv[!inv ? child_clv_index : parent_clv_index],
+                        inv ? child_scaler : parent_scaler,
+                        !inv ? child_scaler : parent_scaler,
+                        eigenvecs,
+                        inv_eigenvecs,
+                        freqs,
+                        sumtable,
+                        inv ? child_site_id : parent_site_id,
+                        !inv ? child_site_id : parent_site_id,
+                        partition->repeats->bclv_buffer,
+                        inv,
+                        partition->attributes);
 
   free(freqs);
   free(eigenvecs);
@@ -186,7 +259,19 @@ PLL_EXPORT int pll_update_sumtable(pll_partition_t * partition,
     child_scaler = partition->scale_buffer[child_scaler_index];
 
 
-  if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
+  if (pll_repeats_enabled(partition) && 
+      (partition->repeats->pernode_ids[parent_clv_index] 
+       || partition->repeats->pernode_ids[child_clv_index])) 
+  {
+    retval = sumtable_repeats(partition,
+                                 parent_clv_index,
+                                 child_clv_index,
+                                 parent_scaler,
+                                 child_scaler,
+                                 params_indices,
+                                 sumtable);
+  }
+  else if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
   {
     if ((parent_clv_index < partition->tips) &&
         (child_clv_index < partition->tips))
@@ -286,12 +371,28 @@ PLL_EXPORT int pll_compute_likelihood_derivatives(pll_partition_t * partition,
   else
     child_scaler = partition->scale_buffer[child_scaler_index];
 
+
+  unsigned int parent_ids = partition->sites;
+  unsigned int child_ids = partition->sites;
+  if (pll_repeats_enabled(partition))
+  {
+    parent_ids = parent_scaler_index != PLL_SCALE_BUFFER_NONE 
+      ? partition->repeats->perscale_ids[parent_scaler_index]
+      : 0;
+    parent_ids = parent_ids ? parent_ids : partition->sites;
+    child_ids = child_scaler_index != PLL_SCALE_BUFFER_NONE 
+      ? partition->repeats->perscale_ids[child_scaler_index]
+      : 0;
+    child_ids = child_ids ? child_ids : partition->sites;
+  }
   int retval = pll_core_likelihood_derivatives(partition->states,
                                                partition->sites,
                                                partition->rate_cats,
                                                partition->rate_weights,
                                                parent_scaler,
                                                child_scaler,
+                                               parent_ids,
+                                               child_ids,
                                                partition->invariant,
                                                partition->pattern_weights,
                                                branch_length,
