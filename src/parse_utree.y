@@ -164,10 +164,6 @@ static void pll_utree_error(pll_unode_t * node, const char * s)
 %destructor { free($$); } label
 
 
-%token OPAR
-%token CPAR
-%token COMMA
-%token COLON SEMICOLON
 %token<s> STRING
 %token<d> NUMBER
 %type<s> label optional_label
@@ -176,7 +172,7 @@ static void pll_utree_error(pll_unode_t * node, const char * s)
 %start input
 %%
 
-input: OPAR subtree COMMA subtree COMMA subtree CPAR optional_label optional_length SEMICOLON
+input: '(' subtree ',' subtree ',' subtree ')' optional_label optional_length ';'
 {
   tree->next               = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
 
@@ -202,7 +198,7 @@ input: OPAR subtree COMMA subtree COMMA subtree CPAR optional_label optional_len
   free($9);
 };
 
-subtree: OPAR subtree COMMA subtree CPAR optional_label optional_length
+subtree: '(' subtree ',' subtree ')' optional_label optional_length
 {
   $$                     = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
 
@@ -241,7 +237,7 @@ subtree: OPAR subtree COMMA subtree CPAR optional_label optional_length
 
 
 optional_label:  { $$ = NULL;} | label  {$$ = $1;};
-optional_length: { $$ = NULL;} | COLON number {$$ = $2;};
+optional_length: { $$ = NULL;} | ':' number {$$ = $2;};
 label: STRING    { $$=$1;} | NUMBER {$$=$1;};
 number: NUMBER   { $$=$1;};
 
