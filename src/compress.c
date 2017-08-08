@@ -126,7 +126,7 @@ static int encode(char ** sequence, const unsigned char * map, int count, int le
 
   /* reset error */
   pll_errno = 0;
-  
+
   for (i = 0; i < count; ++i)
   {
     p = sequence[i];
@@ -138,7 +138,10 @@ static int encode(char ** sequence, const unsigned char * map, int count, int le
       {
         pll_errno = PLL_ERROR_TIPDATA_ILLEGALSTATE;
         snprintf (pll_errmsg, 200,
-                  "Cannot encode character %c.", *p);
+                  "Cannot encode character %c at sequence %d position %d.",
+                  *p,
+                  i+1,
+                  len-j);
         return PLL_FAILURE;
       }
       *p = c;
