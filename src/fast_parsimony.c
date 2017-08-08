@@ -95,12 +95,14 @@ static int check_informative_extended(const pll_partition_t * partition,
 
   memset(map,0,range*sizeof(unsigned int));
 
+
   for (i = 0; i < partition->tips; ++i)
   {
     c = 0;
 
+    unsigned int *site_id = pll_get_site_id(partition, i);
     double * clv = partition->clv[i] +
-                   index*partition->states_padded*partition->rate_cats;
+                   PLL_GET_ID(site_id, index)*partition->states_padded*partition->rate_cats;
 
     for (j = 0; j < partition->states; ++j)
        c = (c << 1) | (unsigned int)(clv[j]);
@@ -161,12 +163,14 @@ static int check_informative(const pll_partition_t * partition,
     if (partition->states > 8)
       return check_informative_extended(partition, index, singleton);
 
+    
     for (i = 0; i < partition->tips; ++i)
     {
       c = 0;
 
+      unsigned int *site_id = pll_get_site_id(partition, i);
       double * clv = partition->clv[i] +
-                     index*partition->states_padded*partition->rate_cats;
+                     PLL_GET_ID(site_id, index)*partition->states_padded*partition->rate_cats;
 
       for (j = 0; j < partition->states; ++j)
          c = (c << 1) | (unsigned int)(clv[j]);
@@ -277,9 +281,12 @@ static int fill_parsimony_vectors(const pll_partition_t * partition,
     return PLL_FAILURE;
   }
 
+  
   /* TODO: Separate tip pattern and clv case */
   for (i = 0; i < parsimony->tips; ++i)
   {
+    unsigned int *site_id = pll_get_site_id(partition, i);
+    
     for (k = 0; k < parsimony->states; ++k) val[k] = 0;
     bitcount = 0;
 
@@ -306,7 +313,7 @@ static int fill_parsimony_vectors(const pll_partition_t * partition,
           else
           {
             double * clv = partition->clv[i] + 
-                           j*partition->states_padded * partition->rate_cats;
+                           PLL_GET_ID(site_id, j)*partition->states_padded * partition->rate_cats;
 
             for (k = 0; k < states; ++k)
               if ((int)(clv[k]))

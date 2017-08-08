@@ -110,6 +110,7 @@ static void case_tipinner(pll_partition_t * partition,
     else
       right_scaler = partition->scale_buffer[op->child1_scaler_index];
   }
+  
 
   pll_core_update_partial_ti(partition->states,
                              sites,
@@ -174,9 +175,77 @@ static void case_innerinner(pll_partition_t * partition,
                              partition->attributes);
 }
 
+static void case_repeats(pll_partition_t * partition,
+                            const pll_operation_t * op)
+{
+  const double * left_matrix = partition->pmatrix[op->child1_matrix_index];
+  const double * right_matrix = partition->pmatrix[op->child2_matrix_index];
+  double * parent_clv = partition->clv[op->parent_clv_index];
+  double * left_clv = partition->clv[op->child1_clv_index];
+  double * right_clv = partition->clv[op->child2_clv_index];
+  unsigned int * parent_scaler;
+  unsigned int * left_scaler;
+  unsigned int * right_scaler;
+  unsigned int parent_sites = pll_get_sites_number(partition, op->parent_clv_index);
+  const unsigned int * parent_id_site = pll_get_id_site(partition,  op->parent_clv_index);
+  const unsigned int * left_site_id = pll_get_site_id(partition, op->child1_clv_index);
+  const unsigned int * right_site_id = pll_get_site_id(partition, op->child2_clv_index);
+  unsigned int left_sites = pll_get_sites_number(partition, op->child1_clv_index);
+  unsigned int right_sites = pll_get_sites_number(partition, op->child2_clv_index);
+  double * bclv_buffer = partition->repeats ? partition->repeats->bclv_buffer : 0;;
+  unsigned int inv = left_sites < right_sites;
+
+
+  /* get parent scaler */
+  if (op->parent_scaler_index == PLL_SCALE_BUFFER_NONE)
+    parent_scaler = NULL;
+  else
+    parent_scaler = partition->scale_buffer[op->parent_scaler_index];
+
+  if (op->child1_scaler_index != PLL_SCALE_BUFFER_NONE)
+    left_scaler = partition->scale_buffer[op->child1_scaler_index];
+  else
+    left_scaler = NULL;
+
+  /* if child2 has a scaler add its values to the parent scaler */
+  if (op->child2_scaler_index != PLL_SCALE_BUFFER_NONE)
+    right_scaler = partition->scale_buffer[op->child2_scaler_index];
+  else
+    right_scaler = NULL;
+
+  /* call the function with the shortest clv on the left */
+  pll_core_update_partial_repeats(partition->states,
+                                parent_sites,
+                                inv  ? left_sites   : right_sites,
+                                !inv ? left_sites   : right_sites,
+                                partition->rate_cats,
+                                parent_clv,
+                                parent_scaler,
+                                inv  ? left_clv     : right_clv,
+                                !inv ? left_clv     : right_clv,
+                                inv  ? left_matrix  : right_matrix,
+                                !inv ? left_matrix  : right_matrix,
+                                inv  ? left_scaler  : right_scaler,
+                                !inv ? left_scaler  : right_scaler,
+                                parent_id_site,
+                                inv  ? left_site_id : right_site_id,
+                                !inv ? left_site_id : right_site_id,
+                                bclv_buffer,
+                                partition->attributes);
+}
+
 PLL_EXPORT void pll_update_partials(pll_partition_t * partition,
                                     const pll_operation_t * operations,
                                     unsigned int count)
+{
+  pll_update_partials_rep(partition, operations, count, 1);
+}
+
+
+PLL_EXPORT void pll_update_partials_rep(pll_partition_t * partition,
+                                    const pll_operation_t * operations,
+                                    unsigned int count,
+                                    unsigned int update_repeats)
 {
   unsigned int i;
   const pll_operation_t * op;
@@ -184,7 +253,16 @@ PLL_EXPORT void pll_update_partials(pll_partition_t * partition,
   for (i = 0; i < count; ++i)
   {
     op = &(operations[i]);
-    if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
+    if (pll_repeats_enabled(partition) && update_repeats) 
+      pll_update_repeats(partition, op);
+
+    if (pll_repeats_enabled(partition)
+        && (partition->repeats->pernode_ids[op->child1_clv_index]
+            ||  partition->repeats->pernode_ids[op->child2_clv_index]))
+    {
+      case_repeats(partition, op);
+    }
+    else if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
     {
       if ((op->child1_clv_index < partition->tips) &&
           (op->child2_clv_index < partition->tips))

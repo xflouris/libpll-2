@@ -107,6 +107,26 @@ static void dealloc_partition_data(pll_partition_t * partition)
   if (partition->pattern_weights)
     free(partition->pattern_weights);
 
+  if (partition->repeats) 
+  {
+    pll_repeats_t *repeats = partition->repeats;
+    for (i = 0; i < partition->nodes; ++i) 
+    { 
+      free(repeats->pernode_site_id[i]);
+      free(repeats->pernode_id_site[i]);
+    }
+    free(repeats->pernode_site_id);
+    free(repeats->pernode_id_site);
+    free(repeats->pernode_ids);
+    free(repeats->perscale_ids);
+    free(repeats->pernode_allocated_clvs);
+    free(repeats->lookup_buffer);
+    free(repeats->toclean_buffer);
+    free(repeats->id_site_buffer);
+    free(repeats->bclv_buffer);
+    free(repeats);
+  }
+
   free(partition);
 }
 
@@ -416,6 +436,13 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
     snprintf(pll_errmsg, 200, "Multiple architecture flags specified.");
     return PLL_FAILURE;
   }
+ 
+  /* disable repeats if there are to few sites */
+  if (sites < 16 && (attributes & PLL_ATTRIB_SITE_REPEATS)) 
+  {
+    attributes &= ~PLL_ATTRIB_SITE_REPEATS;
+  }
+
 
   /* allocate partition */
   pll_partition_t * partition = (pll_partition_t *)malloc(sizeof(pll_partition_t));
@@ -458,6 +485,7 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
 
   partition->tips = tips;
   partition->clv_buffers = clv_buffers;
+  partition->nodes = tips + clv_buffers;
   partition->states = states;
   partition->sites = sites;
   partition->pattern_weight_sum = sites;
@@ -486,13 +514,16 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
   partition->tipchars = NULL;
   partition->charmap = NULL;
   partition->tipmap = NULL;
+  
+  partition->repeats = NULL;
 
   /* If ascertainment bias correction attribute is set, CLVs will be allocated
      with additional sites for each state */
   partition->asc_bias_alloc =
                (partition->attributes &
                  (PLL_ATTRIB_AB_MASK | PLL_ATTRIB_AB_FLAG)) > 0;
-  sites_alloc = partition->asc_bias_alloc ? sites + states : sites;
+  partition->asc_additional_sites = (partition->asc_bias_alloc ? states : 0);
+  sites_alloc = partition->asc_additional_sites + sites;
 
   /* allocate structures */
 
@@ -507,8 +538,7 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
     return PLL_FAILURE;
   }
   /* clv */
-  partition->clv = (double **)calloc(partition->tips + partition->clv_buffers,
-                                     sizeof(double *));
+  partition->clv = (double **)calloc(partition->nodes, sizeof(double *));
   if (!partition->clv)
   {
     dealloc_partition_data(partition);
@@ -517,30 +547,33 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
     return PLL_FAILURE;
   }
 
-  /* if tip pattern precomputation is enabled, then do not allocate CLV space
-     for the tip nodes */
-  int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
-                  partition->tips : 0;
-
-  for (i = start; i < partition->tips + partition->clv_buffers; ++i)
+  /* if site repeats are enabled, we allocate CLVs dynamically */
+  if (!pll_repeats_enabled(partition)) 
   {
-    partition->clv[i] = pll_aligned_alloc(sites_alloc * states_padded *
-                                          rate_cats * sizeof(double),
-                                          partition->alignment);
-    if (!partition->clv[i])
-    {
-      dealloc_partition_data(partition);
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf(pll_errmsg, 200, "Unable to allocate enough memory for CLVs.");
-      return PLL_FAILURE;
-    }
-    /* zero-out CLV vectors to avoid valgrind warnings when using odd number of
-       states with vectorized code */
-    memset(partition->clv[i],
-           0,
-           (size_t)sites_alloc*states_padded*rate_cats*sizeof(double));
-  }
+    /* if tip pattern precomputation is enabled, then do not allocate CLV space
+       for the tip nodes */
+    int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
+                    partition->tips : 0;
 
+    for (i = start; i < partition->tips + partition->clv_buffers; ++i)
+    {
+      partition->clv[i] = pll_aligned_alloc(sites_alloc * states_padded *
+                                            rate_cats * sizeof(double),
+                                            partition->alignment);
+      if (!partition->clv[i])
+      {
+        dealloc_partition_data(partition);
+        pll_errno = PLL_ERROR_MEM_ALLOC;
+        snprintf(pll_errmsg, 200, "Unable to allocate enough memory for CLVs.");
+        return PLL_FAILURE;
+      }
+      /* zero-out CLV vectors to avoid valgrind warnings when using odd number of
+         states with vectorized code */
+      memset(partition->clv[i],
+             0,
+             (size_t)sites_alloc*states_padded*rate_cats*sizeof(double));
+    }
+  }
   /* pmatrix */
   partition->pmatrix = (double **)calloc(partition->prob_matrices,
                                          sizeof(double *));
@@ -797,23 +830,35 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
              "Unable to allocate enough memory for scale buffers.");
     return PLL_FAILURE;
   }
-  for (i = 0; i < partition->scale_buffers; ++i)
+  /* if we use site repeats, we allocate scales dynamically (later) */
+  if(!pll_repeats_enabled(partition)) 
   {
-    size_t scaler_size = (attributes & PLL_ATTRIB_RATE_SCALERS) ?
-                                                             sites_alloc * rate_cats : sites_alloc;
-    partition->scale_buffer[i] = (unsigned int *)calloc(scaler_size,
-                                                        sizeof(unsigned int));
-    if (!partition->scale_buffer[i])
+    for (i = 0; i < partition->scale_buffers; ++i)
     {
-      dealloc_partition_data(partition);
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf(pll_errmsg,
-               200,
-               "Unable to allocate enough memory for scale buffers.");
-      return PLL_FAILURE;
+      size_t scaler_size = (attributes & PLL_ATTRIB_RATE_SCALERS) ?
+                                                               sites_alloc * rate_cats : sites_alloc;
+      partition->scale_buffer[i] = (unsigned int *)calloc(scaler_size,
+                                                          sizeof(unsigned int));
+      if (!partition->scale_buffer[i])
+      {
+        dealloc_partition_data(partition);
+        pll_errno = PLL_ERROR_MEM_ALLOC;
+        snprintf(pll_errmsg,
+                 200,
+                 "Unable to allocate enough memory for scale buffers.");
+        return PLL_FAILURE;
+      }
     }
   }
 
+  if (pll_repeats_enabled(partition)) 
+  {
+    if (PLL_FAILURE == pll_repeats_initialize(partition))
+    {
+      dealloc_partition_data(partition);
+      return PLL_FAILURE;
+    }
+  }
   return partition;
 }
 
@@ -911,13 +956,19 @@ static int set_tipclv(pll_partition_t * partition,
   unsigned int i,j;
   double * tipclv = partition->clv[tip_index];
 
+  pll_repeats_t * repeats = partition->repeats;
+  unsigned int use_repeats = pll_repeats_enabled(partition);
+  unsigned int ids = use_repeats ?  
+                    repeats->pernode_ids[tip_index] : partition->sites;
   /* iterate through sites */
-  for (i = 0; i < partition->sites; ++i)
+  for (i = 0; i < ids; ++i)
   {
-    if ((c = map[(int)sequence[i]]) == 0)
+    unsigned int index = use_repeats ? 
+                    repeats->pernode_id_site[tip_index][i] : i;
+    if ((c = map[(int)sequence[index]]) == 0)
     {
       pll_errno = PLL_ERROR_TIPDATA_ILLEGALSTATE;
-      snprintf(pll_errmsg, 200, "Illegal state code in tip \"%c\"", sequence[i]);
+      snprintf(pll_errmsg, 200, "Illegal state code in tip \"%c\"", sequence[index]);
       return PLL_FAILURE;
     }
 
@@ -970,6 +1021,11 @@ PLL_EXPORT int pll_set_tip_states(pll_partition_t * partition,
 {
   int rc;
 
+  if (pll_repeats_enabled(partition))
+  {
+    if (PLL_FAILURE == pll_update_repeats_tips(partition, tip_index, map, sequence)) 
+      return PLL_FAILURE;
+  }
   if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
   {
     /* create (or update) character map for tip-tip precomputations */
@@ -1114,3 +1170,28 @@ PLL_EXPORT void pll_set_asc_state_weights(pll_partition_t * partition,
          state_weights,
          sizeof(unsigned int)*partition->states);
 }
+
+PLL_EXPORT void pll_fill_parent_scaler(unsigned int scaler_size,
+                               unsigned int * parent_scaler,
+                               const unsigned int * left_scaler,
+                               const unsigned int * right_scaler)
+{
+  unsigned int i;
+
+  if (!left_scaler && !right_scaler)
+    memset(parent_scaler, 0, sizeof(unsigned int) * scaler_size);
+  else if (left_scaler && right_scaler)
+  {
+    memcpy(parent_scaler, left_scaler, sizeof(unsigned int) * scaler_size);
+    for (i = 0; i < scaler_size; ++i)
+      parent_scaler[i] += right_scaler[i];
+  }
+  else
+  {
+    if (left_scaler)
+      memcpy(parent_scaler, left_scaler, sizeof(unsigned int) * scaler_size);
+    else
+      memcpy(parent_scaler, right_scaler, sizeof(unsigned int) * scaler_size);
+  }
+}
+
