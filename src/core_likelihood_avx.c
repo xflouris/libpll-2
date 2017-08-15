@@ -534,8 +534,6 @@ double pll_core_edge_loglikelihood_ti_20x20_avx(unsigned int sites,
 
   __m256d xmm0, xmm1, xmm2;
 
-  size_t displacement = (states_padded - states) * (states_padded);
-
   unsigned int span = states_padded * rate_cats;
   unsigned int maxstates = tipmap_size;
 
@@ -699,7 +697,6 @@ double pll_core_edge_loglikelihood_ti_20x20_avx(unsigned int sites,
         terma += terma_r * rate_weights[i];
       }
 
-      pmat -= displacement;
     }
 
     /* compute site log-likelihood and scale if necessary */
