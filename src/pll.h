@@ -839,6 +839,9 @@ PLL_EXPORT void pll_utree_show_ascii(const pll_unode_t * tree, int options);
 PLL_EXPORT char * pll_utree_export_newick(const pll_unode_t * root,
                                    char * (*cb_serialize)(const pll_unode_t *));
 
+PLL_EXPORT char * pll_utree_export_newick_rooted(const pll_unode_t * root,
+                                                 double root_brlen);
+
 PLL_EXPORT int pll_utree_traverse(pll_unode_t * root,
                                   int traversal,
                                   int (*cbtrav)(pll_unode_t *),
