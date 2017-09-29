@@ -214,8 +214,10 @@ static char * newick_utree_recurse(const pll_unode_t * root,
   return newick;
 }
 
-PLL_EXPORT char * pll_utree_export_newick(const pll_unode_t * root,
-                                   char * (*cb_serialize)(const pll_unode_t *))
+char * utree_export_newick(const pll_unode_t * root,
+                           int export_rooted,
+                           double root_brlen,
+                           char * (*cb_serialize)(const pll_unode_t *))
 {
   char * newick;
   int size_alloced;
@@ -248,26 +250,40 @@ PLL_EXPORT char * pll_utree_export_newick(const pll_unode_t * root,
     return NULL;
   }
 
-  if (cb_serialize)
+  if (export_rooted)
   {
-    char * temp = cb_serialize(root);
+    assert(!cb_serialize);
     size_alloced = asprintf(&newick,
-                            "(%s,%s,%s)%s",
+                            "(%s,(%s,%s):%f)%s:0.0;",
                             subtree1,
                             subtree2,
                             subtree3,
-                            temp);
-    free(temp);
+                            root_brlen,
+                            root->label ? root->label : "");
   }
   else
   {
-    size_alloced = asprintf(&newick,
-                            "(%s,%s,%s)%s:0.0;",
-                            subtree1,
-                            subtree2,
-                            subtree3,
-                            root->label ? root->label : "");
-  }  
+    if (cb_serialize)
+    {
+      char * temp = cb_serialize(root);
+      size_alloced = asprintf(&newick,
+                              "(%s,%s,%s)%s",
+                              subtree1,
+                              subtree2,
+                              subtree3,
+                              temp);
+      free(temp);
+    }
+    else
+    {
+      size_alloced = asprintf(&newick,
+                              "(%s,%s,%s)%s:0.0;",
+                              subtree1,
+                              subtree2,
+                              subtree3,
+                              root->label ? root->label : "");
+    }
+  }
   free(subtree1);
   free(subtree2);
   free(subtree3);
@@ -279,6 +295,18 @@ PLL_EXPORT char * pll_utree_export_newick(const pll_unode_t * root,
   }
 
   return (newick);
+}
+
+PLL_EXPORT char * pll_utree_export_newick(const pll_unode_t * root,
+                                   char * (*cb_serialize)(const pll_unode_t *))
+{
+  return utree_export_newick(root, 0, 0, cb_serialize);
+}
+
+PLL_EXPORT char * pll_utree_export_newick_rooted(const pll_unode_t * root,
+                                                 double root_brlen)
+{
+  return utree_export_newick(root, 1, root_brlen, NULL);
 }
 
 PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,

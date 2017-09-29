@@ -106,10 +106,6 @@ static void pll_rtree_error(pll_rnode_t * node, const char * s)
 %destructor { free($$); } NUMBER
 %destructor { free($$); } label
 
-%token OPAR
-%token CPAR
-%token COMMA
-%token COLON SEMICOLON
 %token<s> STRING
 %token<d> NUMBER
 %type<s> label optional_label
@@ -118,7 +114,7 @@ static void pll_rtree_error(pll_rnode_t * node, const char * s)
 %start input
 %%
 
-input: OPAR subtree COMMA subtree CPAR optional_label optional_length SEMICOLON
+input: '(' subtree ',' subtree ')' optional_label optional_length ';'
 {
   tree->left   = $2;
   tree->right  = $4;
@@ -132,7 +128,7 @@ input: OPAR subtree COMMA subtree CPAR optional_label optional_length SEMICOLON
 
 };
 
-subtree: OPAR subtree COMMA subtree CPAR optional_label optional_length
+subtree: '(' subtree ',' subtree ')' optional_label optional_length
 {
   $$ = (pll_rnode_t *)calloc(1, sizeof(pll_rnode_t));
   $$->left   = $2;
@@ -158,7 +154,7 @@ subtree: OPAR subtree COMMA subtree CPAR optional_label optional_length
 
 
 optional_label:  {$$ = NULL;} | label  {$$ = $1;};
-optional_length: {$$ = NULL;} | COLON number {$$ = $2;};
+optional_length: {$$ = NULL;} | ':' number {$$ = $2;};
 label: STRING    {$$=$1;} | NUMBER {$$=$1;};
 number: NUMBER   {$$=$1;};
 

@@ -32,7 +32,7 @@ int pll_utree_colend = 0;
 static void preaction()
 {
   pll_utree_colstart = pll_utree_colend;
-  pll_utree_colend = pll_utree_colend + pll_utree_leng - 1;
+  pll_utree_colend = pll_utree_colend + pll_utree_leng;
 }
 
 static char * xstrndup(const char * s, size_t len)
@@ -98,11 +98,11 @@ static char * append(size_t * dstlen, const char * src, size_t srclen)
 ([^\"\'\\]|\n)+   { append(&string_length, pll_utree_text, pll_utree_leng);    }
 }
 
-\:                { return COLON;                                              }
-\;                { return SEMICOLON;                                          }
-\)                { return CPAR;                                               }
-\(                { return OPAR;                                               }
-\,                { return COMMA;                                              }
+\:                { return ':';                                              }
+\;                { return ';';                                          }
+\)                { return ')';                                               }
+\(                { return '(';                                               }
+\,                { return ',';                                              }
 \"                { string_length = 0; BEGIN(quot);                            }
 \'                { string_length = 0; BEGIN(apos);                            }                           
 \n                { pll_utree_colstart = pll_utree_colend = 0;                 }

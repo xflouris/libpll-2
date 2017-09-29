@@ -21,6 +21,240 @@
 #include <limits.h>
 #include "pll.h"
 
+#define COMPUTE_II_QCOL(q, offset) \
+/* row 0 */ \
+v_mat    = _mm256_load_pd(lm0 + offset); \
+v_lterm0 = _mm256_fmadd_pd(v_mat, v_lclv[q], v_lterm0); \
+v_mat    = _mm256_load_pd(rm0 + offset); \
+v_rterm0 = _mm256_fmadd_pd(v_mat, v_rclv[q], v_rterm0); \
+ \
+/* row 1 */ \
+v_mat    = _mm256_load_pd(lm1 + offset); \
+v_lterm1 = _mm256_fmadd_pd(v_mat, v_lclv[q], v_lterm1); \
+v_mat    = _mm256_load_pd(rm1 + offset); \
+v_rterm1 = _mm256_fmadd_pd(v_mat, v_rclv[q], v_rterm1); \
+\
+/* row 2 */ \
+v_mat    = _mm256_load_pd(lm2 + offset); \
+v_lterm2 = _mm256_fmadd_pd(v_mat, v_lclv[q], v_lterm2); \
+v_mat    = _mm256_load_pd(rm2 + offset); \
+v_rterm2 = _mm256_fmadd_pd(v_mat, v_rclv[q], v_rterm2); \
+\
+/* row 3 */ \
+v_mat    = _mm256_load_pd(lm3 + offset); \
+v_lterm3 = _mm256_fmadd_pd(v_mat, v_lclv[q], v_lterm3); \
+v_mat    = _mm256_load_pd(rm3 + offset); \
+v_rterm3 = _mm256_fmadd_pd(v_mat, v_rclv[q], v_rterm3);
+
+
+PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx2(unsigned int sites,
+                                                unsigned int rate_cats,
+                                                const double * clvp,
+                                                const double * clvc,
+                                                const unsigned int * parent_scaler,
+                                                const unsigned int * child_scaler,
+                                                double * const * eigenvecs,
+                                                double * const * inv_eigenvecs,
+                                                double * const * freqs,
+                                                double * sumtable,
+                                                unsigned int attrib)
+{
+  unsigned int i, j, k, n;
+
+  /* build sumtable */
+  double * sum = sumtable;
+
+  const double * t_lclv = clvp;
+  const double * t_rclv = clvc;
+  double * t_freqs;
+
+  unsigned int states = 20;
+  unsigned int states_padded = states;
+
+  /* scaling stuff */
+  unsigned int min_scaler = 0;
+  unsigned int * rate_scalings = NULL;
+  int per_rate_scaling = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 1 : 0;
+
+  /* powers of scale threshold for undoing the scaling */
+  __m256d v_scale_minlh[PLL_SCALE_RATE_MAXDIFF];
+  if (per_rate_scaling)
+  {
+    rate_scalings = (unsigned int*) calloc(rate_cats, sizeof(unsigned int));
+
+    if (!rate_scalings)
+    {
+      pll_errno = PLL_ERROR_MEM_ALLOC;
+      snprintf (pll_errmsg, 200, "Cannot allocate memory for rate scalers");
+      return PLL_FAILURE;
+    }
+
+    double scale_factor = 1.0;
+    for (i = 0; i < PLL_SCALE_RATE_MAXDIFF; ++i)
+    {
+      scale_factor *= PLL_SCALE_THRESHOLD;
+      v_scale_minlh[i] = _mm256_set1_pd(scale_factor);
+    }
+  }
+
+  /* padded eigenvecs */
+  double * tt_eigenvecs = (double *) pll_aligned_alloc (
+        (states_padded * states_padded * rate_cats) * sizeof(double),
+        PLL_ALIGNMENT_AVX);
+
+  if (!tt_eigenvecs)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
+    return PLL_FAILURE;
+  }
+
+  /* transposed padded inv_eigenvecs */
+  double * tt_inv_eigenvecs = (double *) pll_aligned_alloc (
+      (states_padded * states_padded * rate_cats) * sizeof(double),
+      PLL_ALIGNMENT_AVX);
+
+  if (!tt_inv_eigenvecs)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
+    return PLL_FAILURE;
+  }
+
+  memset(tt_eigenvecs, 0, (states_padded * states_padded * rate_cats) * sizeof(double));
+  memset(tt_inv_eigenvecs, 0, (states_padded * states_padded * rate_cats) * sizeof(double));
+
+  /* add padding to eigenvecs matrices and multiply with frequencies */
+  for (i = 0; i < rate_cats; ++i)
+  {
+    t_freqs = freqs[i];
+    for (j = 0; j < states; ++j)
+      for (k = 0; k < states; ++k)
+      {
+        tt_inv_eigenvecs[i * states_padded * states_padded + j * states_padded
+            + k] = inv_eigenvecs[i][k * states_padded + j] * t_freqs[k];
+        tt_eigenvecs[i * states_padded * states_padded + j * states_padded
+            + k] = eigenvecs[i][j * states_padded + k];
+      }
+  }
+
+  /* vectorized loop from update_sumtable() */
+  for (n = 0; n < sites; n++)
+  {
+    /* compute per-rate scalers and obtain minimum value (within site) */
+    if (per_rate_scaling)
+    {
+      min_scaler = UINT_MAX;
+      for (i = 0; i < rate_cats; ++i)
+      {
+        rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
+        rate_scalings[i] += (child_scaler) ? child_scaler[n*rate_cats+i] : 0;
+        if (rate_scalings[i] < min_scaler)
+          min_scaler = rate_scalings[i];
+      }
+
+      /* compute relative capped per-rate scalers */
+      for (i = 0; i < rate_cats; ++i)
+      {
+        rate_scalings[i] = PLL_MIN(rate_scalings[i] - min_scaler,
+                                   PLL_SCALE_RATE_MAXDIFF);
+      }
+    }
+
+    const double * c_eigenvecs      = tt_eigenvecs;
+    const double * ct_inv_eigenvecs = tt_inv_eigenvecs;
+    for (i = 0; i < rate_cats; ++i)
+    {
+      __m256d v_lclv[5];
+      __m256d v_rclv[5];
+      for (j = 0; j < 5; ++j)
+      {
+        v_lclv[j]    = _mm256_load_pd(t_lclv + j*4);
+        v_rclv[j]    = _mm256_load_pd(t_rclv + j*4);
+      }
+
+      for (j = 0; j < states_padded; j += 4)
+      {
+        /* point to the four rows of the eigenvecs matrix */
+        const double * lm0 = ct_inv_eigenvecs;
+        const double * lm1 = lm0 + states_padded;
+        const double * lm2 = lm1 + states_padded;
+        const double * lm3 = lm2 + states_padded;
+        ct_inv_eigenvecs += 4*states_padded;
+
+        /* point to the four rows of the inv_eigenvecs matrix */
+        const double * rm0 = c_eigenvecs;
+        const double * rm1 = rm0 + states_padded;
+        const double * rm2 = rm1 + states_padded;
+        const double * rm3 = rm2 + states_padded;
+        c_eigenvecs += 4*states_padded;
+
+        __m256d v_lterm0 = _mm256_setzero_pd ();
+        __m256d v_rterm0 = _mm256_setzero_pd ();
+        __m256d v_lterm1 = _mm256_setzero_pd ();
+        __m256d v_rterm1 = _mm256_setzero_pd ();
+        __m256d v_lterm2 = _mm256_setzero_pd ();
+        __m256d v_rterm2 = _mm256_setzero_pd ();
+        __m256d v_lterm3 = _mm256_setzero_pd ();
+        __m256d v_rterm3 = _mm256_setzero_pd ();
+
+        __m256d v_mat;
+
+        /* iterate over quadruples of columns */
+        COMPUTE_II_QCOL(0, 0);
+        COMPUTE_II_QCOL(1, 4);
+        COMPUTE_II_QCOL(2, 8);
+        COMPUTE_II_QCOL(3, 12);
+        COMPUTE_II_QCOL(4, 16);
+
+        /* compute lefterm */
+        __m256d xmm0 = _mm256_unpackhi_pd (v_lterm0, v_lterm1);
+        __m256d xmm1 = _mm256_unpacklo_pd (v_lterm0, v_lterm1);
+        __m256d xmm2 = _mm256_unpackhi_pd (v_lterm2, v_lterm3);
+        __m256d xmm3 = _mm256_unpacklo_pd (v_lterm2, v_lterm3);
+        xmm0 = _mm256_add_pd (xmm0, xmm1);
+        xmm1 = _mm256_add_pd (xmm2, xmm3);
+        xmm2 = _mm256_permute2f128_pd (xmm0, xmm1, _MM_SHUFFLE(0, 2, 0, 1));
+        xmm3 = _mm256_blend_pd (xmm0, xmm1, 12);
+        __m256d v_lefterm_sum = _mm256_add_pd (xmm2, xmm3);
+
+        /* compute righterm */
+        xmm0 = _mm256_unpackhi_pd (v_rterm0, v_rterm1);
+        xmm1 = _mm256_unpacklo_pd (v_rterm0, v_rterm1);
+        xmm2 = _mm256_unpackhi_pd (v_rterm2, v_rterm3);
+        xmm3 = _mm256_unpacklo_pd (v_rterm2, v_rterm3);
+        xmm0 = _mm256_add_pd (xmm0, xmm1);
+        xmm1 = _mm256_add_pd (xmm2, xmm3);
+        xmm2 = _mm256_permute2f128_pd (xmm0, xmm1, _MM_SHUFFLE(0, 2, 0, 1));
+        xmm3 = _mm256_blend_pd (xmm0, xmm1, 12);
+        __m256d v_righterm_sum = _mm256_add_pd (xmm2, xmm3);
+
+        /* update sum */
+        __m256d v_prod = _mm256_mul_pd (v_lefterm_sum, v_righterm_sum);
+
+        /* apply per-rate scalers */
+        if (rate_scalings && rate_scalings[i] > 0)
+        {
+          v_prod = _mm256_mul_pd(v_prod, v_scale_minlh[rate_scalings[i]-1]);
+        }
+
+        _mm256_store_pd (sum + j, v_prod);
+      }
+
+      t_lclv += states_padded;
+      t_rclv += states_padded;
+      sum    += states_padded;
+    }
+  }
+
+  pll_aligned_free (tt_inv_eigenvecs);
+  pll_aligned_free (tt_eigenvecs);
+  if (rate_scalings)
+    free(rate_scalings);
+
+  return PLL_SUCCESS;
+}
+
 PLL_EXPORT int pll_core_update_sumtable_ii_avx2(unsigned int states,
                                                 unsigned int sites,
                                                 unsigned int rate_cats,
@@ -43,7 +277,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx2(unsigned int states,
   const double * t_clvc = clvc;
   double * t_freqs;
 
-  /* dedicated functions for 4x4 matrices */
+  /* dedicated functions for 4x4 and 20x20 matrices */
   if (states == 4)
   {
     /* call AVX variant */
@@ -60,6 +294,22 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx2(unsigned int states,
                                            sumtable,
                                            attrib);
   }
+  else if (states == 20)
+  {
+    /* call AVX variant */
+    return pll_core_update_sumtable_ii_20x20_avx2(sites,
+                                                 rate_cats,
+                                                 clvp,
+                                                 clvc,
+                                                 parent_scaler,
+                                                 child_scaler,
+                                                 eigenvecs,
+                                                 inv_eigenvecs,
+                                                 freqs,
+                                                 sumtable,
+                                                 attrib);
+  }
+
 
   unsigned int states_padded = (states+3) & 0xFFFFFFFC;
 
@@ -271,6 +521,724 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx2(unsigned int states,
   return PLL_SUCCESS;
 }
 
+PLL_EXPORT int pll_core_update_sumtable_repeats_20x20_avx2(unsigned int sites,
+                                                           unsigned int parent_sites,
+                                                           unsigned int rate_cats,
+                                                           const double * clvp,
+                                                           const double * clvc,
+                                                           const unsigned int * parent_scaler,
+                                                           const unsigned int * child_scaler,
+                                                           double * const * eigenvecs,
+                                                           double * const * inv_eigenvecs,
+                                                           double * const * freqs,
+                                                           double *sumtable,
+                                                           const unsigned int * parent_site_id,
+                                                           const unsigned int * child_site_id,
+                                                           double * bclv_buffer,
+                                                           unsigned int inv,
+                                                           unsigned int attrib)
+{
+  unsigned int i, j, k, n;
+
+  /* build sumtable */
+  double * sum = sumtable;
+
+  double * t_freqs;
+
+  unsigned int states = 20;
+  unsigned int states_padded = states;
+  unsigned int span_padded = rate_cats * states_padded;
+
+  /* scaling stuff */
+  unsigned int min_scaler = 0;
+  unsigned int * rate_scalings = NULL;
+  int per_rate_scaling = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 1 : 0;
+
+  /* powers of scale threshold for undoing the scaling */
+  __m256d v_scale_minlh[PLL_SCALE_RATE_MAXDIFF];
+  if (per_rate_scaling)
+  {
+    rate_scalings = (unsigned int*) calloc(rate_cats, sizeof(unsigned int));
+
+    if (!rate_scalings)
+    {
+      pll_errno = PLL_ERROR_MEM_ALLOC;
+      snprintf (pll_errmsg, 200, "Cannot allocate memory for rate scalers");
+      return PLL_FAILURE;
+    }
+
+    double scale_factor = 1.0;
+    for (i = 0; i < PLL_SCALE_RATE_MAXDIFF; ++i)
+    {
+      scale_factor *= PLL_SCALE_THRESHOLD;
+      v_scale_minlh[i] = _mm256_set1_pd(scale_factor);
+    }
+  }
+
+  /* padded eigenvecs */
+  double * tt_eigenvecs = (double *) pll_aligned_alloc (
+        (states_padded * states_padded * rate_cats) * sizeof(double),
+        PLL_ALIGNMENT_AVX);
+
+  if (!tt_eigenvecs)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
+    return PLL_FAILURE;
+  }
+
+  /* transposed padded inv_eigenvecs */
+  double * tt_inv_eigenvecs = (double *) pll_aligned_alloc (
+      (states_padded * states_padded * rate_cats) * sizeof(double),
+      PLL_ALIGNMENT_AVX);
+
+  if (!tt_inv_eigenvecs)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
+    return PLL_FAILURE;
+  }
+
+  memset(tt_eigenvecs, 0, (states_padded * states_padded * rate_cats) * sizeof(double));
+  memset(tt_inv_eigenvecs, 0, (states_padded * states_padded * rate_cats) * sizeof(double));
+
+  /* add padding to eigenvecs matrices and multiply with frequencies */
+  for (i = 0; i < rate_cats; ++i)
+  {
+    t_freqs = freqs[i];
+    for (j = 0; j < states; ++j)
+      for (k = 0; k < states; ++k)
+      {
+        tt_inv_eigenvecs[i * states_padded * states_padded + j * states_padded
+            + k] = inv_eigenvecs[i][k * states_padded + j] * t_freqs[k];
+        tt_eigenvecs[i * states_padded * states_padded + j * states_padded
+            + k] = eigenvecs[i][j * states_padded + k];
+      }
+  }
+
+  /* vectorized loop from update_sumtable() */
+  for (n = 0; n < sites; n++)
+  {
+    unsigned int pid = PLL_GET_ID(parent_site_id, n);
+    unsigned int cid = PLL_GET_ID(child_site_id, n);
+    const double * t_lclv = &clvp[pid * span_padded];
+    const double * t_rclv = &clvc[cid * span_padded];
+    /* compute per-rate scalers and obtain minimum value (within site) */
+    if (per_rate_scaling)
+    {
+      min_scaler = UINT_MAX;
+      for (i = 0; i < rate_cats; ++i)
+      {
+        rate_scalings[i] = (parent_scaler) ? parent_scaler[pid*rate_cats+i] : 0;
+        rate_scalings[i] += (child_scaler) ? child_scaler[cid*rate_cats+i] : 0;
+        if (rate_scalings[i] < min_scaler)
+          min_scaler = rate_scalings[i];
+      }
+
+      /* compute relative capped per-rate scalers */
+      for (i = 0; i < rate_cats; ++i)
+      {
+        rate_scalings[i] = PLL_MIN(rate_scalings[i] - min_scaler,
+                                   PLL_SCALE_RATE_MAXDIFF);
+      }
+    }
+
+    const double * c_eigenvecs      = tt_eigenvecs;
+    const double * ct_inv_eigenvecs = tt_inv_eigenvecs;
+    for (i = 0; i < rate_cats; ++i)
+    {
+
+      __m256d v_lclv[5];
+      __m256d v_rclv[5];
+      for (j = 0; j < 5; ++j)
+      {
+        v_lclv[j]    = _mm256_load_pd(t_lclv + j*4);
+        v_rclv[j]    = _mm256_load_pd(t_rclv + j*4);
+      }
+
+      for (j = 0; j < states_padded; j += 4)
+      {
+        /* point to the four rows of the eigenvecs matrix */
+        const double * lm0 = ct_inv_eigenvecs;
+        const double * lm1 = lm0 + states_padded;
+        const double * lm2 = lm1 + states_padded;
+        const double * lm3 = lm2 + states_padded;
+        ct_inv_eigenvecs += 4*states_padded;
+
+        /* point to the four rows of the inv_eigenvecs matrix */
+        const double * rm0 = c_eigenvecs;
+        const double * rm1 = rm0 + states_padded;
+        const double * rm2 = rm1 + states_padded;
+        const double * rm3 = rm2 + states_padded;
+        c_eigenvecs += 4*states_padded;
+
+        __m256d v_lterm0 = _mm256_setzero_pd ();
+        __m256d v_rterm0 = _mm256_setzero_pd ();
+        __m256d v_lterm1 = _mm256_setzero_pd ();
+        __m256d v_rterm1 = _mm256_setzero_pd ();
+        __m256d v_lterm2 = _mm256_setzero_pd ();
+        __m256d v_rterm2 = _mm256_setzero_pd ();
+        __m256d v_lterm3 = _mm256_setzero_pd ();
+        __m256d v_rterm3 = _mm256_setzero_pd ();
+
+        __m256d v_mat;
+
+        /* iterate over quadruples of columns */
+        COMPUTE_II_QCOL(0, 0);
+        COMPUTE_II_QCOL(1, 4);
+        COMPUTE_II_QCOL(2, 8);
+        COMPUTE_II_QCOL(3, 12);
+        COMPUTE_II_QCOL(4, 16);
+
+        /* compute lefterm */
+        __m256d xmm0 = _mm256_unpackhi_pd (v_lterm0, v_lterm1);
+        __m256d xmm1 = _mm256_unpacklo_pd (v_lterm0, v_lterm1);
+        __m256d xmm2 = _mm256_unpackhi_pd (v_lterm2, v_lterm3);
+        __m256d xmm3 = _mm256_unpacklo_pd (v_lterm2, v_lterm3);
+        xmm0 = _mm256_add_pd (xmm0, xmm1);
+        xmm1 = _mm256_add_pd (xmm2, xmm3);
+        xmm2 = _mm256_permute2f128_pd (xmm0, xmm1, _MM_SHUFFLE(0, 2, 0, 1));
+        xmm3 = _mm256_blend_pd (xmm0, xmm1, 12);
+        __m256d v_lefterm_sum = _mm256_add_pd (xmm2, xmm3);
+
+        /* compute righterm */
+        xmm0 = _mm256_unpackhi_pd (v_rterm0, v_rterm1);
+        xmm1 = _mm256_unpacklo_pd (v_rterm0, v_rterm1);
+        xmm2 = _mm256_unpackhi_pd (v_rterm2, v_rterm3);
+        xmm3 = _mm256_unpacklo_pd (v_rterm2, v_rterm3);
+        xmm0 = _mm256_add_pd (xmm0, xmm1);
+        xmm1 = _mm256_add_pd (xmm2, xmm3);
+        xmm2 = _mm256_permute2f128_pd (xmm0, xmm1, _MM_SHUFFLE(0, 2, 0, 1));
+        xmm3 = _mm256_blend_pd (xmm0, xmm1, 12);
+        __m256d v_righterm_sum = _mm256_add_pd (xmm2, xmm3);
+
+        /* update sum */
+        __m256d v_prod = _mm256_mul_pd (v_lefterm_sum, v_righterm_sum);
+
+        /* apply per-rate scalers */
+        if (rate_scalings && rate_scalings[i] > 0)
+        {
+          v_prod = _mm256_mul_pd(v_prod, v_scale_minlh[rate_scalings[i]-1]);
+        }
+
+        _mm256_store_pd (sum + j, v_prod);
+      }
+
+      t_lclv += states_padded;
+      t_rclv += states_padded;
+      sum    += states_padded;
+    }
+  }
+
+  pll_aligned_free (tt_inv_eigenvecs);
+  pll_aligned_free (tt_eigenvecs);
+  if (rate_scalings)
+    free(rate_scalings);
+
+  return PLL_SUCCESS;
+}
+
+
+PLL_EXPORT int pll_core_update_sumtable_repeats_generic_avx2(unsigned int states,
+                                                             unsigned int sites,
+                                                             unsigned int parent_sites,
+                                                             unsigned int rate_cats,
+                                                             const double * clvp,
+                                                             const double * clvc,
+                                                             const unsigned int * parent_scaler,
+                                                             const unsigned int * child_scaler,
+                                                             double * const * eigenvecs,
+                                                             double * const * inv_eigenvecs,
+                                                             double * const * freqs,
+                                                             double *sumtable,
+                                                             const unsigned int * parent_site_id,
+                                                             const unsigned int * child_site_id,
+                                                             double * bclv_buffer,
+                                                             unsigned int inv,
+                                                             unsigned int attrib)
+{
+  unsigned int i, j, k, n;
+
+  /* build sumtable */
+  double * sum = sumtable;
+
+  double * t_freqs;
+
+  if (states == 20)
+  {
+    return pll_core_update_sumtable_repeats_20x20_avx2(sites,
+                                                       parent_sites,
+                                                       rate_cats,
+                                                       clvp,
+                                                       clvc,
+                                                       parent_scaler,
+                                                       child_scaler,
+                                                       eigenvecs,
+                                                       inv_eigenvecs,
+                                                       freqs,
+                                                       sumtable,
+                                                       parent_site_id,
+                                                       child_site_id,
+                                                       bclv_buffer,
+                                                       inv,
+                                                       attrib);
+  }
+
+  unsigned int states_padded = (states+3) & 0xFFFFFFFC;
+  unsigned int span_padded = rate_cats * states_padded;
+
+  /* scaling stuff */
+  unsigned int min_scaler = 0;
+  unsigned int * rate_scalings = NULL;
+  int per_rate_scaling = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 1 : 0;
+
+  /* powers of scale threshold for undoing the scaling */
+  __m256d v_scale_minlh[PLL_SCALE_RATE_MAXDIFF];
+  if (per_rate_scaling)
+  {
+    rate_scalings = (unsigned int*) calloc(rate_cats, sizeof(unsigned int));
+
+    if (!rate_scalings)
+    {
+      pll_errno = PLL_ERROR_MEM_ALLOC;
+      snprintf (pll_errmsg, 200, "Cannot allocate memory for rate scalers");
+      return PLL_FAILURE;
+    }
+
+    double scale_factor = 1.0;
+    for (i = 0; i < PLL_SCALE_RATE_MAXDIFF; ++i)
+    {
+      scale_factor *= PLL_SCALE_THRESHOLD;
+      v_scale_minlh[i] = _mm256_set1_pd(scale_factor);
+    }
+  }
+
+  /* padded eigenvecs */
+  double * tt_eigenvecs = (double *) pll_aligned_alloc (
+        (states_padded * states_padded * rate_cats) * sizeof(double),
+        PLL_ALIGNMENT_AVX);
+
+  if (!tt_eigenvecs)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
+    return PLL_FAILURE;
+  }
+
+  /* transposed padded inv_eigenvecs */
+  double * tt_inv_eigenvecs = (double *) pll_aligned_alloc (
+      (states_padded * states_padded * rate_cats) * sizeof(double),
+      PLL_ALIGNMENT_AVX);
+
+  if (!tt_inv_eigenvecs)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
+    return PLL_FAILURE;
+  }
+
+  memset(tt_eigenvecs, 0, (states_padded * states_padded * rate_cats) * sizeof(double));
+  memset(tt_inv_eigenvecs, 0, (states_padded * states_padded * rate_cats) * sizeof(double));
+
+  /* add padding to eigenvecs matrices and multiply with frequencies */
+  for (i = 0; i < rate_cats; ++i)
+  {
+    t_freqs = freqs[i];
+    for (j = 0; j < states; ++j)
+      for (k = 0; k < states; ++k)
+      {
+        tt_inv_eigenvecs[i * states_padded * states_padded + j * states_padded
+            + k] = inv_eigenvecs[i][k * states_padded + j] * t_freqs[k];
+        tt_eigenvecs[i * states_padded * states_padded + j * states_padded
+            + k] = eigenvecs[i][j * states_padded + k];
+      }
+  }
+
+  /* vectorized loop from update_sumtable() */
+  for (n = 0; n < sites; n++)
+  {
+    unsigned int pid = PLL_GET_ID(parent_site_id, n);
+    unsigned int cid = PLL_GET_ID(child_site_id, n);
+    const double * t_clvp = &clvp[pid * span_padded];
+    const double * t_clvc = &clvc[cid * span_padded];
+    /* compute per-rate scalers and obtain minimum value (within site) */
+    if (per_rate_scaling)
+    {
+      min_scaler = UINT_MAX;
+      for (i = 0; i < rate_cats; ++i)
+      {
+        rate_scalings[i] = (parent_scaler) ? parent_scaler[pid*rate_cats+i] : 0;
+        rate_scalings[i] += (child_scaler) ? child_scaler[cid*rate_cats+i] : 0;
+        if (rate_scalings[i] < min_scaler)
+          min_scaler = rate_scalings[i];
+      }
+
+      /* compute relative capped per-rate scalers */
+      for (i = 0; i < rate_cats; ++i)
+      {
+        rate_scalings[i] = PLL_MIN(rate_scalings[i] - min_scaler,
+                                   PLL_SCALE_RATE_MAXDIFF);
+      }
+    }
+
+    const double * c_eigenvecs      = tt_eigenvecs;
+    const double * ct_inv_eigenvecs = tt_inv_eigenvecs;
+    for (i = 0; i < rate_cats; ++i)
+    {
+      for (j = 0; j < states_padded; j += 4)
+      {
+        /* point to the four rows of the eigenvecs matrix */
+        const double * em0 = c_eigenvecs;
+        const double * em1 = em0 + states_padded;
+        const double * em2 = em1 + states_padded;
+        const double * em3 = em2 + states_padded;
+        c_eigenvecs += 4*states_padded;
+
+        /* point to the four rows of the inv_eigenvecs matrix */
+        const double * im0 = ct_inv_eigenvecs;
+        const double * im1 = im0 + states_padded;
+        const double * im2 = im1 + states_padded;
+        const double * im3 = im2 + states_padded;
+        ct_inv_eigenvecs += 4*states_padded;
+
+        __m256d v_lefterm0 = _mm256_setzero_pd ();
+        __m256d v_righterm0 = _mm256_setzero_pd ();
+        __m256d v_lefterm1 = _mm256_setzero_pd ();
+        __m256d v_righterm1 = _mm256_setzero_pd ();
+        __m256d v_lefterm2 = _mm256_setzero_pd ();
+        __m256d v_righterm2 = _mm256_setzero_pd ();
+        __m256d v_lefterm3 = _mm256_setzero_pd ();
+        __m256d v_righterm3 = _mm256_setzero_pd ();
+
+        __m256d v_eigen;
+        __m256d v_clvp;
+        __m256d v_clvc;
+
+        for (k = 0; k < states_padded; k += 4)
+        {
+          v_clvp = _mm256_load_pd (t_clvp + k);
+          v_clvc = _mm256_load_pd (t_clvc + k);
+
+          /* row 0 */
+          v_eigen = _mm256_load_pd (im0 + k);
+          v_lefterm0 = _mm256_fmadd_pd(v_eigen, v_clvp, v_lefterm0);
+
+
+          v_eigen = _mm256_load_pd (em0 + k);
+          v_righterm0 = _mm256_fmadd_pd(v_eigen, v_clvc, v_righterm0);
+
+          /* row 1 */
+          v_eigen = _mm256_load_pd (im1 + k);
+          v_lefterm1 = _mm256_fmadd_pd(v_eigen, v_clvp, v_lefterm1);
+
+          v_eigen = _mm256_load_pd (em1 + k);
+          v_righterm1 = _mm256_fmadd_pd(v_eigen, v_clvc, v_righterm1);
+
+
+          /* row 2 */
+          v_eigen = _mm256_load_pd (im2 + k);
+          v_lefterm2 = _mm256_fmadd_pd(v_eigen, v_clvp, v_lefterm2);
+
+          v_eigen = _mm256_load_pd (em2 + k);
+          v_righterm2 = _mm256_fmadd_pd(v_eigen, v_clvc, v_righterm2);
+
+          /* row 3 */
+          v_eigen = _mm256_load_pd (im3 + k);
+          v_lefterm3 = _mm256_fmadd_pd(v_eigen, v_clvp, v_lefterm3);
+
+          v_eigen = _mm256_load_pd (em3 + k);
+          v_righterm3 = _mm256_fmadd_pd(v_eigen, v_clvc, v_righterm3);
+
+        }
+
+        /* compute lefterm */
+        __m256d xmm0 = _mm256_unpackhi_pd (v_lefterm0, v_lefterm1);
+        __m256d xmm1 = _mm256_unpacklo_pd (v_lefterm0, v_lefterm1);
+        __m256d xmm2 = _mm256_unpackhi_pd (v_lefterm2, v_lefterm3);
+        __m256d xmm3 = _mm256_unpacklo_pd (v_lefterm2, v_lefterm3);
+        xmm0 = _mm256_add_pd (xmm0, xmm1);
+        xmm1 = _mm256_add_pd (xmm2, xmm3);
+        xmm2 = _mm256_permute2f128_pd (xmm0, xmm1, _MM_SHUFFLE(0, 2, 0, 1));
+        xmm3 = _mm256_blend_pd (xmm0, xmm1, 12);
+        __m256d v_lefterm_sum = _mm256_add_pd (xmm2, xmm3);
+
+        /* compute righterm */
+        xmm0 = _mm256_unpackhi_pd (v_righterm0, v_righterm1);
+        xmm1 = _mm256_unpacklo_pd (v_righterm0, v_righterm1);
+        xmm2 = _mm256_unpackhi_pd (v_righterm2, v_righterm3);
+        xmm3 = _mm256_unpacklo_pd (v_righterm2, v_righterm3);
+        xmm0 = _mm256_add_pd (xmm0, xmm1);
+        xmm1 = _mm256_add_pd (xmm2, xmm3);
+        xmm2 = _mm256_permute2f128_pd (xmm0, xmm1, _MM_SHUFFLE(0, 2, 0, 1));
+        xmm3 = _mm256_blend_pd (xmm0, xmm1, 12);
+        __m256d v_righterm_sum = _mm256_add_pd (xmm2, xmm3);
+
+        /* update sum */
+        __m256d v_prod = _mm256_mul_pd (v_lefterm_sum, v_righterm_sum);
+
+        /* apply per-rate scalers */
+        if (rate_scalings && rate_scalings[i] > 0)
+        {
+          v_prod = _mm256_mul_pd(v_prod, v_scale_minlh[rate_scalings[i]-1]);
+        }
+
+        _mm256_store_pd (sum + j, v_prod);
+      }
+
+      t_clvc += states_padded;
+      t_clvp += states_padded;
+      sum    += states_padded;
+    }
+  }
+
+  pll_aligned_free (tt_inv_eigenvecs);
+  pll_aligned_free (tt_eigenvecs);
+  if (rate_scalings)
+    free(rate_scalings);
+
+  return PLL_SUCCESS;
+}
+
+#define COMPUTE_TI_QCOL(q, offset) \
+/* row 0 */ \
+v_mat    = _mm256_load_pd(rm0 + offset); \
+v_rterm0 = _mm256_fmadd_pd(v_mat, v_rclv[q], v_rterm0); \
+ \
+/* row 1 */ \
+v_mat    = _mm256_load_pd(rm1 + offset); \
+v_rterm1 = _mm256_fmadd_pd(v_mat, v_rclv[q], v_rterm1); \
+\
+/* row 2 */ \
+v_mat    = _mm256_load_pd(rm2 + offset); \
+v_rterm2 = _mm256_fmadd_pd(v_mat, v_rclv[q], v_rterm2); \
+\
+/* row 3 */ \
+v_mat    = _mm256_load_pd(rm3 + offset); \
+v_rterm3 = _mm256_fmadd_pd(v_mat, v_rclv[q], v_rterm3);
+
+PLL_EXPORT int pll_core_update_sumtable_ti_20x20_avx2(unsigned int sites,
+                                                unsigned int rate_cats,
+                                                const double * parent_clv,
+                                                const unsigned char * left_tipchars,
+                                                const unsigned int * parent_scaler,
+                                                double * const * eigenvecs,
+                                                double * const * inv_eigenvecs,
+                                                double * const * freqs,
+                                                const unsigned int * tipmap,
+                                                unsigned int tipmap_size,
+                                                double *sumtable,
+                                                unsigned int attrib)
+{
+  unsigned int states = 20;
+  unsigned int states_padded = states;
+  unsigned int span = states_padded * rate_cats;
+  unsigned int maxstates = tipmap_size;
+
+  unsigned int i, j, k, n;
+  unsigned int tipstate;
+
+  unsigned int min_scaler = 0;
+  unsigned int * rate_scalings = NULL;
+  int per_rate_scaling = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 1 : 0;
+
+  /* powers of scale threshold for undoing the scaling */
+  __m256d v_scale_minlh[PLL_SCALE_RATE_MAXDIFF];
+  if (per_rate_scaling)
+  {
+    rate_scalings = (unsigned int*) calloc(rate_cats, sizeof(unsigned int));
+
+    if (!rate_scalings)
+    {
+      pll_errno = PLL_ERROR_MEM_ALLOC;
+      snprintf (pll_errmsg, 200, "Cannot allocate memory for rate scalers");
+      return PLL_FAILURE;
+    }
+
+    double scale_factor = 1.0;
+    for (i = 0; i < PLL_SCALE_RATE_MAXDIFF; ++i)
+    {
+      scale_factor *= PLL_SCALE_THRESHOLD;
+      v_scale_minlh[i] = _mm256_set1_pd(scale_factor);
+    }
+  }
+
+  double * sum = sumtable;
+  const double * t_rclv = parent_clv;
+  const double * t_eigenvecs_padded;
+
+  double * eigenvecs_padded = (double *) pll_aligned_alloc (
+      (states_padded * states_padded * rate_cats) * sizeof(double),
+      PLL_ALIGNMENT_AVX);
+
+  double * precomp_left = (double *) pll_aligned_alloc (
+      (maxstates * states_padded * rate_cats) * sizeof(double),
+      PLL_ALIGNMENT_AVX);
+
+  if (!eigenvecs_padded || !precomp_left)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
+    return PLL_FAILURE;
+  }
+
+  /* add padding to eigenvecs matrix -> for efficient vectorization */
+  for (i = 0; i < rate_cats; ++i)
+  {
+    for (j = 0; j < states_padded; ++j)
+      for (k = 0; k < states_padded; ++k)
+      {
+        eigenvecs_padded[i*states_padded*states_padded + j*states_padded + k] =
+            (j < states && k < states) ? eigenvecs[i][j*states_padded + k] : 0.;
+      }
+  }
+
+  /* precompute left terms since they are the same for every site */
+  double * t_precomp = precomp_left;
+  for (n = 0; n < maxstates; ++n)
+  {
+    unsigned int state = tipmap ? tipmap[n] : n;
+
+    int ss = __builtin_popcount(state) == 1 ? __builtin_ctz(state) : -1;
+
+    for (i = 0; i < rate_cats; ++i)
+    {
+      for (j = 0; j < states_padded; j += 4)
+      {
+        __m256d v_lefterm;
+
+        if (ss != -1)
+        {
+          /* special case for non-ambiguous state */
+          __m256d v_freqs = _mm256_set1_pd(freqs[i][ss]);
+          __m256d v_eigen = _mm256_load_pd(inv_eigenvecs[i] +
+                                                       ss*states_padded + j);
+          v_lefterm =  _mm256_mul_pd(v_eigen, v_freqs);
+        }
+        else
+        {
+          v_lefterm = _mm256_setzero_pd();
+          for (k = 0; k < states; ++k)
+          {
+            if ((state>>k) & 1)
+            {
+              __m256d v_freqs = _mm256_set1_pd(freqs[i][k]);
+              __m256d v_eigen = _mm256_load_pd(inv_eigenvecs[i] +
+                                                           k*states_padded + j);
+
+              v_lefterm = _mm256_fmadd_pd(v_eigen, v_freqs, v_lefterm);
+            }
+          }
+        }
+
+        _mm256_store_pd(t_precomp, v_lefterm);
+        t_precomp += 4;
+      }
+    }
+  }
+
+  /* build sumtable */
+  for (n = 0; n < sites; n++)
+  {
+    /* compute per-rate scalers and obtain minimum value (within site) */
+    if (per_rate_scaling)
+    {
+      min_scaler = UINT_MAX;
+      for (i = 0; i < rate_cats; ++i)
+      {
+        rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
+        if (rate_scalings[i] < min_scaler)
+          min_scaler = rate_scalings[i];
+      }
+
+      /* compute relative capped per-rate scalers */
+      for (i = 0; i < rate_cats; ++i)
+      {
+        rate_scalings[i] = PLL_MIN(rate_scalings[i] - min_scaler,
+                                   PLL_SCALE_RATE_MAXDIFF);
+      }
+    }
+
+    tipstate = (unsigned int) left_tipchars[n];
+
+    unsigned int loffset = tipstate * span;
+
+    t_eigenvecs_padded = eigenvecs_padded;
+    t_precomp = precomp_left + loffset;
+
+    for (i = 0; i < rate_cats; ++i)
+    {
+      __m256d v_rclv[5];
+      for (j = 0; j < 5; ++j)
+      {
+        v_rclv[j]    = _mm256_load_pd(t_rclv + j*4);
+      }
+
+      for (j = 0; j < states_padded; j += 4)
+      {
+        /* point to the four rows of the eigenvec matrix */
+        const double * rm0 = t_eigenvecs_padded;
+        const double * rm1 = rm0 + states_padded;
+        const double * rm2 = rm1 + states_padded;
+        const double * rm3 = rm2 + states_padded;
+        t_eigenvecs_padded += 4*states_padded;
+
+        __m256d v_rterm0 = _mm256_setzero_pd();
+        __m256d v_rterm1 = _mm256_setzero_pd();
+        __m256d v_rterm2 = _mm256_setzero_pd();
+        __m256d v_rterm3 = _mm256_setzero_pd();
+
+        __m256d v_mat;
+
+        COMPUTE_TI_QCOL(0, 0);
+        COMPUTE_TI_QCOL(1, 4);
+        COMPUTE_TI_QCOL(2, 8);
+        COMPUTE_TI_QCOL(3, 12);
+        COMPUTE_TI_QCOL(4, 16);
+
+        /* reduce righterm */
+        __m256d xmm0, xmm1, xmm2, xmm3;
+        xmm0 = _mm256_unpackhi_pd(v_rterm0,v_rterm1);
+        xmm1 = _mm256_unpacklo_pd(v_rterm0,v_rterm1);
+
+        xmm2 = _mm256_unpackhi_pd(v_rterm2,v_rterm3);
+        xmm3 = _mm256_unpacklo_pd(v_rterm2,v_rterm3);
+
+        xmm0 = _mm256_add_pd(xmm0,xmm1);
+        xmm1 = _mm256_add_pd(xmm2,xmm3);
+
+        xmm2 = _mm256_permute2f128_pd(xmm0,xmm1, _MM_SHUFFLE(0,2,0,1));
+
+        xmm3 = _mm256_blend_pd(xmm0,xmm1,12);
+
+        __m256d v_righterm = _mm256_add_pd(xmm2,xmm3);
+
+        __m256d v_lefterm = _mm256_load_pd(t_precomp + j);
+
+        __m256d v_sum = _mm256_mul_pd(v_lefterm, v_righterm);
+
+        /* apply per-rate scalers */
+        if (rate_scalings && rate_scalings[i] > 0)
+        {
+          v_sum = _mm256_mul_pd(v_sum, v_scale_minlh[rate_scalings[i]-1]);
+        }
+
+        _mm256_store_pd(sum + j, v_sum);
+      }
+
+      t_rclv += states_padded;
+      t_precomp += states_padded;
+      sum += states_padded;
+    }
+  }
+
+  pll_aligned_free(eigenvecs_padded);
+  pll_aligned_free(precomp_left);
+  if (rate_scalings)
+    free(rate_scalings);
+
+  return PLL_SUCCESS;
+}
+
 PLL_EXPORT int pll_core_update_sumtable_ti_avx2(unsigned int states,
                                                 unsigned int sites,
                                                 unsigned int rate_cats,
@@ -290,6 +1258,21 @@ PLL_EXPORT int pll_core_update_sumtable_ti_avx2(unsigned int states,
     /* call AVX version for the 4x4 case */
     return pll_core_update_sumtable_ti_avx(states,
                                            sites,
+                                           rate_cats,
+                                           parent_clv,
+                                           left_tipchars,
+                                           parent_scaler,
+                                           eigenvecs,
+                                           inv_eigenvecs,
+                                           freqs,
+                                           tipmap,
+                                           tipmap_size,
+                                           sumtable,
+                                           attrib);
+  }
+  else if (states == 20)
+  {
+    return pll_core_update_sumtable_ti_20x20_avx2(sites,
                                            rate_cats,
                                            parent_clv,
                                            left_tipchars,
