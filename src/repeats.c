@@ -23,6 +23,27 @@
 
 const unsigned int EMPTY_ELEMENT = (unsigned int) -1;
 
+
+// map in charmap each char to a unique char identifier, according to map
+static void repeats_fill_charmap(const unsigned int *map, char *charmap) 
+{
+  unsigned int i,j;
+  char maxChar = 0;
+  for (i = 0; i < PLL_ASCII_SIZE; ++i) 
+  {
+    for (j = 0; j < i; ++j) 
+    {
+      if (map[i] == map[j]) 
+      {
+        charmap[i] = charmap[j];
+        break;
+      }
+    }
+    if (!charmap[i]) 
+      charmap[i] = ++maxChar;
+  }
+}
+
 PLL_EXPORT int pll_repeats_enabled(const pll_partition_t *partition)
 {
   return PLL_ATTRIB_SITE_REPEATS & partition->attributes;
@@ -149,9 +170,11 @@ PLL_EXPORT int pll_repeats_initialize(pll_partition_t *partition)
   repeats->bclv_buffer = pll_aligned_alloc(sites_alloc 
       * partition->rate_cats * partition->states_padded
       * sizeof(double), partition->alignment);
+  repeats->charmap = calloc(PLL_ASCII_SIZE, sizeof(char));
   if (!(repeats->pernode_ids
        && repeats->pernode_allocated_clvs && repeats->bclv_buffer
-       && repeats->toclean_buffer && repeats->id_site_buffer))
+       && repeats->toclean_buffer && repeats->id_site_buffer 
+       && repeats->charmap))
   {
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
@@ -169,19 +192,20 @@ PLL_EXPORT int pll_update_repeats_tips(pll_partition_t * partition,
 {
   if (!partition->repeats->lookup_buffer)
     pll_resize_repeats_lookup(partition, PLL_REPEATS_LOOKUP_SIZE);
-    
+   
   unsigned int s;
   pll_repeats_t * repeats = partition->repeats;
   unsigned int ** id_site = repeats->pernode_id_site;
   unsigned int additional_sites = 
     partition->asc_bias_alloc ? partition->states : 0;
 
+  repeats_fill_charmap(map, repeats->charmap);
   repeats->pernode_ids[tip_index] = 0;
   unsigned int curr_id = 0;
   /* fill pernode_site_id */
   for (s = 0; s < partition->sites; ++s) 
   {
-    unsigned int index_lookup = map[(int)sequence[s]] + 1;
+    unsigned int index_lookup = repeats->charmap[(int)sequence[s]];
     if (EMPTY_ELEMENT == repeats->lookup_buffer[index_lookup]) 
     {
       repeats->toclean_buffer[curr_id] = index_lookup;
@@ -513,5 +537,4 @@ PLL_EXPORT void pll_fill_parent_scaler_repeats_per_rate(unsigned int sites,
     } 
   }
 }
-
 

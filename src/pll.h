@@ -287,6 +287,7 @@ typedef struct pll_repeats
   unsigned int * id_site_buffer; 
   double * bclv_buffer;
   unsigned int lookup_buffer_size;
+  char *charmap;
 } pll_repeats_t;
 
 /* Structure for driving likelihood operations */

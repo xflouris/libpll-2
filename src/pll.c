@@ -31,7 +31,6 @@ static void dealloc_partition_data(pll_partition_t * partition);
 static void dealloc_partition_data(pll_partition_t * partition)
 {
   unsigned int i;
-
   if (!partition) return;
 
   free(partition->rates);
@@ -124,6 +123,7 @@ static void dealloc_partition_data(pll_partition_t * partition)
     free(repeats->toclean_buffer);
     free(repeats->id_site_buffer);
     free(repeats->bclv_buffer);
+    free(repeats->charmap);
     free(repeats);
   }
 
@@ -428,7 +428,6 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
 {
   unsigned int i;
   unsigned int sites_alloc;
-
   /* make sure that multiple ARCH were not specified */
   if (__builtin_popcount(attributes & PLL_ATTRIB_ARCH_MASK) > 1)
   {
