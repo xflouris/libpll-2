@@ -5,7 +5,7 @@
 #include <search.h>
 #include <stdarg.h>
 
-const unsigned int odd5_map[256] =
+const pll_state_t odd5_map[256] =
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1f, 0, 0, 0x1f, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1f, 0, 0x01, 0x02, 0x04,
@@ -186,7 +186,7 @@ pll_partition_t * parse_msa_reduced(const char * filename,
 
     unsigned int tip_clv_index = *((unsigned int *)(found->data));
 
-    const unsigned int * map = states == 4? pll_map_nt : pll_map_aa;
+    const pll_state_t * map = states == 4? pll_map_nt : pll_map_aa;
     pll_set_tip_states(partition, tip_clv_index, map, seqdata[i]);
 
     free(headers[i]);

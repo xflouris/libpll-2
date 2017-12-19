@@ -80,14 +80,14 @@ static void ssort1(char ** x, int n, int depth)
   r = d - c; ssort1(x+n-r,r,depth);
 }
 
-static void remap_range(const unsigned int * map,
+static void remap_range(const pll_state_t * map,
                         unsigned char * charmap)
 {
-  unsigned int oldmap[PLL_ASCII_SIZE];
+  pll_state_t oldmap[PLL_ASCII_SIZE];
   unsigned int i,j;
   unsigned char k = 1;
 
-  memcpy(oldmap, map, PLL_ASCII_SIZE * sizeof(unsigned int));
+  memcpy(oldmap, map, PLL_ASCII_SIZE * sizeof(pll_state_t));
   memset(charmap, 0, PLL_ASCII_SIZE * sizeof(unsigned char));
 
   for (i = 0; i < PLL_ASCII_SIZE; ++i)
@@ -106,10 +106,10 @@ static void remap_range(const unsigned int * map,
     }
 }
 
-static unsigned int findmax(const unsigned int * map)
+static pll_state_t findmax(const pll_state_t * map)
 {
   int i;
-  unsigned int max = 0;
+  pll_state_t max = 0;
 
   for (i = 0; i < PLL_ASCII_SIZE; ++i)
     if (map[i] > max)
@@ -153,7 +153,7 @@ static int encode(char ** sequence, const unsigned char * map, int count, int le
 }
 
 PLL_EXPORT unsigned int * pll_compress_site_patterns(char ** sequence,
-                                                     const unsigned int * map,
+                                                     const pll_state_t * map,
                                                      int count,
                                                      int * length)
 {

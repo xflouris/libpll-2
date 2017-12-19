@@ -50,7 +50,7 @@ PLL_EXPORT void pll_core_create_lookup_sse(unsigned int states,
                                            double * ttlookup,
                                            const double * left_matrix,
                                            const double * right_matrix,
-                                           const unsigned int * tipmap,
+                                           const pll_state_t * tipmap,
                                            unsigned int tipmap_size)
 {
   if (states == 4)
@@ -84,10 +84,10 @@ PLL_EXPORT void pll_core_create_lookup_sse(unsigned int states,
 
   for (j = 0; j < maxstates; ++j)
   {
-    unsigned int jstate = tipmap[j];
+    pll_state_t jstate = tipmap[j];
     for (k = 0; k < maxstates; ++k)
     {
-      unsigned int kstate = tipmap[k];
+      pll_state_t kstate = tipmap[k];
       jmat = left_matrix;
       kmat = right_matrix;
 
@@ -1311,7 +1311,7 @@ PLL_EXPORT void pll_core_update_partial_ti_sse(unsigned int states,
                                                const double * left_matrix,
                                                const double * right_matrix,
                                                const unsigned int * right_scaler,
-                                               const unsigned int * tipmap,
+                                               const pll_state_t * tipmap,
                                                unsigned int tipmap_size,
                                                unsigned int attrib)
 {
@@ -1322,7 +1322,7 @@ PLL_EXPORT void pll_core_update_partial_ti_sse(unsigned int states,
   const double * lmat;
   const double * rmat;
 
-  unsigned int lstate;
+  pll_state_t lstate;
 
   /* dedicated functions for 4x4 matrices */
   if (states == 4)

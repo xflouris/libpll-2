@@ -23,10 +23,10 @@
 
 PLL_EXPORT int pll_set_parsimony_sequence(pll_parsimony_t * pars,
                                           unsigned int tip_index,
-                                          const unsigned int * map,
+                                          const pll_state_t * map,
                                           const char * sequence)
 {
-  unsigned int c;
+  pll_state_t c;
   unsigned int i,j;
 
   unsigned int states = pars->states;
@@ -304,7 +304,7 @@ PLL_EXPORT double pll_parsimony_score(pll_parsimony_t * pars,
 }
 
 PLL_EXPORT void pll_parsimony_reconstruct(pll_parsimony_t * pars,
-                                          const unsigned int * map,
+                                          const pll_state_t * map,
                                           const pll_pars_recop_t * operations,
                                           unsigned int count)
 {
@@ -324,9 +324,9 @@ PLL_EXPORT void pll_parsimony_reconstruct(pll_parsimony_t * pars,
   for (i = 0; i < 256; ++i) revmap[i] = 0;
   for (i = 0; i < 256; ++i)
   {
-    if (__builtin_popcount(map[i]) == 1)
+    if (PLL_STATE_POPCNT(map[i]) == 1)
     {
-      revmap[__builtin_ctz(map[i])] = i;
+      revmap[PLL_STATE_CTZ(map[i])] = i;
     }
   }
 
@@ -369,7 +369,7 @@ PLL_EXPORT void pll_parsimony_reconstruct(pll_parsimony_t * pars,
       }
 
       double parent_val = parent_score_buffer[n*states + 
-                            __builtin_ctz(map[parent_ancestral_buffer[n]])];
+                            PLL_STATE_CTZ(map[parent_ancestral_buffer[n]])];
 
       if (score_buffer[n*states+minindex] + 1 > parent_val)
         ancestral_buffer[n] = parent_ancestral_buffer[n];

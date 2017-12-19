@@ -121,7 +121,6 @@ PLL_EXPORT int pll_core_update_sumtable_ti_4x4(unsigned int sites,
                                                double * const * eigenvecs,
                                                double * const * inv_eigenvecs,
                                                double * const * freqs,
-                                               const unsigned int * tipmap,
                                                double * sumtable,
                                                unsigned int attrib)
 {
@@ -480,13 +479,13 @@ PLL_EXPORT int pll_core_update_sumtable_ti(unsigned int states,
                                            double * const * eigenvecs,
                                            double * const * inv_eigenvecs,
                                            double * const * freqs,
-                                           const unsigned int * tipmap,
+                                           const pll_state_t * tipmap,
                                            unsigned int tipmap_size,
                                            double * sumtable,
                                            unsigned int attrib)
 {
   unsigned int i, j, k, n;
-  unsigned int tipstate;
+  pll_state_t tipstate;
   double lefterm = 0;
   double righterm = 0;
 
@@ -563,7 +562,6 @@ PLL_EXPORT int pll_core_update_sumtable_ti(unsigned int states,
                                            eigenvecs,
                                            inv_eigenvecs,
                                            freqs,
-                                           tipmap,
                                            sumtable,
                                            attrib);
   }

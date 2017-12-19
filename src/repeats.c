@@ -25,7 +25,7 @@ const unsigned int EMPTY_ELEMENT = (unsigned int) -1;
 
 
 // map in charmap each char to a unique char identifier, according to map
-static void repeats_fill_charmap(const unsigned int *map, char *charmap) 
+static void repeats_fill_charmap(const pll_state_t *map, char *charmap)
 {
   unsigned int i,j;
   char maxChar = 0;
@@ -187,7 +187,7 @@ PLL_EXPORT int pll_repeats_initialize(pll_partition_t *partition)
 
 PLL_EXPORT int pll_update_repeats_tips(pll_partition_t * partition,
                                   unsigned int tip_index,
-                                  const unsigned int * map,
+                                  const pll_state_t * map,
                                   const char * sequence)
 {
   if (!partition->repeats->lookup_buffer)

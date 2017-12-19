@@ -124,7 +124,7 @@ pll_partition_t * init_partition(unsigned int attrs, int datatype)
   unsigned int i,j;
 
   unsigned int states = 0;
-  const unsigned int * map = NULL;
+  const pll_state_t * map = NULL;
   const char * alphabet = NULL;
   const double * base_freqs = NULL;
   const double * subst_rates = NULL;

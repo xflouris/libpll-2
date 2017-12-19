@@ -28,7 +28,7 @@ PLL_EXPORT void pll_core_create_lookup_avx(unsigned int states,
                                            double * ttlookup,
                                            const double * left_matrix,
                                            const double * right_matrix,
-                                           const unsigned int * tipmap,
+                                           const pll_state_t * tipmap,
                                            unsigned int tipmap_size)
 {
   if (states == 4)
@@ -89,8 +89,8 @@ PLL_EXPORT void pll_core_create_lookup_avx(unsigned int states,
           termj = 0;
           termk = 0;
 
-          unsigned int jstate = tipmap[j];
-          unsigned int kstate = tipmap[k];
+          pll_state_t jstate = tipmap[j];
+          pll_state_t kstate = tipmap[k];
 
           /* decompose basecall into the encoded residues and set the appropriate
              positions in the tip vector */
@@ -125,7 +125,7 @@ PLL_EXPORT void pll_core_create_lookup_20x20_avx(unsigned int rate_cats,
                                                double * ttlookup,
                                                const double * left_matrix,
                                                const double * right_matrix,
-                                               const unsigned int * tipmap,
+                                               const pll_state_t * tipmap,
                                                unsigned int tipmap_size)
 {
   unsigned int i,j,k,n,m;
@@ -171,9 +171,10 @@ PLL_EXPORT void pll_core_create_lookup_20x20_avx(unsigned int rate_cats,
     lmat = left_matrix;
     rmat = right_matrix;
 
-    unsigned int state = tipmap[j];
+    // just 20 states -> will fit into 32-bit int
+    unsigned int state = (unsigned int) tipmap[j];
 
-    int ss = __builtin_popcount(state) == 1 ? __builtin_ctz(state) : -1;
+    int ss = PLL_POPCNT32(state) == 1 ? PLL_CTZ32(state) : -1;
 
     for (n = 0; n < rate_cats; ++n)
     {
@@ -1037,7 +1038,7 @@ PLL_EXPORT void pll_core_update_partial_ti_avx(unsigned int states,
                                                const double * left_matrix,
                                                const double * right_matrix,
                                                const unsigned int * right_scaler,
-                                               const unsigned int * tipmap,
+                                               const pll_state_t * tipmap,
                                                unsigned int tipmap_size,
                                                unsigned int attrib)
 {
@@ -1049,7 +1050,7 @@ PLL_EXPORT void pll_core_update_partial_ti_avx(unsigned int states,
   unsigned int states_padded = (states+3) & 0xFFFFFFFC;
   unsigned int span_padded = states_padded * rate_cats;
 
-  unsigned int lstate;
+  pll_state_t lstate;
 
   /* dedicated functions for 4x4 matrices (DNA) */
   if (states == 4)
@@ -1513,7 +1514,7 @@ PLL_EXPORT void pll_core_update_partial_ti_20x20_avx(unsigned int sites,
                                                      const double * left_matrix,
                                                      const double * right_matrix,
                                                      const unsigned int * right_scaler,
-                                                     const unsigned int * tipmap,
+                                                     const pll_state_t * tipmap,
                                                      unsigned int tipmap_size,
                                                      unsigned int attrib)
 {
@@ -1551,9 +1552,9 @@ PLL_EXPORT void pll_core_update_partial_ti_20x20_avx(unsigned int sites,
   {
     lmat = left_matrix;
 
-    unsigned int state = tipmap[j];
+    unsigned int state = (unsigned int) tipmap[j];
 
-    int ss = __builtin_popcount(state) == 1 ? __builtin_ctz(state) : -1;
+    int ss = PLL_POPCNT32(state) == 1 ? PLL_CTZ32(state) : -1;
 
     for (n = 0; n < rate_cats; ++n)
     {

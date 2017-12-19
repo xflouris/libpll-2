@@ -56,7 +56,7 @@ PLL_EXPORT void pll_core_update_partial_ti_avx2(unsigned int states,
                                                 const double * left_matrix,
                                                 const double * right_matrix,
                                                 const unsigned int * right_scaler,
-                                                const unsigned int * tipmap,
+                                                const pll_state_t * tipmap,
                                                 unsigned int tipmap_size,
                                                 unsigned int attrib)
 {
@@ -68,7 +68,7 @@ PLL_EXPORT void pll_core_update_partial_ti_avx2(unsigned int states,
   unsigned int states_padded = (states+3) & 0xFFFFFFFC;
   unsigned int span_padded = states_padded * rate_cats;
 
-  unsigned int lstate;
+  pll_state_t lstate;
 
   /* dedicated functions for 4x4 matrices (DNA) */
   if (states == 4)
@@ -350,7 +350,7 @@ void pll_core_update_partial_ti_20x20_avx2(unsigned int sites,
                                            const double * left_matrix,
                                            const double * right_matrix,
                                            const unsigned int * right_scaler,
-                                           const unsigned int * tipmap,
+                                           const pll_state_t * tipmap,
                                            unsigned int tipmap_size,
                                            unsigned int attrib)
 {
@@ -388,14 +388,15 @@ void pll_core_update_partial_ti_20x20_avx2(unsigned int sites,
   {
     lmat = left_matrix;
 
-    unsigned int state = tipmap[j];
+    // we can do this since the number of state is fixed to 20 (and thus < 32)
+    unsigned int state = (unsigned int) tipmap[j];
 
-    unsigned int scount = __builtin_popcount(state);
+    unsigned int scount = PLL_POPCNT32(state);
 
     if (scount == 1)
     {
       /* special case for non-ambiguous states */
-      int ss = __builtin_ctz(state);
+      int ss = PLL_CTZ32(state);
 
       for (n = 0; n < rate_cats; ++n)
       {
