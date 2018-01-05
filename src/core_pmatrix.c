@@ -64,6 +64,20 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
                                              inv_eigenvecs,
                                              count);
     }
+    else if (states == 20)
+    {
+      return pll_core_update_pmatrix_20x20_sse(pmatrix,
+                                               rate_cats,
+                                               rates,
+                                               branch_lengths,
+                                               matrix_indices,
+                                               params_indices,
+                                               prop_invar,
+                                               eigenvals,
+                                               eigenvecs,
+                                               inv_eigenvecs,
+                                               count);
+    }
     /* this line is never called, but should we disable the else case above,
        then states_padded must be set to this value */
     states_padded = (states+1) & 0xFFFFFFFE;
