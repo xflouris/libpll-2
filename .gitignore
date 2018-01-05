@@ -1,6 +1,50 @@
-src/libpll.so
+#Generated C sources
+src/lex_rtree.c
+src/lex_utree.c
+src/parse_rtree.c
 src/parse_rtree.h
+src/parse_utree.c
 src/parse_utree.h
 src/parse_phylip.h
-*.o$
+
+#Generated support files
+m4/*
+!m4/ax*.m4
+.deps
+Makefile.in
+Makefile.rej
+Makefile.in.rej
+Makefile.orig
+Makefile.in.orig
+/Makefile
+examples/Makefile
+src/Makefile
+man/Makefile
+man/libpll_manual.pdf
+autom4te.cache
+/compile
+/config.*
+/configure
+/libtool
+/install-sh
+/depcomp
+/ltmain.sh
+/stamp-h1
+/ylwrap
+/missing
+/aclocal.m4
+
+#Build intermediates
+*.o
+*.a
 *.so
+.libs
+*.lo
+*.la
+*.lai
+
+#IDE files
+.autotools
+.cproject
+.project
+.settings
