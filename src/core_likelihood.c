@@ -1370,6 +1370,51 @@ double pll_core_edge_loglikelihood_ii(unsigned int states,
     states_padded = (states+3) & 0xFFFFFFFC;
   }
   #endif
+  #ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    if (states == 4)
+    {
+      return pll_core_edge_loglikelihood_ii_4x4_avx(sites,
+                                                    rate_cats,
+                                                    clvp,
+                                                    parent_scaler,
+                                                    clvc,
+                                                    child_scaler,
+                                                    pmatrix,
+                                                    frequencies,
+                                                    rate_weights,
+                                                    pattern_weights,
+                                                    invar_proportion,
+                                                    invar_indices,
+                                                    freqs_indices,
+                                                    persite_lnl,
+                                                    attrib);
+    }
+    else
+    {
+      return pll_core_edge_loglikelihood_ii_avx512f(states,
+                                                    sites,
+                                                    rate_cats,
+                                                    clvp,
+                                                    parent_scaler,
+                                                    clvc,
+                                                    child_scaler,
+                                                    pmatrix,
+                                                    frequencies,
+                                                    rate_weights,
+                                                    pattern_weights,
+                                                    invar_proportion,
+                                                    invar_indices,
+                                                    freqs_indices,
+                                                    persite_lnl,
+                                                    attrib);
+    }
+    /* this line is never called, but should we disable the else case above,
+       then states_padded must be set to this value */
+    states_padded = (states + 7) & (0xFFFFFFFF - 7);
+  }
+  #endif
 
   unsigned int site_scalings;
   unsigned int * rate_scalings = NULL;
