@@ -159,10 +159,10 @@ int main(int argc, char *argv[]) {
   free(persite_lnl);
   free(operations);
 
-  /*for (size_t i = 0; i < align_seqs; i++) {
+  for (size_t i = 0; i < align_seqs; i++) {
     free(align[i]);
   }
-  free(align);*/
+  free(align);
 
   return (0);
 }

@@ -432,9 +432,6 @@ if __name__ == "__main__":
   else:
     files=sys.argv[2:]
     
-  ##TODO only temporary
-  files = ["00001_matrix_calc", "derivatives-aa"]
-
   files.sort()
 
   num_tests = len(files)
