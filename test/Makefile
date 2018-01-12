@@ -17,8 +17,11 @@
 #    Exelixis Lab, Heidelberg Instutute for Theoretical Studies
 #    Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 
+LIB_DIR = ../src/.libs
+ABS_LIB_DIR=`readlink -m "../src/.libs"`
+
 CC = gcc
-CFLAGS = -L. -g -O3 -Wall -std=c99
+CFLAGS = -L$(LIB_DIR) -g -O3 -Wall -std=c99
 CLIBS = -lpll -lm
 
 CFILES = $(shell find src -name '*.c' ! -name 'common.c')
@@ -51,7 +54,7 @@ $(DATADIR)/%:
 
 obj/%: src/%.c $(DEPS)
 	@mkdir -p "$(@D)"
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(OBJCOMMON) $(CLIBS) $(LDFLAGS) -DDATADIR=\"$(DATADIR)\"
+	$(CC) "-Wl,-rpath,$(ABS_LIB_DIR)" $(CPPFLAGS) $(CFLAGS) -o $@ $< $(OBJCOMMON) $(CLIBS) $(LDFLAGS) -DDATADIR=\"$(DATADIR)\"
 
 %.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $< $(CLIBS) $(LDFLAGS) -DDATADIR=\"$(DATADIR)\"

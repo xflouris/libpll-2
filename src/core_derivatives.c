@@ -395,6 +395,23 @@ PLL_EXPORT int pll_core_update_sumtable_ii(unsigned int states,
                                            attrib);
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    return pll_core_update_sumtable_ii_avx512f(states,
+                                               sites,
+                                               rate_cats,
+                                               parent_clv,
+                                               child_clv,
+                                               parent_scaler,
+                                               child_scaler,
+                                               eigenvecs,
+                                               inv_eigenvecs,
+                                               freqs,
+                                               sumtable,
+                                               attrib);
+  }
+#endif
 
   unsigned int min_scaler;
   unsigned int * rate_scalings = NULL;
@@ -778,7 +795,27 @@ PLL_EXPORT int pll_core_likelihood_derivatives(unsigned int states,
     states_padded = (states+1) & 0xFFFFFFFE;
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    states_padded = (states+7) & (0xFFFFFFFF - 7);
 
+    pll_core_likelihood_derivatives_avx512f(states,
+                                            states_padded,
+                                            rate_cats,
+                                            ef_sites,
+                                            pattern_weights,
+                                            rate_weights,
+                                            invariant,
+                                            prop_invar,
+                                            freqs,
+                                            sumtable,
+                                            diagptable,
+                                            d_f,
+                                            dd_f);
+  }
+  else
+#endif
 #ifdef HAVE_AVX2
   if (attrib & PLL_ATTRIB_ARCH_AVX2 && PLL_STAT(avx2_present))
   {

@@ -22,6 +22,7 @@ src/Makefile
 man/Makefile
 man/libpll_manual.pdf
 autom4te.cache
+tmpvalgrind
 /compile
 /config.*
 /configure

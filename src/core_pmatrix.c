@@ -126,6 +126,29 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
     if (states == 20)
     {
       return pll_core_update_pmatrix_20x20_avx2(pmatrix,
+                                                rate_cats,
+                                                rates,
+                                                branch_lengths,
+                                                matrix_indices,
+                                                params_indices,
+                                                prop_invar,
+                                                eigenvals,
+                                                eigenvecs,
+                                                inv_eigenvecs,
+                                                count);
+    }
+    /* this line is never called, but should we disable the else case above,
+       then states_padded must be set to this value */
+    states_padded = (states+3) & 0xFFFFFFFC;
+  }
+  #endif
+  #ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    if (states == 4)
+    {
+      /* use AVX version here since FMA doesn't make much sense */
+      return pll_core_update_pmatrix_4x4_avx(pmatrix,
                                              rate_cats,
                                              rates,
                                              branch_lengths,
@@ -137,9 +160,23 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
                                              inv_eigenvecs,
                                              count);
     }
+    if (states == 20)
+    {
+      return pll_core_update_pmatrix_20x20_avx512f(pmatrix,
+                                                   rate_cats,
+                                                   rates,
+                                                   branch_lengths,
+                                                   matrix_indices,
+                                                   params_indices,
+                                                   prop_invar,
+                                                   eigenvals,
+                                                   eigenvecs,
+                                                   inv_eigenvecs,
+                                                   count);
+    }
     /* this line is never called, but should we disable the else case above,
        then states_padded must be set to this value */
-    states_padded = (states+3) & 0xFFFFFFFC;
+    states_padded = (states+7) & (0xFFFFFFFF - 7);
   }
   #endif
 

@@ -687,6 +687,24 @@ PLL_EXPORT void pll_core_update_partial_ii(unsigned int states,
     return;
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    pll_core_update_partial_ii_avx512f(states,
+                                       sites,
+                                       rate_cats,
+                                       parent_clv,
+                                       parent_scaler,
+                                       left_clv,
+                                       right_clv,
+                                       left_matrix,
+                                       right_matrix,
+                                       left_scaler,
+                                       right_scaler,
+                                       attrib);
+    return;
+  }
+#endif
 
   /* init scaling-related stuff */
   if (parent_scaler)

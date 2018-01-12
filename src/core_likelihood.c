@@ -158,7 +158,43 @@ PLL_EXPORT double pll_core_root_loglikelihood(unsigned int states,
     states_padded = (states+3) & 0xFFFFFFFC;
   }
   #endif
-
+  #ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    if (states == 4)
+    {
+      return pll_core_root_loglikelihood_4x4_avx(sites,
+                                                 rate_cats,
+                                                 clv,
+                                                 scaler,
+                                                 frequencies,
+                                                 rate_weights,
+                                                 pattern_weights,
+                                                 invar_proportion,
+                                                 invar_indices,
+                                                 freqs_indices,
+                                                 persite_lnl);
+    }
+    else
+    {
+      return pll_core_root_loglikelihood_avx512f(states,
+                                                 sites,
+                                                 rate_cats,
+                                                 clv,
+                                                 scaler,
+                                                 frequencies,
+                                                 rate_weights,
+                                                 pattern_weights,
+                                                 invar_proportion,
+                                                 invar_indices,
+                                                 freqs_indices,
+                                                 persite_lnl);
+    }
+    /* this line is never called, but should we disable the else case above,
+       then states_padded must be set to this value */
+    states_padded = (states + 7) & (0xFFFFFFFF - 7);
+  }
+  #endif
 
   /* iterate through sites */
   for (i = 0; i < sites; ++i)
@@ -751,6 +787,69 @@ double pll_core_edge_loglikelihood_ti(unsigned int states,
     /* this line is never called, but should we disable the else case above,
        then states_padded must be set to this value */
     states_padded = (states+3) & 0xFFFFFFFC;
+  }
+  #endif
+  #ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    if (states == 4)
+    {
+      return pll_core_edge_loglikelihood_ti_4x4_avx(sites,
+                                                    rate_cats,
+                                                    parent_clv,
+                                                    parent_scaler,
+                                                    tipchars,
+                                                    pmatrix,
+                                                    frequencies,
+                                                    rate_weights,
+                                                    pattern_weights,
+                                                    invar_proportion,
+                                                    invar_indices,
+                                                    freqs_indices,
+                                                    persite_lnl,
+                                                    attrib);
+    }
+    else if (states == 20)
+    {
+      return pll_core_edge_loglikelihood_ti_20x20_avx512f(sites,
+                                                          rate_cats,
+                                                          parent_clv,
+                                                          parent_scaler,
+                                                          tipchars,
+                                                          tipmap,
+                                                          tipmap_size,
+                                                          pmatrix,
+                                                          frequencies,
+                                                          rate_weights,
+                                                          pattern_weights,
+                                                          invar_proportion,
+                                                          invar_indices,
+                                                          freqs_indices,
+                                                          persite_lnl,
+                                                          attrib);
+    }
+    else
+    {
+      return pll_core_edge_loglikelihood_ti_avx(states,
+                                                sites,
+                                                rate_cats,
+                                                parent_clv,
+                                                parent_scaler,
+                                                tipchars,
+                                                tipmap,
+                                                pmatrix,
+                                                frequencies,
+                                                rate_weights,
+                                                pattern_weights,
+                                                invar_proportion,
+                                                invar_indices,
+                                                freqs_indices,
+                                                persite_lnl,
+                                                attrib);
+    }
+    /* this line is never called, but should we disable the else case above,
+       then states_padded must be set to this value */
+    states_padded = (states + 7) & (0xFFFFFFFF - 7);
   }
   #endif
 
