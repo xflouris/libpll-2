@@ -653,11 +653,33 @@ PLL_EXPORT int pll_core_update_sumtable_ti_avx512f(unsigned int states,
                                                    unsigned int tipmap_size,
                                                    double *sumtable,
                                                    unsigned int attrib) {
-  assert(0);
   //TODO: Not implemented!
+  assert(!(attrib & PLL_ATTRIB_PATTERN_TIP));
   return PLL_FAILURE;
 }
 
+PLL_EXPORT int pll_core_update_sumtable_repeats_generic_avx512f(unsigned int states,
+                                                                unsigned int sites,
+                                                                unsigned int parent_sites,
+                                                                unsigned int rate_cats,
+                                                                const double * clvp,
+                                                                const double * clvc,
+                                                                const unsigned int * parent_scaler,
+                                                                const unsigned int * child_scaler,
+                                                                double * const * eigenvecs,
+                                                                double * const * inv_eigenvecs,
+                                                                double * const * freqs,
+                                                                double *sumtable,
+                                                                const unsigned int * parent_site_id,
+                                                                const unsigned int * child_site_id,
+                                                                double * bclv_buffer,
+                                                                unsigned int inv,
+                                                                unsigned int attrib)
+{
+  //TODO: Not implemented!
+  assert(!(attrib & PLL_ATTRIB_SITE_REPEATS));
+  return PLL_FAILURE;
+}
 PLL_EXPORT
 int pll_core_likelihood_derivatives_avx512f(unsigned int states,
                                             unsigned int states_padded,

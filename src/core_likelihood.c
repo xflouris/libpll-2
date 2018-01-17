@@ -369,6 +369,13 @@ PLL_EXPORT double pll_core_root_loglikelihood_repeats(unsigned int states,
     // TODO call 4x4 avx (not avx2) functions when implemented
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    core_root_loglikelihood = pll_core_root_loglikelihood_repeats_avx512f;
+    // TODO call 4x4 avx (not avx2) functions when implemented
+  }
+#endif
     return core_root_loglikelihood(states,
                                   sites,
                                   rate_cats,
@@ -456,6 +463,25 @@ double pll_core_edge_loglikelihood_ti_4x4(unsigned int sites,
   #endif
   #ifdef HAVE_AVX2
   if (attrib & PLL_ATTRIB_ARCH_AVX2 && PLL_STAT(avx2_present))
+  {
+    return pll_core_edge_loglikelihood_ti_4x4_avx(sites,
+                                                  rate_cats,
+                                                  parent_clv,
+                                                  parent_scaler,
+                                                  tipchars,
+                                                  pmatrix,
+                                                  frequencies,
+                                                  rate_weights,
+                                                  pattern_weights,
+                                                  invar_proportion,
+                                                  invar_indices,
+                                                  freqs_indices,
+                                                  persite_lnl,
+                                                  attrib);
+  }
+  #endif
+  #ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
   {
     return pll_core_edge_loglikelihood_ti_4x4_avx(sites,
                                                   rate_cats,
@@ -1031,6 +1057,12 @@ double pll_core_edge_loglikelihood_repeats(unsigned int states,
   if (attrib & PLL_ATTRIB_ARCH_AVX2 &&  PLL_STAT(avx2_present))
   {
     core_edge_loglikelihood = pll_core_edge_loglikelihood_repeats_generic_avx2;
+  }
+#endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F &&  PLL_STAT(avx512f_present))
+  {
+    core_edge_loglikelihood = pll_core_edge_loglikelihood_repeats_generic_avx512f;
   }
 #endif
   return core_edge_loglikelihood(states,

@@ -176,6 +176,32 @@ PLL_EXPORT void pll_core_update_partial_tt(unsigned int states,
     return;
   }
   #endif
+  #ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    if (states == 4)
+      pll_core_update_partial_tt_4x4_avx(sites,
+                                         rate_cats,
+                                         parent_clv,
+                                         parent_scaler,
+                                         left_tipchars,
+                                         right_tipchars,
+                                         lookup,
+                                         attrib);
+    else
+      pll_core_update_partial_tt_avx(states,
+                                     sites,
+                                     rate_cats,
+                                     parent_clv,
+                                     parent_scaler,
+                                     left_tipchars,
+                                     right_tipchars,
+                                     lookup,
+                                     tipmap_size,
+                                     attrib);
+    return;
+  }
+  #endif
 
   unsigned int span = states * rate_cats;
   unsigned int log2_maxstates = (unsigned int)ceil(log2(tipmap_size));
@@ -255,6 +281,22 @@ PLL_EXPORT void pll_core_update_partial_ti_4x4(unsigned int sites,
   #endif
   #ifdef HAVE_AVX2
   if (attrib & PLL_ATTRIB_ARCH_AVX2 && PLL_STAT(avx2_present))
+  {
+    pll_core_update_partial_ti_4x4_avx(sites,
+                                       rate_cats,
+                                       parent_clv,
+                                       parent_scaler,
+                                       left_tipchars,
+                                       right_clv,
+                                       left_matrix,
+                                       right_matrix,
+                                       right_scaler,
+                                       attrib);
+    return;
+  }
+  #endif
+  #ifdef HAVE_AVX512
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
   {
     pll_core_update_partial_ti_4x4_avx(sites,
                                        rate_cats,
@@ -443,6 +485,25 @@ PLL_EXPORT void pll_core_update_partial_ti(unsigned int states,
     return;
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    pll_core_update_partial_ti_avx512f(states,
+                                       sites,
+                                       rate_cats,
+                                       parent_clv,
+                                       parent_scaler,
+                                       left_tipchars,
+                                       right_clv,
+                                       left_matrix,
+                                       right_matrix,
+                                       right_scaler,
+                                       tipmap,
+                                       tipmap_size,
+                                       attrib);
+    return;
+  }
+#endif
 
   if (states == 4)
   {
@@ -585,6 +646,20 @@ PLL_EXPORT void pll_core_update_partial_repeats(unsigned int states,
       if (use_bclv)
         core_update_partials = pll_core_update_partial_repeatsbclv_4x4_avx;
       else  
+        core_update_partials = pll_core_update_partial_repeats_4x4_avx;
+    }
+  }
+#endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F &&  PLL_STAT(avx512f_present))
+  {
+    core_update_partials = pll_core_update_partial_repeats_generic_avx512f;
+    if (states == 4)
+    {
+      // for DNA, avx is faster than avx512f
+      if (use_bclv)
+        core_update_partials = pll_core_update_partial_repeatsbclv_4x4_avx;
+      else
         core_update_partials = pll_core_update_partial_repeats_4x4_avx;
     }
   }
@@ -1138,6 +1213,25 @@ PLL_EXPORT void pll_core_create_lookup(unsigned int states,
   #endif
   #ifdef HAVE_AVX2
   if (attrib & PLL_ATTRIB_ARCH_AVX2 && PLL_STAT(avx2_present))
+  {
+    if (states == 4)
+      pll_core_create_lookup_4x4_avx(rate_cats,
+                                     lookup,
+                                     left_matrix,
+                                     right_matrix);
+    else
+      pll_core_create_lookup_avx(states,
+                                 rate_cats,
+                                 lookup,
+                                 left_matrix,
+                                 right_matrix,
+                                 tipmap,
+                                 tipmap_size);
+    return;
+  }
+  #endif
+  #ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
   {
     if (states == 4)
       pll_core_create_lookup_4x4_avx(rate_cats,

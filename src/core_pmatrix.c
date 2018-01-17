@@ -147,7 +147,9 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
   {
     if (states == 4)
     {
-      /* use AVX version here since FMA doesn't make much sense */
+      assert(states != 4);
+      /* TODO: cannot fallback to AVX due to states padding */
+      /*
       return pll_core_update_pmatrix_4x4_avx(pmatrix,
                                              rate_cats,
                                              rates,
@@ -158,7 +160,8 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
                                              eigenvals,
                                              eigenvecs,
                                              inv_eigenvecs,
-                                             count);
+                                             count);                                      
+      */
     }
     if (states == 20)
     {

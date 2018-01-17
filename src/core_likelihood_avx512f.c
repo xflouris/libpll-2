@@ -110,6 +110,25 @@ PLL_EXPORT double pll_core_root_loglikelihood_avx512f(unsigned int states,
   return logl;
 }
 
+PLL_EXPORT double pll_core_root_loglikelihood_repeats_avx512f(unsigned int states,
+                                                              unsigned int sites,
+                                                              unsigned int rate_cats,
+                                                              const double * clv,
+                                                              const unsigned int * site_id,
+                                                              const unsigned int * scaler,
+                                                              double * const * frequencies,
+                                                              const double * rate_weights,
+                                                              const unsigned int * pattern_weights,
+                                                              const double * invar_proportion,
+                                                              const int * invar_indices,
+                                                              const unsigned int * freqs_indices,
+                                                              double * persite_lnl)
+{
+	//TODO: not implemented
+	assert(0);
+	return 0;
+}
+
 PLL_EXPORT
 double pll_core_edge_loglikelihood_ti_20x20_avx512f(unsigned int sites,
                                                     unsigned int rate_cats,
@@ -128,7 +147,7 @@ double pll_core_edge_loglikelihood_ti_20x20_avx512f(unsigned int sites,
                                                     double *persite_lnl,
                                                     unsigned int attrib) {
   //TODO not implemented
-  assert(0);
+  assert(!(attrib & PLL_ATTRIB_PATTERN_TIP));
   return 0;
 }
 
@@ -380,4 +399,31 @@ double pll_core_edge_loglikelihood_ii_avx512f(unsigned int states,
     free(rate_scalings);
 
   return logl;
+}
+
+PLL_EXPORT
+double pll_core_edge_loglikelihood_repeats_generic_avx512f(unsigned int states,
+                                                           unsigned int sites,
+                                                           const unsigned int child_sites,
+                                                           unsigned int rate_cats,
+                                                           const double * parent_clv,
+                                                           const unsigned int * parent_scaler,
+                                                           const double * child_clv,
+                                                           const unsigned int * child_scaler,
+                                                           const double * pmatrix,
+                                                           double ** frequencies,
+                                                           const double * rate_weights,
+                                                           const unsigned int * pattern_weights,
+                                                           const double * invar_proportion,
+                                                           const int * invar_indices,
+                                                           const unsigned int * freqs_indices,
+                                                           double * persite_lnl,
+                                                           const unsigned int * parent_site_id,
+                                                           const unsigned int * child_site_id,
+                                                           double * bclv,
+                                                           unsigned int attrib)
+{
+	//TODO: not implemented
+	assert(!(PLL_ATTRIB_SITE_REPEATS & attrib));
+	return 0;
 }

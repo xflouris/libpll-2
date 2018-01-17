@@ -342,7 +342,7 @@ PLL_EXPORT void pll_core_update_partial_ti_avx512f(unsigned int states,
                                                    unsigned int tipmap_size,
                                                    unsigned int attrib) {
   //TODO not implemented!
-  assert(0);
+  assert(!(attrib & PLL_ATTRIB_PATTERN_TIP));
 }
 
 
@@ -480,7 +480,7 @@ void pll_core_update_partial_ti_20x20_avx512f(unsigned int sites,
                                               unsigned int tipmap_size,
                                               unsigned int attrib) {
   //TODO not implemented
-  assert(0);
+  assert(!(attrib & PLL_ATTRIB_PATTERN_TIP));
 }
 
 PLL_EXPORT void pll_core_update_partial_ii_avx512f(unsigned int states,
@@ -795,4 +795,27 @@ PLL_EXPORT void pll_core_update_partial_ii_avx512f(unsigned int states,
       parent_scaler[n] += 1;
     }
   }
+}
+
+PLL_EXPORT void pll_core_update_partial_repeats_generic_avx512f(unsigned int states,
+                                                                unsigned int parent_sites,
+                                                                unsigned int left_sites,
+                                                                unsigned int right_sites,
+                                                                unsigned int rate_cats,
+                                                                double * parent_clv,
+                                                                unsigned int * parent_scaler,
+                                                                const double * left_clv,
+                                                                const double * right_clv,
+                                                                const double * left_matrix,
+                                                                const double * right_matrix,
+                                                                const unsigned int * left_scaler,
+                                                                const unsigned int * right_scaler,
+                                                                const unsigned int * parent_id_site,
+                                                                const unsigned int * left_site_id,
+                                                                const unsigned int * right_site_id,
+                                                                double * bclv_buffer,
+                                                                unsigned int attrib)
+{
+	//TODO not implemented
+	assert(!(PLL_ATTRIB_SITE_REPEATS & attrib));
 }

@@ -92,6 +92,20 @@ PLL_EXPORT int pll_core_update_sumtable_repeats(unsigned int states,
     }
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F &&  PLL_STAT(avx512f_present))
+  {
+    core_update_sumtable = pll_core_update_sumtable_repeats_generic_avx512f;
+    if (states == 4)
+    {
+      // avx is good enough
+      if (use_bclv)
+        core_update_sumtable = pll_core_update_sumtable_repeatsbclv_4x4_avx;
+      else
+        core_update_sumtable = pll_core_update_sumtable_repeats_4x4_avx;
+    }
+  }
+#endif
 
   return core_update_sumtable(states,
                               sites,
@@ -565,6 +579,24 @@ PLL_EXPORT int pll_core_update_sumtable_ti(unsigned int states,
                                            tipmap_size,
                                            sumtable,
                                            attrib);
+  }
+#endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    return pll_core_update_sumtable_ti_avx512f(states,
+                                               sites,
+                                               rate_cats,
+                                               parent_clv,
+                                               left_tipchars,
+                                               parent_scaler,
+                                               eigenvecs,
+                                               inv_eigenvecs,
+                                               freqs,
+                                               tipmap,
+                                               tipmap_size,
+                                               sumtable,
+                                               attrib);
   }
 #endif
 
