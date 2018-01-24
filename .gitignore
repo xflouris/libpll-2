@@ -49,3 +49,4 @@ tmpvalgrind
 .cproject
 .project
 .settings
+.pydevproject
