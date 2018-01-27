@@ -485,6 +485,27 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
   {
     partition->alignment = PLL_ALIGNMENT_AVX512F;
     partition->states_padded = (states+7) & (0xFFFFFFFF - 7);
+    //TODO AVX512F kernels are not supported for DNA data, fall back to AVX2
+    if (states == 4)
+    {
+		  partition->alignment = PLL_ALIGNMENT_AVX;
+	  	partition->states_padded = (states+3) & 0xFFFFFFFC;
+	  	partition->attributes &= ~PLL_ATTRIB_ARCH_AVX512F;
+		  partition->attributes |= PLL_ATTRIB_ARCH_AVX2;
+  	}
+    else 
+    {
+      //TODO AVX512F in combination with tips mode is not supported, fall back to AVX512F without tips mode
+      if(partition->attributes & PLL_ATTRIB_PATTERN_TIP)
+      {
+        partition->attributes &= ~PLL_ATTRIB_PATTERN_TIP;
+      }
+      //TODO AVX512F in combination with repeats mode is not supported, fall back to AVX512F without repeats mode
+      if(partition->attributes & PLL_ATTRIB_SITE_REPEATS)
+      {
+        partition->attributes &= ~PLL_ATTRIB_SITE_REPEATS;
+      }
+    }
   }
 #endif
 
