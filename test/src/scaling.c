@@ -215,8 +215,12 @@ void init(unsigned int attrs)
   matrix_indices = (unsigned int *)malloc(branch_count * sizeof(unsigned int));
   operations = (pll_operation_t *)malloc(tree->inner_count *
                                                 sizeof(pll_operation_t));
+
+  int elems_per_reg = part_sitescale_aa->alignment / sizeof(double);
+  int sites_padded = (part_sitescale_aa->sites + elems_per_reg - 1) & (0xFFFFFFFF - elems_per_reg + 1);
+
   persite_lnl = (double *)malloc(part_sitescale_aa->sites * sizeof(double));
-  sumtable = pll_aligned_alloc(part_sitescale_aa->sites *
+  sumtable = pll_aligned_alloc(sites_padded *
                                part_sitescale_aa->rate_cats *
                                part_sitescale_aa->states_padded * sizeof(double),
                                part_sitescale_aa->alignment);
@@ -395,6 +399,16 @@ int main(int argc, char * argv[])
 {
   /* check attributes */
   unsigned int attributes = get_attributes(argc, argv);
+
+  /* no support for AVX512F + TIP */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_PATTERN_TIP))
+    skip_test();
+
+  /* no support for AVX512F + REPEATS */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_SITE_REPEATS))
+    skip_test();
 
   init(attributes);
 

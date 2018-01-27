@@ -199,6 +199,10 @@ int main (int argc, char * argv[])
 {
   unsigned int attributes = get_attributes(argc, argv);
 
+  /* no support for nucleotide yet */
+  if (attributes & PLL_ATTRIB_ARCH_AVX512F)
+    skip_test();
+
   if (bigtest (attributes))
     printf ("Big test OK\n\n");
 

@@ -96,6 +96,16 @@ int main(int argc, char *argv[]) {
   /* check attributes */
   unsigned int attributes = get_attributes(argc, argv);
 
+  /* no support for AVX512F + TIP */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_PATTERN_TIP))
+    skip_test();
+
+  /* no support for AVX512F + REPEATS */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_SITE_REPEATS))
+    skip_test();
+
   for (k = 0; k < NUM_CATS; ++k) {
     pll_partition_t *partition;
     printf("FREE CREATE\n");
