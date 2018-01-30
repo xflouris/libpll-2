@@ -405,7 +405,7 @@ void pll_core_update_partial_ii_20x20_avx512f(unsigned int sites,
   } else {
     /* determine the scaling mode and init the vars accordingly */
     scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
-    init_mask = (scale_mode == 1) ? 0xF : 0;
+    init_mask = (scale_mode == 1) ? 0xFF : 0;
     const size_t scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
     /* add up the scale vector of the two children if available */
     fill_parent_scaler(scaler_size, parent_scaler, left_scaler, right_scaler);
@@ -420,7 +420,7 @@ void pll_core_update_partial_ii_20x20_avx512f(unsigned int sites,
     scale_mask = init_mask;
 
     for (k = 0; k < rate_cats; ++k) {
-      __mmask8 rate_mask = 0xF;
+      __mmask8 rate_mask = 0xFF;
 
       PROCESS_8_ROWS(0);
       PROCESS_8_ROWS(8);
@@ -429,7 +429,7 @@ void pll_core_update_partial_ii_20x20_avx512f(unsigned int sites,
       if (scale_mode == 2) {
         /* PER-RATE SCALING: if *all* entries of the *rate* CLV were below
        * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
-        if (rate_mask == 0xF) {
+        if (rate_mask == 0xFF) {
           for (i = 0; i < states_padded; i += ELEM_PER_AVX515_REGISTER) {
             __m512d v_prod = _mm512_load_pd(parent_clv + i);
             v_prod = _mm512_mul_pd(v_prod, v_scale_factor);
@@ -453,7 +453,7 @@ void pll_core_update_partial_ii_20x20_avx512f(unsigned int sites,
 
     /* if *all* entries of the site CLV were below the threshold then scale
        (all) entries by PLL_SCALE_FACTOR */
-    if (scale_mask == 0xF) {
+    if (scale_mask == 0xFF) {
       parent_clv -= span_padded;
       for (i = 0; i < span_padded; i += ELEM_PER_AVX515_REGISTER) {
         __m512d v_prod = _mm512_load_pd(parent_clv + i);
@@ -565,7 +565,7 @@ PLL_EXPORT void pll_core_update_partial_ii_avx512f(unsigned int states,
   } else {
     /* determine the scaling mode and init the vars accordingly */
     scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
-    init_mask = (scale_mode == 1) ? 0xF : 0;
+    init_mask = (scale_mode == 1) ? 0xFF : 0;
     const size_t scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
     /* add up the scale vector of the two children if available */
     fill_parent_scaler(scaler_size, parent_scaler, left_scaler, right_scaler);
@@ -580,7 +580,7 @@ PLL_EXPORT void pll_core_update_partial_ii_avx512f(unsigned int states,
     scale_mask = init_mask;
 
     for (k = 0; k < rate_cats; ++k) {
-      __mmask8 rate_mask = 0xF;
+      __mmask8 rate_mask = 0xFF;
 
       /* iterate over octuple of rows */
       for (i = 0; i < states_padded; i += ELEM_PER_AVX515_REGISTER) {
@@ -760,7 +760,7 @@ PLL_EXPORT void pll_core_update_partial_ii_avx512f(unsigned int states,
       if (scale_mode == 2) {
         /* PER-RATE SCALING: if *all* entries of the *rate* CLV were below
        * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
-        if (rate_mask == 0xF) {
+        if (rate_mask == 0xFF) {
           for (i = 0; i < states_padded; i += ELEM_PER_AVX515_REGISTER) {
             __m512d v_prod = _mm512_load_pd(parent_clv + i);
             v_prod = _mm512_mul_pd(v_prod, v_scale_factor);
@@ -784,7 +784,7 @@ PLL_EXPORT void pll_core_update_partial_ii_avx512f(unsigned int states,
 
     /* if *all* entries of the site CLV were below the threshold then scale
        (all) entries by PLL_SCALE_FACTOR */
-    if (scale_mask == 0xF) {
+    if (scale_mask == 0xFF) {
       parent_clv -= span_padded;
       for (i = 0; i < span_padded; i += ELEM_PER_AVX515_REGISTER) {
         __m512d v_prod = _mm512_load_pd(parent_clv + i);
