@@ -221,7 +221,7 @@
   __m512d v_prod = _mm512_mul_pd(v_terma_sum, v_termb_sum);                            \
                                                                                        \
   /* check if scaling is needed for the current rate category */                       \
-  rate_mask = _mm512_cmp_pd_mask(v_prod, v_scale_threshold, _CMP_LT_OS);               \
+  rate_mask = rate_mask & _mm512_cmp_pd_mask(v_prod, v_scale_threshold, _CMP_LT_OS);   \
                                                                                        \
   _mm512_store_pd(parent_clv + i, v_prod);}                                            \
 
@@ -301,7 +301,7 @@ __m512d v_terma0 = _mm512_setzero_pd();                                         
   v_prod = _mm512_insertf64x4(v_prod, _mm256_setzero_pd(), 1);                             \
                                                                                            \
   /* check if scaling is needed for the current rate category */                           \
-  rate_mask = _mm512_cmp_pd_mask(v_prod, v_scale_threshold, _CMP_LT_OS);                   \
+  rate_mask = rate_mask & _mm512_cmp_pd_mask(v_prod, v_scale_threshold, _CMP_LT_OS);       \
                                                                                            \
   _mm512_store_pd(parent_clv + i, v_prod);}                                                \
 
@@ -752,7 +752,7 @@ PLL_EXPORT void pll_core_update_partial_ii_avx512f(unsigned int states,
         __m512d v_prod = _mm512_mul_pd(v_terma_sum, v_termb_sum);
 
         /* check if scaling is needed for the current rate category */
-        rate_mask = _mm512_cmp_pd_mask(v_prod, v_scale_threshold, _CMP_LT_OS);
+        rate_mask = rate_mask & _mm512_cmp_pd_mask(v_prod, v_scale_threshold, _CMP_LT_OS);
 
         _mm512_store_pd(parent_clv + i, v_prod);
       }
