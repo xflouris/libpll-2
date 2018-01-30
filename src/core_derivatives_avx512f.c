@@ -32,7 +32,8 @@ inline double reduce_add_pd(const __m512d zmm) {
   return _mm_cvtsd_f64(t3);
 }
 
-#define COMPUTE_GATHER_MASK(sites, elems_per_reg) 0xff >> ((elems_per_reg) - (sites) % (elems_per_reg))
+#define COMPUTE_GATHER_MASK(n, sites, elems_per_reg) \
+  ((n) + (elems_per_reg) <= (sites) ? 0xff : 0xff >> ((elems_per_reg) - (sites) % (elems_per_reg)))
 
 #define COMPUTE_II_QCOL(q, offset) \
 /* row 0 */ \
@@ -112,15 +113,21 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
   unsigned int states = 20;
   unsigned int states_padded = (states + 7) & (0xFFFFFFFF - 7);
 
-/* scaling stuff */
-  unsigned int min_scaler = 0;
-  unsigned int *rate_scalings = NULL;
+  /* scaling stuff */
+  __m512i min_scaler =  _mm512_setzero_epi32();
+  __m512i *rate_scalings = NULL;
   int per_rate_scaling = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 1 : 0;
 
-/* powers of scale threshold for undoing the scaling */
+  /* powers of scale threshold for undoing the scaling */
   double scale_minlh[PLL_SCALE_RATE_MAXDIFF];
   if (per_rate_scaling) {
-    rate_scalings = (unsigned int *) calloc(rate_cats, sizeof(unsigned int));
+    rate_scalings = (__m512i *) pll_aligned_alloc(rate_cats * sizeof(__m512i), PLL_ALIGNMENT_AVX512F);
+    if (!rate_scalings) {
+      pll_errno = PLL_ERROR_MEM_ALLOC;
+      snprintf(pll_errmsg, 200, "Cannot allocate memory for rate_scalings");
+      return PLL_FAILURE;
+    }
+    //rate_scalings = (__m512i *) calloc(rate_cats, sizeof(__m512i));
 
     double scale_factor = 1.0;
     for (unsigned int i = 0; i < PLL_SCALE_RATE_MAXDIFF; ++i) {
@@ -129,7 +136,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
     }
   }
 
-/* padded eigenvecs */
+  /* padded eigenvecs */
   double *tt_eigenvecs = (double *) pll_aligned_alloc(
           (states * states * rate_cats) * sizeof(double),
           PLL_ALIGNMENT_AVX512F);
@@ -140,7 +147,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
     return PLL_FAILURE;
   }
 
-/* transposed padded inv_eigenvecs */
+  /* transposed padded inv_eigenvecs */
   double *tt_inv_eigenvecs = (double *) pll_aligned_alloc(
           (states * states * rate_cats) * sizeof(double),
           PLL_ALIGNMENT_AVX512F);
@@ -151,7 +158,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
     return PLL_FAILURE;
   }
 
-/* broadcast eigenvecs matrices and multiply with frequencies */
+  /* broadcast eigenvecs matrices and multiply with frequencies */
   for (unsigned int i = 0; i < rate_cats; ++i) {
     for (unsigned int j = 0; j < states; ++j)
       for (unsigned int k = 0; k < states; ++k) {
@@ -164,12 +171,6 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
       }
   }
 
-  //TODO
-  if (per_rate_scaling) {
-    printf("Per rate scaling not supported in AVX512");
-    exit(1);
-  }
-
   __m512i v_index = _mm512_setr_epi64(0,
                                       1 * rate_cats * states_padded,
                                       2 * rate_cats * states_padded,
@@ -179,97 +180,122 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
                                       6 * rate_cats * states_padded,
                                       7 * rate_cats * states_padded);
 
-  __mmask8 gather_mask = COMPUTE_GATHER_MASK(sites, ELEM_PER_AVX515_REGISTER);
+  __m256i v_scaler_index = _mm256_setr_epi32(0,
+                                             1 * rate_cats,
+                                             2 * rate_cats,
+                                             3 * rate_cats,
+                                             4 * rate_cats,
+                                             5 * rate_cats,
+                                             6 * rate_cats,
+                                             7 * rate_cats);
 
   /* build sumtable */
   for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX515_REGISTER) {
+    __mmask8 gather_mask = COMPUTE_GATHER_MASK(n, sites, ELEM_PER_AVX515_REGISTER);
+    if (per_rate_scaling) {
+      /* compute minimum per-rate scaler -> common per-site scaler */
+      min_scaler =  _mm512_set1_epi64(UINT_MAX);
+      //min_scaler = UINT_MAX;
+      for (unsigned int i = 0; i < rate_cats; ++i) {
+        rate_scalings[i] = _mm512_setzero_epi32();
+
+        //printf("####### 1 rate_scalings[%d] ", i);
+        //print_512i(rate_scalings[i]);
+
+        if(parent_scaler) {
+          __m512i v_parent_scaler = _mm512_mask_i32gather_epi64(_mm512_setzero_epi32(),
+                                                                gather_mask,
+                                                                v_scaler_index,
+                                                                (void*)(parent_scaler + n * rate_cats),
+                                                                sizeof(const unsigned int));
+          rate_scalings[i] = v_parent_scaler;
+        }
+
+        //printf("####### 2 rate_scalings[%d] ", i);
+        //print_512i(rate_scalings[i]);
+
+        //rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
+        if(child_scaler) {
+          __m512i v_child_scaler = _mm512_mask_i32gather_epi64(_mm512_setzero_epi32(),
+                                                               gather_mask,
+                                                               v_scaler_index,
+                                                               (void*)(child_scaler + n * rate_cats),
+                                                               sizeof(const unsigned int));
+          rate_scalings[i] = _mm512_add_epi64(rate_scalings[i], v_child_scaler);
+        }
+        //rate_scalings[i] += (child_scaler) ? child_scaler[n*rate_cats+i] : 0;
+
+        //printf("####### %u %u %u", child_scaler[0], child_scaler[4], child_scaler[8]);
+        //printf("####### 3 rate_scalings[%d] ", i);
+       // print_512i(rate_scalings[i]);
+
+        //printf("####### min_scaler[%d] ", i);
+        //print_512i(min_scaler);
+
+        min_scaler = _mm512_mask_blend_epi64(_mm512_cmplt_epi64_mask(rate_scalings[i], min_scaler),
+                                             min_scaler,
+                                             rate_scalings[i]);
+
+        //printf("####### min_scaler[%d] ", i);
+        //print_512i(min_scaler);
+
+        //if (rate_scalings[i] < min_scaler)
+        //  min_scaler = rate_scalings[i];
+      }
+
+      /* compute relative capped per-rate scalers */
+      for (unsigned int i = 0; i < rate_cats; ++i) {
+        rate_scalings[i] = _mm512_min_epi64(_mm512_sub_epi32(rate_scalings[i], min_scaler),
+                                            _mm512_set1_epi64(PLL_SCALE_RATE_MAXDIFF));
+        //rate_scalings[i] = PLL_MIN(rate_scalings[i] - min_scaler, 
+        //                           PLL_SCALE_RATE_MAXDIFF);
+      }
+    }
+
     for (unsigned int i = 0; i < rate_cats; ++i) {
       __m512d v_clvp[states];
       __m512d v_clvc[states];
 
-      if (n + ELEM_PER_AVX515_REGISTER <= sites) {
-        v_clvp[0] = _mm512_i64gather_pd(v_index, t_clvp, sizeof(double));
-        v_clvc[0] = _mm512_i64gather_pd(v_index, t_clvc, sizeof(double));
-        v_clvp[1] = _mm512_i64gather_pd(v_index, t_clvp + 1, sizeof(double));
-        v_clvc[1] = _mm512_i64gather_pd(v_index, t_clvc + 1, sizeof(double));
-        v_clvp[2] = _mm512_i64gather_pd(v_index, t_clvp + 2, sizeof(double));
-        v_clvc[2] = _mm512_i64gather_pd(v_index, t_clvc + 2, sizeof(double));
-        v_clvp[3] = _mm512_i64gather_pd(v_index, t_clvp + 3, sizeof(double));
-        v_clvc[3] = _mm512_i64gather_pd(v_index, t_clvc + 3, sizeof(double));
-        v_clvp[4] = _mm512_i64gather_pd(v_index, t_clvp + 4, sizeof(double));
-        v_clvc[4] = _mm512_i64gather_pd(v_index, t_clvc + 4, sizeof(double));
-        v_clvp[5] = _mm512_i64gather_pd(v_index, t_clvp + 5, sizeof(double));
-        v_clvc[5] = _mm512_i64gather_pd(v_index, t_clvc + 5, sizeof(double));
-        v_clvp[6] = _mm512_i64gather_pd(v_index, t_clvp + 6, sizeof(double));
-        v_clvc[6] = _mm512_i64gather_pd(v_index, t_clvc + 6, sizeof(double));
-        v_clvp[7] = _mm512_i64gather_pd(v_index, t_clvp + 7, sizeof(double));
-        v_clvc[7] = _mm512_i64gather_pd(v_index, t_clvc + 7, sizeof(double));
-        v_clvp[8] = _mm512_i64gather_pd(v_index, t_clvp + 8, sizeof(double));
-        v_clvc[8] = _mm512_i64gather_pd(v_index, t_clvc + 8, sizeof(double));
-        v_clvp[9] = _mm512_i64gather_pd(v_index, t_clvp + 9, sizeof(double));
-        v_clvc[9] = _mm512_i64gather_pd(v_index, t_clvc + 9, sizeof(double));
-        v_clvp[10] = _mm512_i64gather_pd(v_index, t_clvp + 10, sizeof(double));
-        v_clvc[10] = _mm512_i64gather_pd(v_index, t_clvc + 10, sizeof(double));
-        v_clvp[11] = _mm512_i64gather_pd(v_index, t_clvp + 11, sizeof(double));
-        v_clvc[11] = _mm512_i64gather_pd(v_index, t_clvc + 11, sizeof(double));
-        v_clvp[12] = _mm512_i64gather_pd(v_index, t_clvp + 12, sizeof(double));
-        v_clvc[12] = _mm512_i64gather_pd(v_index, t_clvc + 12, sizeof(double));
-        v_clvp[13] = _mm512_i64gather_pd(v_index, t_clvp + 13, sizeof(double));
-        v_clvc[13] = _mm512_i64gather_pd(v_index, t_clvc + 13, sizeof(double));
-        v_clvp[14] = _mm512_i64gather_pd(v_index, t_clvp + 14, sizeof(double));
-        v_clvc[14] = _mm512_i64gather_pd(v_index, t_clvc + 14, sizeof(double));
-        v_clvp[15] = _mm512_i64gather_pd(v_index, t_clvp + 15, sizeof(double));
-        v_clvc[15] = _mm512_i64gather_pd(v_index, t_clvc + 15, sizeof(double));
-        v_clvp[16] = _mm512_i64gather_pd(v_index, t_clvp + 16, sizeof(double));
-        v_clvc[16] = _mm512_i64gather_pd(v_index, t_clvc + 16, sizeof(double));
-        v_clvp[17] = _mm512_i64gather_pd(v_index, t_clvp + 17, sizeof(double));
-        v_clvc[17] = _mm512_i64gather_pd(v_index, t_clvc + 17, sizeof(double));
-        v_clvp[18] = _mm512_i64gather_pd(v_index, t_clvp + 18, sizeof(double));
-        v_clvc[18] = _mm512_i64gather_pd(v_index, t_clvc + 18, sizeof(double));
-        v_clvp[19] = _mm512_i64gather_pd(v_index, t_clvp + 19, sizeof(double));
-        v_clvc[19] = _mm512_i64gather_pd(v_index, t_clvc + 19, sizeof(double));
-      } else {
-        v_clvp[0] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp, sizeof(double));
-        v_clvc[0] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc, sizeof(double));
-        v_clvp[1] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 1, sizeof(double));
-        v_clvc[1] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 1, sizeof(double));
-        v_clvp[2] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 2, sizeof(double));
-        v_clvc[2] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 2, sizeof(double));
-        v_clvp[3] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 3, sizeof(double));
-        v_clvc[3] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 3, sizeof(double));
-        v_clvp[4] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 4, sizeof(double));
-        v_clvc[4] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 4, sizeof(double));
-        v_clvp[5] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 5, sizeof(double));
-        v_clvc[5] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 5, sizeof(double));
-        v_clvp[6] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 6, sizeof(double));
-        v_clvc[6] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 6, sizeof(double));
-        v_clvp[7] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 7, sizeof(double));
-        v_clvc[7] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 7, sizeof(double));
-        v_clvp[8] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 8, sizeof(double));
-        v_clvc[8] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 8, sizeof(double));
-        v_clvp[9] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 9, sizeof(double));
-        v_clvc[9] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 9, sizeof(double));
-        v_clvp[10] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 10, sizeof(double));
-        v_clvc[10] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 10, sizeof(double));
-        v_clvp[11] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 11, sizeof(double));
-        v_clvc[11] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 11, sizeof(double));
-        v_clvp[12] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 12, sizeof(double));
-        v_clvc[12] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 12, sizeof(double));
-        v_clvp[13] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 13, sizeof(double));
-        v_clvc[13] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 13, sizeof(double));
-        v_clvp[14] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 14, sizeof(double));
-        v_clvc[14] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 14, sizeof(double));
-        v_clvp[15] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 15, sizeof(double));
-        v_clvc[15] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 15, sizeof(double));
-        v_clvp[16] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 16, sizeof(double));
-        v_clvc[16] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 16, sizeof(double));
-        v_clvc[17] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 17, sizeof(double));
-        v_clvp[17] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 17, sizeof(double));
-        v_clvp[18] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 18, sizeof(double));
-        v_clvc[18] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 18, sizeof(double));
-        v_clvp[19] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 19, sizeof(double));
-        v_clvc[19] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 19, sizeof(double));
-      }
+      v_clvp[0] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp, sizeof(double));
+      v_clvc[0] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc, sizeof(double));
+      v_clvp[1] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 1, sizeof(double));
+      v_clvc[1] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 1, sizeof(double));
+      v_clvp[2] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 2, sizeof(double));
+      v_clvc[2] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 2, sizeof(double));
+      v_clvp[3] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 3, sizeof(double));
+      v_clvc[3] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 3, sizeof(double));
+      v_clvp[4] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 4, sizeof(double));
+      v_clvc[4] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 4, sizeof(double));
+      v_clvp[5] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 5, sizeof(double));
+      v_clvc[5] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 5, sizeof(double));
+      v_clvp[6] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 6, sizeof(double));
+      v_clvc[6] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 6, sizeof(double));
+      v_clvp[7] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 7, sizeof(double));
+      v_clvc[7] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 7, sizeof(double));
+      v_clvp[8] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 8, sizeof(double));
+      v_clvc[8] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 8, sizeof(double));
+      v_clvp[9] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 9, sizeof(double));
+      v_clvc[9] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 9, sizeof(double));
+      v_clvp[10] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 10, sizeof(double));
+      v_clvc[10] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 10, sizeof(double));
+      v_clvp[11] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 11, sizeof(double));
+      v_clvc[11] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 11, sizeof(double));
+      v_clvp[12] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 12, sizeof(double));
+      v_clvc[12] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 12, sizeof(double));
+      v_clvp[13] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 13, sizeof(double));
+      v_clvc[13] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 13, sizeof(double));
+      v_clvp[14] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 14, sizeof(double));
+      v_clvc[14] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 14, sizeof(double));
+      v_clvp[15] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 15, sizeof(double));
+      v_clvc[15] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 15, sizeof(double));
+      v_clvp[16] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 16, sizeof(double));
+      v_clvc[16] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 16, sizeof(double));
+      v_clvc[17] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 17, sizeof(double));
+      v_clvp[17] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 17, sizeof(double));
+      v_clvp[18] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 18, sizeof(double));
+      v_clvc[18] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 18, sizeof(double));
+      v_clvp[19] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + 19, sizeof(double));
+      v_clvc[19] = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + 19, sizeof(double));
 
       for (unsigned int j = 0; j < states; ++j) {
         __m512d v_lefterm = _mm512_setzero_pd();
@@ -301,6 +327,21 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
 
         __m512d v_sum = _mm512_mul_pd(v_lefterm, v_righterm);
 
+        //TODO
+        if (rate_scalings) {
+          __mmask8 scaling_mask = _mm512_cmpgt_epi64_mask(rate_scalings[i], _mm512_setzero_epi32());
+          __m512d v_prod = _mm512_fmadd_pd(v_sum,
+                                           _mm512_mask_i64gather_pd(_mm512_setzero_pd(), 
+                                                                    scaling_mask, 
+                                                                    _mm512_add_epi64(rate_scalings[i], _mm512_set1_epi64(1)), 
+                                                                    scale_minlh,
+                                                                    sizeof(double)),
+                                           _mm512_setzero_pd());
+
+          _mm512_mask_blend_pd(scaling_mask, v_sum, v_prod);
+        }
+        //if (rate_scalings && rate_scalings[i] > 0)
+        //  sum[j] *= scale_minlh[rate_scalings[i]-1];
         _mm512_store_pd(sum, v_sum);
         sum += ELEM_PER_AVX515_REGISTER;
       }
@@ -419,7 +460,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f(unsigned int states,
 
   //TODO
   if (per_rate_scaling) {
-    printf("Per rate scaling not supported in AVX512");
+    printf("Per rate scaling not supported in AVX512\n");
     exit(1);
   }
 
@@ -428,26 +469,17 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f(unsigned int states,
       4 * rate_cats * states_padded, 5 * rate_cats * states_padded,
       6 * rate_cats * states_padded, 7 * rate_cats * states_padded);
 
-  __mmask8 gather_mask = COMPUTE_GATHER_MASK(sites, ELEM_PER_AVX515_REGISTER);
-
   /* build sumtable */
   for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX515_REGISTER) {
+    __mmask8 gather_mask = COMPUTE_GATHER_MASK(n, sites, ELEM_PER_AVX515_REGISTER);
     for (unsigned int i = 0; i < rate_cats; ++i) {
       for (unsigned int j = 0; j < states; ++j) {
-        __m512d v_clvp;
-        __m512d v_clvc;
-
         __m512d v_lefterm = _mm512_setzero_pd();
         __m512d v_righterm = _mm512_setzero_pd();
 
         for (unsigned int k = 0; k < states; ++k) {
-          if (n + ELEM_PER_AVX515_REGISTER <= sites) {
-            v_clvp = _mm512_i64gather_pd(v_index, t_clvp + k, sizeof(double));
-            v_clvc = _mm512_i64gather_pd(v_index, t_clvc + k, sizeof(double));
-          } else {
-            v_clvp = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + k, sizeof(double));
-            v_clvc = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + k, sizeof(double));
-          }
+          __m512d v_clvp = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + k, sizeof(double));
+          __m512d v_clvc = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + k, sizeof(double));
 
           __m512d v_inv_eigenvecs = _mm512_set1_pd(tt_inv_eigenvecs[i * states * states + j * states + k]);
           __m512d v_eigenvecs = _mm512_set1_pd(tt_eigenvecs[i * states * states + j * states + k]);
@@ -585,7 +617,6 @@ int pll_core_likelihood_derivatives_avx512f(unsigned int states,
         __m512d v_diagp;
 
         v_diagp = _mm512_load_pd(diagp);
-        //v_diagp = _mm512_set1_pd(diagp[0]);
         v_cat_sitelk[0] = _mm512_fmadd_pd(v_sum, v_diagp, v_cat_sitelk[0]);
 
         v_diagp = _mm512_load_pd(diagp + ELEM_PER_AVX515_REGISTER);
