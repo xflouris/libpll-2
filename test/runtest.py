@@ -59,7 +59,7 @@ all_args         = [0, 1, 2, 3, 4, 5, 8, 9, 16, 17, 32, 34, 36, 40, 48]
                                       # 40: AVX2 / repeats
                                       # 48: AVX512F / repeats
                                       
-all_args         = [8, 16]
+all_args         = [16,17,48]
 #####################
 
 colors={"default":"",
