@@ -39,6 +39,12 @@ void print_512d(const __m512d v) {
          val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
 }
 
+void print_512si(const __m512i v) {
+  const int64_t *val = (const int64_t *) &v;
+  printf("% ld % ld % ld % ld % ld % ld % ld % ld\n",
+         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
+}
+
 void print_512i(const __m512i v) {
   const uint64_t *val = (const uint64_t *) &v;
   printf("%lu %lu %lu %lu %lu %lu %lu %lu\n",
@@ -676,9 +682,13 @@ int pll_core_likelihood_derivatives_avx512f(unsigned int states,
   for (unsigned int n = 0;
        n < ef_sites;
        n += ELEM_PER_AVX515_REGISTER, invariant_ptr += ELEM_PER_AVX515_REGISTER) {
+    __mmask8 gather_mask = COMPUTE_GATHER_MASK(n, ef_sites, ELEM_PER_AVX515_REGISTER);
+
     site_lk[0] = _mm512_setzero_pd();
     site_lk[1] = _mm512_setzero_pd();
     site_lk[2] = _mm512_setzero_pd();
+
+    __m512i v_index = _mm512_setr_epi64(0, 1, 2, 3, 4, 5, 6, 7);
 
     const double *diagp = t_diagp;
 
@@ -708,32 +718,19 @@ int pll_core_likelihood_derivatives_avx512f(unsigned int states,
       double t_prop_invar = prop_invar[i];
       if (t_prop_invar > 0) {
 
-        //TODO Vectorize?
-        double inv_site_lk_0 =
-                (n + 0 >= ef_sites || invariant_ptr[0] == -1) ? 0 : freqs[i][invariant_ptr[0]] * t_prop_invar;
-        double inv_site_lk_1 =
-                (n + 1 >= ef_sites || invariant_ptr[1] == -1) ? 0 : freqs[i][invariant_ptr[1]] * t_prop_invar;
-        double inv_site_lk_2 =
-                (n + 2 >= ef_sites || invariant_ptr[2] == -1) ? 0 : freqs[i][invariant_ptr[2]] * t_prop_invar;
-        double inv_site_lk_3 =
-                (n + 3 >= ef_sites || invariant_ptr[3] == -1) ? 0 : freqs[i][invariant_ptr[3]] * t_prop_invar;
-        double inv_site_lk_4 =
-                (n + 4 >= ef_sites || invariant_ptr[4] == -1) ? 0 : freqs[i][invariant_ptr[4]] * t_prop_invar;
-        double inv_site_lk_5 =
-                (n + 5 >= ef_sites || invariant_ptr[5] == -1) ? 0 : freqs[i][invariant_ptr[5]] * t_prop_invar;
-        double inv_site_lk_6 =
-                (n + 6 >= ef_sites || invariant_ptr[6] == -1) ? 0 : freqs[i][invariant_ptr[6]] * t_prop_invar;
-        double inv_site_lk_7 =
-                (n + 7 >= ef_sites || invariant_ptr[7] == -1) ? 0 : freqs[i][invariant_ptr[7]] * t_prop_invar;
-
-        __m512d v_inv_site_lk = _mm512_setr_pd(inv_site_lk_0,
-                                               inv_site_lk_1,
-                                               inv_site_lk_2,
-                                               inv_site_lk_3,
-                                               inv_site_lk_4,
-                                               inv_site_lk_5,
-                                               inv_site_lk_6,
-                                               inv_site_lk_7);
+        //inv_site_lk = invariant_ptr[0] == -1 ? 0 : freqs[i][invariant_ptr[0]] * t_prop_invar;
+        __m512i v_invariant_ptr = _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_set1_epi32(-1),
+                                                                                    gather_mask,
+                                                                                    v_index,
+                                                                                    invariant_ptr,
+                                                                                    sizeof(int)));
+        __mmask8 valid_invariants = _mm512_cmpneq_epi64_mask(v_invariant_ptr, _mm512_set1_epi64(-1));
+        __m512d v_freqs = _mm512_mask_i64gather_pd(_mm512_setzero_pd(),
+                                                   valid_invariants,
+                                                   v_invariant_ptr,
+                                                   freqs[i],
+                                                   sizeof(double));
+        __m512d v_inv_site_lk = _mm512_fmadd_pd(v_freqs, _mm512_set1_pd(t_prop_invar), _mm512_setzero_pd());
 
         __m512d v_prop_invar = _mm512_set1_pd(1. - t_prop_invar);
 
