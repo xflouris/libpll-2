@@ -157,7 +157,6 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
       snprintf(pll_errmsg, 200, "Cannot allocate memory for rate_scalings");
       return PLL_FAILURE;
     }
-    //rate_scalings = (__m512i *) calloc(rate_cats, sizeof(__m512i));
 
     double scale_factor = 1.0;
     for (unsigned int i = 0; i < PLL_SCALE_RATE_MAXDIFF; ++i) {
@@ -225,10 +224,10 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
     if (per_rate_scaling) {
       /* compute minimum per-rate scaler -> common per-site scaler */
       min_scaler =  _mm512_set1_epi64(UINT_MAX);
-      //min_scaler = UINT_MAX;
       for (unsigned int i = 0; i < rate_cats; ++i) {
         rate_scalings[i] = _mm512_setzero_epi32();
 
+        //rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
         if(parent_scaler) {
           __m512i v_parent_scaler =  _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
                                                            gather_mask,
@@ -238,7 +237,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
           rate_scalings[i] = v_parent_scaler;
         }
 
-        //rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
+        //rate_scalings[i] += (child_scaler) ? child_scaler[n*rate_cats+i] : 0;
         if(child_scaler) {
           __m512i v_child_scaler =  _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
                                                           gather_mask,
@@ -248,21 +247,18 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
 
           rate_scalings[i] = _mm512_add_epi64(rate_scalings[i], v_child_scaler);
         }
-        //rate_scalings[i] += (child_scaler) ? child_scaler[n*rate_cats+i] : 0;
 
+        //if (rate_scalings[i] < min_scaler)
+        //  min_scaler = rate_scalings[i];
         min_scaler = _mm512_mask_blend_epi64(_mm512_cmplt_epi64_mask(rate_scalings[i], min_scaler),
                                              min_scaler,
                                              rate_scalings[i]);
-        //if (rate_scalings[i] < min_scaler)
-        //  min_scaler = rate_scalings[i];
       }
 
       /* compute relative capped per-rate scalers */
       for (unsigned int i = 0; i < rate_cats; ++i) {
         rate_scalings[i] = _mm512_min_epi64(_mm512_sub_epi32(rate_scalings[i], min_scaler),
                                             _mm512_set1_epi64(PLL_SCALE_RATE_MAXDIFF));
-        //rate_scalings[i] = PLL_MIN(rate_scalings[i] - min_scaler, 
-        //                           PLL_SCALE_RATE_MAXDIFF);
       }
     }
 
@@ -341,6 +337,8 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
 
         __m512d v_sum = _mm512_mul_pd(v_lefterm, v_righterm);
 
+        //if (rate_scalings && rate_scalings[i] > 0)
+        //  sum[j] *= scale_minlh[rate_scalings[i]-1];
         if (rate_scalings) {
           __mmask8 scaling_mask = _mm512_cmpgt_epi64_mask(rate_scalings[i], _mm512_setzero_si512());
           __m512d v_prod = _mm512_fmadd_pd(v_sum,
@@ -353,8 +351,6 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
 
           v_sum = _mm512_mask_blend_pd(scaling_mask, v_sum, v_prod);
         }
-        //if (rate_scalings && rate_scalings[i] > 0)
-        //  sum[j] *= scale_minlh[rate_scalings[i]-1];
 
         _mm512_store_pd(sum, v_sum);
         sum += ELEM_PER_AVX515_REGISTER;
@@ -436,7 +432,6 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f(unsigned int states,
       snprintf(pll_errmsg, 200, "Cannot allocate memory for rate_scalings");
       return PLL_FAILURE;
     }
-    //rate_scalings = (__m512i *) calloc(rate_cats, sizeof(__m512i));
 
     double scale_factor = 1.0;
     for (unsigned int i = 0; i < PLL_SCALE_RATE_MAXDIFF; ++i) {
@@ -502,10 +497,10 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f(unsigned int states,
     if (per_rate_scaling) {
       /* compute minimum per-rate scaler -> common per-site scaler */
       min_scaler =  _mm512_set1_epi64(UINT_MAX);
-      //min_scaler = UINT_MAX;
       for (unsigned int i = 0; i < rate_cats; ++i) {
         rate_scalings[i] = _mm512_setzero_epi32();
 
+        //rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
         if(parent_scaler) {
           __m512i v_parent_scaler =  _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
                                                            gather_mask,
@@ -515,7 +510,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f(unsigned int states,
           rate_scalings[i] = v_parent_scaler;
         }
 
-        //rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
+        //rate_scalings[i] += (child_scaler) ? child_scaler[n*rate_cats+i] : 0;
         if(child_scaler) {
           __m512i v_child_scaler =  _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
                                                           gather_mask,
@@ -525,21 +520,18 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f(unsigned int states,
 
           rate_scalings[i] = _mm512_add_epi64(rate_scalings[i], v_child_scaler);
         }
-        //rate_scalings[i] += (child_scaler) ? child_scaler[n*rate_cats+i] : 0;
 
+        //if (rate_scalings[i] < min_scaler)
+        //  min_scaler = rate_scalings[i];
         min_scaler = _mm512_mask_blend_epi64(_mm512_cmplt_epi64_mask(rate_scalings[i], min_scaler),
                                              min_scaler,
                                              rate_scalings[i]);
-        //if (rate_scalings[i] < min_scaler)
-        //  min_scaler = rate_scalings[i];
       }
 
       /* compute relative capped per-rate scalers */
       for (unsigned int i = 0; i < rate_cats; ++i) {
         rate_scalings[i] = _mm512_min_epi64(_mm512_sub_epi32(rate_scalings[i], min_scaler),
                                             _mm512_set1_epi64(PLL_SCALE_RATE_MAXDIFF));
-        //rate_scalings[i] = PLL_MIN(rate_scalings[i] - min_scaler,
-        //                           PLL_SCALE_RATE_MAXDIFF);
       }
     }
 
@@ -560,6 +552,8 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f(unsigned int states,
 
         __m512d v_sum = _mm512_mul_pd(v_lefterm, v_righterm);
 
+        //if (rate_scalings && rate_scalings[i] > 0)
+        //  sum[j] *= scale_minlh[rate_scalings[i]-1];
         if (rate_scalings) {
           __mmask8 scaling_mask = _mm512_cmpgt_epi64_mask(rate_scalings[i], _mm512_setzero_si512());
           __m512d v_prod = _mm512_fmadd_pd(v_sum,
@@ -572,8 +566,6 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f(unsigned int states,
 
           v_sum = _mm512_mask_blend_pd(scaling_mask, v_sum, v_prod);
         }
-        //if (rate_scalings && rate_scalings[i] > 0)
-        //  sum[j] *= scale_minlh[rate_scalings[i]-1];
 
         _mm512_store_pd(sum, v_sum);
         sum += ELEM_PER_AVX515_REGISTER;
