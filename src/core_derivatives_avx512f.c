@@ -21,6 +21,36 @@
 #include <limits.h>
 #include "pll.h"
 
+void print_256d(const __m256d v) {
+  const double* val = (const double*)&v;
+  printf("% .3e % .3e % .3e % .3e\n",
+         val[3], val[2], val[1], val[0]);
+}
+
+void print_256i(const __m256i v) {
+  const uint32_t *val = (const uint32_t *) &v;
+  printf("%u %u %u %u %u %u %u %u\n",
+         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
+}
+
+void print_512d(const __m512d v) {
+  const double *val = (const double *) &v;
+  printf("% .3e % .3e % .3e % .3e % .3e % .3e % .3e % .3e\n",
+         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
+}
+
+void print_512i(const __m512i v) {
+  const uint64_t *val = (const uint64_t *) &v;
+  printf("%lu %lu %lu %lu %lu %lu %lu %lu\n",
+         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
+}
+
+void print_512d_half(const __m512d v, size_t half) {
+  const double *val = (const double *) &v;
+  printf("% .3e % .3e % .3e % .3e\n",
+         val[3 + 4 * half], val[2 + 4 * half], val[1 + 4 * half], val[0 + 4 * half]);
+}
+
 inline double reduce_add_pd(const __m512d zmm) {
   __m256d low = _mm512_castpd512_pd256(zmm);
   __m256d high = _mm512_extractf64x4_pd(zmm, 1);
@@ -180,7 +210,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
                                       6 * rate_cats * states_padded,
                                       7 * rate_cats * states_padded);
 
-  __m256i v_scaler_index = _mm256_setr_epi32(0,
+  __m512i v_scaler_index = _mm512_setr_epi64(0,
                                              1 * rate_cats,
                                              2 * rate_cats,
                                              3 * rate_cats,
@@ -199,46 +229,30 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
       for (unsigned int i = 0; i < rate_cats; ++i) {
         rate_scalings[i] = _mm512_setzero_epi32();
 
-        //printf("####### 1 rate_scalings[%d] ", i);
-        //print_512i(rate_scalings[i]);
-
         if(parent_scaler) {
-          __m512i v_parent_scaler = _mm512_mask_i32gather_epi64(_mm512_setzero_epi32(),
-                                                                gather_mask,
-                                                                v_scaler_index,
-                                                                (void*)(parent_scaler + n * rate_cats),
-                                                                sizeof(const unsigned int));
+          __m512i v_parent_scaler =  _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
+                                                           gather_mask,
+                                                           v_scaler_index,
+                                                           (void*)(parent_scaler + n * rate_cats + i),
+                                                           sizeof(unsigned int)));
           rate_scalings[i] = v_parent_scaler;
         }
 
-        //printf("####### 2 rate_scalings[%d] ", i);
-        //print_512i(rate_scalings[i]);
-
         //rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
         if(child_scaler) {
-          __m512i v_child_scaler = _mm512_mask_i32gather_epi64(_mm512_setzero_epi32(),
-                                                               gather_mask,
-                                                               v_scaler_index,
-                                                               (void*)(child_scaler + n * rate_cats),
-                                                               sizeof(const unsigned int));
+          __m512i v_child_scaler =  _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
+                                                          gather_mask,
+                                                          v_scaler_index,
+                                                          (void*)(child_scaler + n * rate_cats + i),
+                                                          sizeof(unsigned int)));
+
           rate_scalings[i] = _mm512_add_epi64(rate_scalings[i], v_child_scaler);
         }
         //rate_scalings[i] += (child_scaler) ? child_scaler[n*rate_cats+i] : 0;
 
-        //printf("####### %u %u %u", child_scaler[0], child_scaler[4], child_scaler[8]);
-        //printf("####### 3 rate_scalings[%d] ", i);
-       // print_512i(rate_scalings[i]);
-
-        //printf("####### min_scaler[%d] ", i);
-        //print_512i(min_scaler);
-
         min_scaler = _mm512_mask_blend_epi64(_mm512_cmplt_epi64_mask(rate_scalings[i], min_scaler),
                                              min_scaler,
                                              rate_scalings[i]);
-
-        //printf("####### min_scaler[%d] ", i);
-        //print_512i(min_scaler);
-
         //if (rate_scalings[i] < min_scaler)
         //  min_scaler = rate_scalings[i];
       }
@@ -327,21 +341,21 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f(unsigned int sites,
 
         __m512d v_sum = _mm512_mul_pd(v_lefterm, v_righterm);
 
-        //TODO
         if (rate_scalings) {
-          __mmask8 scaling_mask = _mm512_cmpgt_epi64_mask(rate_scalings[i], _mm512_setzero_epi32());
+          __mmask8 scaling_mask = _mm512_cmpgt_epi64_mask(rate_scalings[i], _mm512_setzero_si512());
           __m512d v_prod = _mm512_fmadd_pd(v_sum,
-                                           _mm512_mask_i64gather_pd(_mm512_setzero_pd(), 
-                                                                    scaling_mask, 
-                                                                    _mm512_add_epi64(rate_scalings[i], _mm512_set1_epi64(1)), 
+                                           _mm512_mask_i64gather_pd(_mm512_setzero_pd(),
+                                                                    scaling_mask,
+                                                                    _mm512_sub_epi64(rate_scalings[i], _mm512_set1_epi64(1)),
                                                                     scale_minlh,
                                                                     sizeof(double)),
                                            _mm512_setzero_pd());
 
-          _mm512_mask_blend_pd(scaling_mask, v_sum, v_prod);
+          v_sum = _mm512_mask_blend_pd(scaling_mask, v_sum, v_prod);
         }
         //if (rate_scalings && rate_scalings[i] > 0)
         //  sum[j] *= scale_minlh[rate_scalings[i]-1];
+
         _mm512_store_pd(sum, v_sum);
         sum += ELEM_PER_AVX515_REGISTER;
       }
