@@ -21,42 +21,6 @@
 #include <limits.h>
 #include "pll.h"
 
-void print_256d(const __m256d v) {
-  const double* val = (const double*)&v;
-  printf("% .3e % .3e % .3e % .3e\n",
-         val[3], val[2], val[1], val[0]);
-}
-
-void print_256i(const __m256i v) {
-  const uint32_t *val = (const uint32_t *) &v;
-  printf("%u %u %u %u %u %u %u %u\n",
-         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
-}
-
-void print_512d(const __m512d v) {
-  const double *val = (const double *) &v;
-  printf("% .3e % .3e % .3e % .3e % .3e % .3e % .3e % .3e\n",
-         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
-}
-
-void print_512si(const __m512i v) {
-  const int64_t *val = (const int64_t *) &v;
-  printf("% ld % ld % ld % ld % ld % ld % ld % ld\n",
-         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
-}
-
-void print_512i(const __m512i v) {
-  const uint64_t *val = (const uint64_t *) &v;
-  printf("%lu %lu %lu %lu %lu %lu %lu %lu\n",
-         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
-}
-
-void print_512d_half(const __m512d v, size_t half) {
-  const double *val = (const double *) &v;
-  printf("% .3e % .3e % .3e % .3e\n",
-         val[3 + 4 * half], val[2 + 4 * half], val[1 + 4 * half], val[0 + 4 * half]);
-}
-
 inline double reduce_add_pd(const __m512d zmm) {
   __m256d low = _mm512_castpd512_pd256(zmm);
   __m256d high = _mm512_extractf64x4_pd(zmm, 1);
