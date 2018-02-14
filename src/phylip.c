@@ -400,7 +400,10 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_interleaved(pll_phylip_t * fd)
                     &(msa->count),
                     &(msa->length),
                     PLL_PHYLIP_INTERLEAVED))
+  {
+    free(msa);
     return NULL;
+  }
 
   /* allocate msa placeholders */
   msa->sequence = (char **)calloc((size_t)(msa->count),sizeof(char *));
@@ -582,7 +585,10 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_sequential(pll_phylip_t * fd)
                     &(msa->count),
                     &(msa->length),
                     PLL_PHYLIP_SEQUENTIAL))
+  {
+    free(msa);
     return NULL;
+  }
 
   msa->sequence = (char **)calloc((size_t)(msa->count),sizeof(char *));
   msa->label = (char **)calloc((size_t)(msa->count),sizeof(char *));
