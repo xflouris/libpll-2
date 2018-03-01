@@ -104,7 +104,6 @@ static void cpu_features_detect()
 
 #else
 
-
 static void cpu_features_detect()
 {
   memset(&pll_hardware,0,sizeof(pll_hardware_t));
@@ -123,6 +122,13 @@ static void cpu_features_detect()
   pll_hardware.popcnt_present  = __builtin_cpu_supports("popcnt");
   pll_hardware.avx_present     = __builtin_cpu_supports("avx");
   pll_hardware.avx2_present    = __builtin_cpu_supports("avx2");
+  //TODO AVX512 runtime detection is done differently in different compilers, don't know what will be the more reliable method in the future
+#ifdef __INTEL_COMPILER
+  // Why do it the easy way, when you can do it the INTEL way ...
+  pll_hardware.avx512f_present = _may_i_use_cpu_feature(_FEATURE_AVX512F);
+#else
+  pll_hardware.avx512f_present = __builtin_cpu_supports("avx512f");
+#endif
 #endif
 }
 
@@ -153,6 +159,8 @@ static void cpu_features_show()
     fprintf(stderr, " avx");
   if (pll_hardware.avx2_present)
     fprintf(stderr, " avx2");
+  if (pll_hardware.avx512f_present)
+    fprintf(stderr, " avx512f");
   fprintf(stderr, "\n");
 }
 
@@ -186,4 +194,5 @@ PLL_EXPORT void pll_hardware_ignore()
   pll_hardware.popcnt_present  = 1;
   pll_hardware.avx_present     = 1;
   pll_hardware.avx2_present    = 1;
+  pll_hardware.avx512f_present = 1;
 }

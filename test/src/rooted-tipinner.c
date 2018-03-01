@@ -42,6 +42,20 @@ int main(int argc, char * argv[])
 
   unsigned int attributes = get_attributes(argc, argv);
 
+  /* no support for nucleotide yet */
+  if (attributes & PLL_ATTRIB_ARCH_AVX512F)
+    skip_test();
+
+  /* no support for AVX512F + TIP */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_PATTERN_TIP))
+    skip_test();
+
+  /* no support for AVX512F + REPEATS */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_SITE_REPEATS))
+    skip_test();
+
   /* compute and show node count information */
   inner_nodes_count = tip_nodes_count - 1;
   nodes_count = inner_nodes_count + tip_nodes_count;

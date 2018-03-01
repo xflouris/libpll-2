@@ -51,6 +51,11 @@ unsigned int get_attributes(int argc, char **argv)
       /* avx2 vectorization */
       attributes |= PLL_ATTRIB_ARCH_AVX2;
     }
+    else if (!strcmp (argv[i], "avx512f"))
+    {
+      /* avx512f vectorization */
+      attributes |= PLL_ATTRIB_ARCH_AVX512F;
+    }
     else
     {
       printf("Unrecognised attribute: %s\n", argv[i]);

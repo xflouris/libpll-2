@@ -78,6 +78,20 @@ int main(int argc, char * argv[])
   /* check attributes */
   unsigned int attributes = get_attributes(argc, argv);
 
+  /* no support for nucleotide yet */
+  if (attributes & PLL_ATTRIB_ARCH_AVX512F)
+    skip_test();
+
+  /* no support for AVX512F + TIP */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_PATTERN_TIP))
+    skip_test();
+
+  /* no support for AVX512F + REPEATS */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_SITE_REPEATS))
+    skip_test();
+
   /* test illegal alpha value */
   double invalid_alpha = 0;
   double * rate_cats = (double *) malloc(4 * sizeof(double));

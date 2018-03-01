@@ -227,6 +227,11 @@ int main(int argc, char * argv[])
   if (attributes & PLL_ATTRIB_PATTERN_TIP)
     skip_test();
 
+  /* no support for AVX512F + REPEATS */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_SITE_REPEATS))
+    skip_test();
+
   init(attributes);
 
   pll_partition_t * parts[] = {part_nt, part_aa, part_odd};

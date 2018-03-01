@@ -183,6 +183,20 @@ int main(int argc, char * argv[])
   attributes = get_attributes(argc, argv);
   attributes |= PLL_ATTRIB_AB_FLAG;
 
+  /* no support for nucleotide yet */
+  if (attributes & PLL_ATTRIB_ARCH_AVX512F)
+    skip_test();
+
+  /* no support for AVX512F + TIP */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_PATTERN_TIP))
+    skip_test();
+
+  /* no support for AVX512F + REPEATS */
+  if ((attributes & PLL_ATTRIB_ARCH_AVX512F)
+       && (attributes & PLL_ATTRIB_SITE_REPEATS))
+    skip_test();
+
   tree = pll_utree_parse_newick(TRE_FILENAME);
 
   taxa_count = tree->tip_count;
