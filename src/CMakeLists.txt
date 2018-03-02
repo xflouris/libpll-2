@@ -29,6 +29,9 @@ ADD_FLEX_BISON_DEPENDENCY(lex_rtree_t parse_rtree_t)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+#remove annoyting bison and flex warnings
+SET_SOURCE_FILES_PROPERTIES( ${FLEX_lex_utree_t_OUTPUTS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare )
+SET_SOURCE_FILES_PROPERTIES( ${FLEX_lex_rtree_t_OUTPUTS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare )
 
 set(LIBPLL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/compress.c
   ${BISON_parse_utree_t_OUTPUTS}

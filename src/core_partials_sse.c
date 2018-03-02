@@ -45,158 +45,6 @@ static void fill_parent_scaler(unsigned int scaler_size,
   }
 }
 
-PLL_EXPORT void pll_core_create_lookup_sse(unsigned int states,
-                                           unsigned int rate_cats,
-                                           double * ttlookup,
-                                           const double * left_matrix,
-                                           const double * right_matrix,
-                                           const pll_state_t * tipmap,
-                                           unsigned int tipmap_size)
-{
-  if (states == 4)
-  {
-    pll_core_create_lookup_4x4_sse(rate_cats,
-                                   ttlookup,
-                                   left_matrix,
-                                   right_matrix);
-    return;
-  }
-
-  unsigned int i,j,k,n,m;
-  unsigned int states_padded = (states+1) & 0xFFFFFFFE;
-  unsigned int maxstates = tipmap_size;
-
-  __m128d xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6;
-
-  unsigned int log2_maxstates = (unsigned int)ceil(log2(maxstates));
-  unsigned int span_padded = states_padded*rate_cats;
-
-  size_t displacement = (states_padded - states) * (states_padded);
-
-  /* precompute first the entries that contain only one 1 */
-  const double * jmat;
-  const double * kmat;
-  double * lookup;
-
-  /* go through all pairs j,k of states for the two tips; i is the inner
-     node state */
-  xmm0 = _mm_setzero_pd();
-
-  for (j = 0; j < maxstates; ++j)
-  {
-    pll_state_t jstate = tipmap[j];
-    for (k = 0; k < maxstates; ++k)
-    {
-      pll_state_t kstate = tipmap[k];
-      jmat = left_matrix;
-      kmat = right_matrix;
-
-      /* find offset of state-pair in the precomputation table */
-      lookup = ttlookup;
-      lookup += ((j << log2_maxstates) + k)*span_padded;
-
-      /* precompute the likelihood for each state and each rate */
-      for (n = 0; n < rate_cats; ++n)
-      {
-        for (i = 0; i < states_padded; i += 2)
-        {
-          __m128d v_termj0 = _mm_setzero_pd();
-          __m128d v_termj1 = _mm_setzero_pd();
-          __m128d v_termk0 = _mm_setzero_pd();
-          __m128d v_termk1 = _mm_setzero_pd();
-
-          const double * jm0 = jmat;
-          const double * jm1 = jm0 + states_padded;
-
-          const double * km0 = kmat;
-          const double * km1 = km0 + states_padded;
-
-          /* set position of least significant bit in character state */
-          register int lsb = 0;
-
-          /* decompose basecall into the encoded residues and set the appropriate
-             positions in the tip vector */
-          for (m = 0; m < states_padded; m += 2)
-          {
-            /* set mask for left matrix */
-            xmm1 = _mm_set_pd(((jstate >> (lsb+1)) & 1) ? 1 : 0,
-                              ((jstate >> (lsb+0)) & 1) ? 1 : 0);
-            xmm2 = _mm_cmpgt_pd(xmm1,xmm0);
-
-            /* set mask for right matrix */
-            xmm1 = _mm_set_pd(((kstate >> (lsb+1)) & 1) ? 1 : 0,
-                              ((kstate >> (lsb+0)) & 1) ? 1 : 0);
-            xmm3 = _mm_cmpgt_pd(xmm1,xmm0);
-
-            lsb += 2;
-
-            /* load row 0 */
-            xmm4 = _mm_load_pd(jm0);
-            xmm5 = _mm_and_pd(xmm4,xmm2);
-            v_termj0 = _mm_add_pd(v_termj0,xmm5);
-
-            xmm4 = _mm_load_pd(km0);
-            xmm5 = _mm_and_pd(xmm4,xmm3);
-            v_termk0 = _mm_add_pd(v_termk0,xmm5);
-
-            jm0 += 2;
-            km0 += 2;
-
-            /* load row 1 */
-            xmm4 = _mm_load_pd(jm1);
-            xmm5 = _mm_and_pd(xmm4,xmm2);
-            v_termj1 = _mm_add_pd(v_termj1,xmm5);
-
-            xmm4 = _mm_load_pd(km1);
-            xmm5 = _mm_and_pd(xmm4,xmm3);
-            v_termk1 = _mm_add_pd(v_termk1,xmm5);
-
-            jm1 += 2;
-            km1 += 2;
-          }
-
-          jmat = jm1;
-          kmat = km1;
-
-          xmm4 = _mm_hadd_pd(v_termj0,v_termj1);
-          xmm5 = _mm_hadd_pd(v_termk0,v_termk1);
-          xmm6 = _mm_mul_pd(xmm4,xmm5);
-          _mm_store_pd(lookup+i,xmm6);
-        }
-
-        /* reset pointers to the start of the next p-matrix, as the vectorization
-           assumes a square states_padded * states_padded matrix, even though the
-           real matrix is states * states_padded */
-        jmat -= displacement;
-        kmat -= displacement;
-        ///* this is to avoid valgrind warnings on accessing uninitialized memory
-        //   when using SSE and states are not a multiple of 2 */
-        //if (states_padded-states)
-        //  memset(lookup+index, 0, (states_padded-states)*sizeof(double));
-
-        lookup += states_padded;
-      }
-    }
-  }
-}
-
-#if 0
-static void pprint_sse(__m128d x)
-{
-  double * p = (double *) & x;
-
-  printf("%f ", *p++);
-  printf("%f ", *p++);
-}
-
-static void pshow_sse(char * name, __m128d x)
-{
-  printf("%s: ", name);
-  pprint_sse(x);
-  printf("\n");
-}
-#endif
-
 PLL_EXPORT void pll_core_create_lookup_4x4_sse(unsigned int rate_cats,
                                                double * lookup,
                                                const double * left_matrix,
@@ -382,55 +230,161 @@ PLL_EXPORT void pll_core_create_lookup_4x4_sse(unsigned int rate_cats,
   }
 }
 
-PLL_EXPORT void pll_core_update_partial_tt_sse(unsigned int states,
-                                               unsigned int sites,
-                                               unsigned int rate_cats,
-                                               double * parent_clv,
-                                               unsigned int * parent_scaler,
-                                               const unsigned char * left_tipchars,
-                                               const unsigned char * right_tipchars,
-                                               const double * lookup,
-                                               unsigned int tipstates_count,
-                                               unsigned int attrib)
-{
-  unsigned int j,k,n;
-  unsigned int log2_maxstates = (unsigned int)ceil(log2(tipstates_count));
-  unsigned int states_padded = (states+1) & 0xFFFFFFFE;
-  unsigned int span_padded = states_padded * rate_cats;
-  const double * offset;
 
+
+PLL_EXPORT void pll_core_create_lookup_sse(unsigned int states,
+                                           unsigned int rate_cats,
+                                           double * ttlookup,
+                                           const double * left_matrix,
+                                           const double * right_matrix,
+                                           const pll_state_t * tipmap,
+                                           unsigned int tipmap_size)
+{
   if (states == 4)
   {
-    pll_core_update_partial_tt_4x4_sse(sites,
-                                       rate_cats,
-                                       parent_clv,
-                                       parent_scaler,
-                                       left_tipchars,
-                                       right_tipchars,
-                                       lookup,
-                                       attrib);
+    pll_core_create_lookup_4x4_sse(rate_cats,
+                                   ttlookup,
+                                   left_matrix,
+                                   right_matrix);
     return;
   }
 
-  size_t scaler_size = (attrib & PLL_ATTRIB_RATE_SCALERS) ?
-                                                        sites*rate_cats : sites;
+  unsigned int i,j,k,n,m;
+  unsigned int states_padded = (states+1) & 0xFFFFFFFE;
+  unsigned int maxstates = tipmap_size;
 
-  if (parent_scaler)
-    memset(parent_scaler, 0, sizeof(unsigned int) * scaler_size);
+  __m128d xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6;
 
-  for (n = 0; n < sites; ++n)
+  unsigned int log2_maxstates = (unsigned int)ceil(log2(maxstates));
+  unsigned int span_padded = states_padded*rate_cats;
+
+  size_t displacement = (states_padded - states) * (states_padded);
+
+  /* precompute first the entries that contain only one 1 */
+  const double * jmat;
+  const double * kmat;
+  double * lookup;
+
+  /* go through all pairs j,k of states for the two tips; i is the inner
+     node state */
+  xmm0 = _mm_setzero_pd();
+
+  for (j = 0; j < maxstates; ++j)
   {
-    j = (unsigned int)(left_tipchars[n]);
-    k = (unsigned int)(right_tipchars[n]);
+    pll_state_t jstate = tipmap[j];
+    for (k = 0; k < maxstates; ++k)
+    {
+      pll_state_t kstate = tipmap[k];
+      jmat = left_matrix;
+      kmat = right_matrix;
 
-    offset = lookup;
-    offset += ((j << log2_maxstates) + k)*span_padded;
+      /* find offset of state-pair in the precomputation table */
+      lookup = ttlookup;
+      lookup += ((j << log2_maxstates) + k)*span_padded;
 
-    memcpy(parent_clv, offset, span_padded*sizeof(double));
+      /* precompute the likelihood for each state and each rate */
+      for (n = 0; n < rate_cats; ++n)
+      {
+        for (i = 0; i < states_padded; i += 2)
+        {
+          __m128d v_termj0 = _mm_setzero_pd();
+          __m128d v_termj1 = _mm_setzero_pd();
+          __m128d v_termk0 = _mm_setzero_pd();
+          __m128d v_termk1 = _mm_setzero_pd();
 
-    parent_clv += span_padded;
+          const double * jm0 = jmat;
+          const double * jm1 = jm0 + states_padded;
+
+          const double * km0 = kmat;
+          const double * km1 = km0 + states_padded;
+
+          /* set position of least significant bit in character state */
+          register int lsb = 0;
+
+          /* decompose basecall into the encoded residues and set the appropriate
+             positions in the tip vector */
+          for (m = 0; m < states_padded; m += 2)
+          {
+            /* set mask for left matrix */
+            xmm1 = _mm_set_pd(((jstate >> (lsb+1)) & 1) ? 1 : 0,
+                              ((jstate >> (lsb+0)) & 1) ? 1 : 0);
+            xmm2 = _mm_cmpgt_pd(xmm1,xmm0);
+
+            /* set mask for right matrix */
+            xmm1 = _mm_set_pd(((kstate >> (lsb+1)) & 1) ? 1 : 0,
+                              ((kstate >> (lsb+0)) & 1) ? 1 : 0);
+            xmm3 = _mm_cmpgt_pd(xmm1,xmm0);
+
+            lsb += 2;
+
+            /* load row 0 */
+            xmm4 = _mm_load_pd(jm0);
+            xmm5 = _mm_and_pd(xmm4,xmm2);
+            v_termj0 = _mm_add_pd(v_termj0,xmm5);
+
+            xmm4 = _mm_load_pd(km0);
+            xmm5 = _mm_and_pd(xmm4,xmm3);
+            v_termk0 = _mm_add_pd(v_termk0,xmm5);
+
+            jm0 += 2;
+            km0 += 2;
+
+            /* load row 1 */
+            xmm4 = _mm_load_pd(jm1);
+            xmm5 = _mm_and_pd(xmm4,xmm2);
+            v_termj1 = _mm_add_pd(v_termj1,xmm5);
+
+            xmm4 = _mm_load_pd(km1);
+            xmm5 = _mm_and_pd(xmm4,xmm3);
+            v_termk1 = _mm_add_pd(v_termk1,xmm5);
+
+            jm1 += 2;
+            km1 += 2;
+          }
+
+          jmat = jm1;
+          kmat = km1;
+
+          xmm4 = _mm_hadd_pd(v_termj0,v_termj1);
+          xmm5 = _mm_hadd_pd(v_termk0,v_termk1);
+          xmm6 = _mm_mul_pd(xmm4,xmm5);
+          _mm_store_pd(lookup+i,xmm6);
+        }
+
+        /* reset pointers to the start of the next p-matrix, as the vectorization
+           assumes a square states_padded * states_padded matrix, even though the
+           real matrix is states * states_padded */
+        jmat -= displacement;
+        kmat -= displacement;
+        ///* this is to avoid valgrind warnings on accessing uninitialized memory
+        //   when using SSE and states are not a multiple of 2 */
+        //if (states_padded-states)
+        //  memset(lookup+index, 0, (states_padded-states)*sizeof(double));
+
+        lookup += states_padded;
+      }
+    }
   }
 }
+
+#if 0
+static void pprint_sse(__m128d x)
+{
+  double * p = (double *) & x;
+
+  printf("%f ", *p++);
+  printf("%f ", *p++);
+}
+
+static void pshow_sse(char * name, __m128d x)
+{
+  printf("%s: ", name);
+  pprint_sse(x);
+  printf("\n");
+}
+#endif
+
+
 
 PLL_EXPORT void pll_core_update_partial_tt_4x4_sse(unsigned int sites,
                                                    unsigned int rate_cats,
@@ -690,6 +644,57 @@ PLL_EXPORT void pll_core_update_partial_ii_4x4_sse(unsigned int sites,
     }
   }
 }
+
+PLL_EXPORT void pll_core_update_partial_tt_sse(unsigned int states,
+                                               unsigned int sites,
+                                               unsigned int rate_cats,
+                                               double * parent_clv,
+                                               unsigned int * parent_scaler,
+                                               const unsigned char * left_tipchars,
+                                               const unsigned char * right_tipchars,
+                                               const double * lookup,
+                                               unsigned int tipstates_count,
+                                               unsigned int attrib)
+{
+  unsigned int j,k,n;
+  unsigned int log2_maxstates = (unsigned int)ceil(log2(tipstates_count));
+  unsigned int states_padded = (states+1) & 0xFFFFFFFE;
+  unsigned int span_padded = states_padded * rate_cats;
+  const double * offset;
+
+  if (states == 4)
+  {
+    pll_core_update_partial_tt_4x4_sse(sites,
+                                       rate_cats,
+                                       parent_clv,
+                                       parent_scaler,
+                                       left_tipchars,
+                                       right_tipchars,
+                                       lookup,
+                                       attrib);
+    return;
+  }
+
+  size_t scaler_size = (attrib & PLL_ATTRIB_RATE_SCALERS) ?
+                                                        sites*rate_cats : sites;
+
+  if (parent_scaler)
+    memset(parent_scaler, 0, sizeof(unsigned int) * scaler_size);
+
+  for (n = 0; n < sites; ++n)
+  {
+    j = (unsigned int)(left_tipchars[n]);
+    k = (unsigned int)(right_tipchars[n]);
+
+    offset = lookup;
+    offset += ((j << log2_maxstates) + k)*span_padded;
+
+    memcpy(parent_clv, offset, span_padded*sizeof(double));
+
+    parent_clv += span_padded;
+  }
+}
+
 
 PLL_EXPORT void pll_core_update_partial_ii_sse(unsigned int states,
                                                unsigned int sites,
