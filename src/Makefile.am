@@ -55,9 +55,12 @@ if HAVE_AVX512F
  libsimd_avx512f_la_CFLAGS=$(AM_CFLAGS) $(AVX512FFLAGS)
  libsimd_avx512f_la_SOURCES=\
  core_derivatives_avx512f.c \
+ core_derivatives_avx512f_sml.c \
  core_partials_avx512f.c \
+ core_partials_avx512f_sml.c \
  core_pmatrix_avx512f.c \
- core_likelihood_avx512f.c
+ core_likelihood_avx512f.c \
+ core_likelihood_avx512f_sml.c
 endif
 
 if HAVE_AVX2

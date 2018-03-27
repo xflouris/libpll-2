@@ -412,6 +412,21 @@ PLL_EXPORT int pll_core_update_sumtable_ii(unsigned int states,
 #ifdef HAVE_AVX512F
   if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
   {
+    if (attrib & PLL_ATTRIB_SIMD_MEM_LAYOUT)
+    {
+      return pll_core_update_sumtable_ii_avx512f_sml(states,
+                                                     sites,
+                                                     rate_cats,
+                                                     parent_clv,
+                                                     child_clv,
+                                                     parent_scaler,
+                                                     child_scaler,
+                                                     eigenvecs,
+                                                     inv_eigenvecs,
+                                                     freqs,
+                                                     sumtable,
+                                                     attrib);
+    }
     return pll_core_update_sumtable_ii_avx512f(states,
                                                sites,
                                                rate_cats,
@@ -831,20 +846,38 @@ PLL_EXPORT int pll_core_likelihood_derivatives(unsigned int states,
   if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
   {
     states_padded = (states+7) & (0xFFFFFFFF - 7);
-
-    pll_core_likelihood_derivatives_avx512f(states,
-                                            states_padded,
-                                            rate_cats,
-                                            ef_sites,
-                                            pattern_weights,
-                                            rate_weights,
-                                            invariant,
-                                            prop_invar,
-                                            freqs,
-                                            sumtable,
-                                            diagptable,
-                                            d_f,
-                                            dd_f);
+    if(attrib & PLL_ATTRIB_SIMD_MEM_LAYOUT)
+    {
+      pll_core_likelihood_derivatives_avx512f_sml(states,
+                                                  states_padded,
+                                                  rate_cats,
+                                                  ef_sites,
+                                                  pattern_weights,
+                                                  rate_weights,
+                                                  invariant,
+                                                  prop_invar,
+                                                  freqs,
+                                                  sumtable,
+                                                  diagptable,
+                                                  d_f,
+                                                  dd_f);
+    }
+    else
+    {
+      pll_core_likelihood_derivatives_avx512f(states,
+                                              states_padded,
+                                              rate_cats,
+                                              ef_sites,
+                                              pattern_weights,
+                                              rate_weights,
+                                              invariant,
+                                              prop_invar,
+                                              freqs,
+                                              sumtable,
+                                              diagptable,
+                                              d_f,
+                                              dd_f);
+    }
   }
   else
 #endif

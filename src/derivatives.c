@@ -231,16 +231,24 @@ static int sumtable_repeats(pll_partition_t * partition,
   return retval;
 }
 
+PLL_EXPORT double* pll_allocate_sumtable(pll_partition_t *partition) {
+  size_t elems_per_reg = ELEM_PER_REGISTER(partition);
+  size_t sites_padded = (partition->sites + elems_per_reg - 1) & (0xFFFFFFFF - elems_per_reg + 1);
+
+  return pll_aligned_alloc(sites_padded * partition->rate_cats * partition->states * sizeof(double),
+                           partition->alignment);
+}
+
 /* computes the table containing the constant parts of the likelihood function
  * partial derivatives on the branch lengths.
  * sumtable: [output] must be allocated for storing (rates x states_padded) values */
 PLL_EXPORT int pll_update_sumtable(pll_partition_t * partition,
-                                      unsigned int parent_clv_index,
-                                      unsigned int child_clv_index,
-                                      int parent_scaler_index,
-                                      int child_scaler_index,
-                                      const unsigned int * params_indices,
-                                      double *sumtable)
+                                   unsigned int parent_clv_index,
+                                   unsigned int child_clv_index,
+                                   int parent_scaler_index,
+                                   int child_scaler_index,
+                                   const unsigned int * params_indices,
+                                   double *sumtable)
 {
   int retval;
 

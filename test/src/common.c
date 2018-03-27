@@ -33,8 +33,13 @@ unsigned int get_attributes(int argc, char **argv)
     } 
     else if (!strcmp (argv[i], "sr"))
     {
-      /* avx vectorization */
+      /* site repeats */
       attributes |= PLL_ATTRIB_SITE_REPEATS;
+    }
+    else if (!strcmp (argv[i], "sml"))
+    {
+      /* SIMD memory layout */
+      attributes |= PLL_ATTRIB_SIMD_MEM_LAYOUT;
     }
     else if (!strcmp (argv[i], "avx"))
     {

@@ -177,6 +177,20 @@ PLL_EXPORT double pll_core_root_loglikelihood(unsigned int states,
     }
     else
     {
+      if(attrib & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+        return pll_core_root_loglikelihood_avx512f_sml(states,
+                                                       sites,
+                                                       rate_cats,
+                                                       clv,
+                                                       scaler,
+                                                       frequencies,
+                                                       rate_weights,
+                                                       pattern_weights,
+                                                       invar_proportion,
+                                                       invar_indices,
+                                                       freqs_indices,
+                                                       persite_lnl);
+      }
       return pll_core_root_loglikelihood_avx512f(states,
                                                  sites,
                                                  rate_cats,
@@ -1033,7 +1047,7 @@ double pll_core_edge_loglikelihood_repeats(unsigned int states,
 
   unsigned int use_bclv = bclv && (child_sites < (sites * 2) / 3);
   core_edge_loglikelihood = pll_core_edge_loglikelihood_repeats_generic;
-  
+
 #ifdef HAVE_AVX
   if (attrib & PLL_ATTRIB_ARCH_AVX &&  PLL_STAT(avx_present))
   {
@@ -1045,7 +1059,7 @@ double pll_core_edge_loglikelihood_repeats(unsigned int states,
       else
         core_edge_loglikelihood = pll_core_edge_loglikelihood_repeats_4x4_avx;
     }
-  } 
+  }
 #endif
 #ifdef HAVE_SSE3
   if (attrib & PLL_ATTRIB_ARCH_SSE &&  PLL_STAT(sse3_present))
@@ -1080,7 +1094,7 @@ double pll_core_edge_loglikelihood_repeats(unsigned int states,
                                  invar_proportion,
                                  invar_indices,
                                  freqs_indices,
-                                 persite_lnl, 
+                                 persite_lnl,
                                  parent_site_id,
                                  child_site_id,
                                  bclv,
@@ -1425,6 +1439,24 @@ double pll_core_edge_loglikelihood_ii(unsigned int states,
     }
     else
     {
+      if(attrib & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+        return pll_core_edge_loglikelihood_ii_avx512f_sml(states,
+                                                          sites,
+                                                          rate_cats,
+                                                          clvp,
+                                                          parent_scaler,
+                                                          clvc,
+                                                          child_scaler,
+                                                          pmatrix,
+                                                          frequencies,
+                                                          rate_weights,
+                                                          pattern_weights,
+                                                          invar_proportion,
+                                                          invar_indices,
+                                                          freqs_indices,
+                                                          persite_lnl,
+                                                          attrib);
+      }
       return pll_core_edge_loglikelihood_ii_avx512f(states,
                                                     sites,
                                                     rate_cats,
@@ -1522,6 +1554,7 @@ double pll_core_edge_loglikelihood_ii(unsigned int states,
       prop_invar = invar_proportion ? invar_proportion[freqs_indices[i]] : 0;
       if (prop_invar > 0)
       {
+        //printf("v_invar_indices[%d]: %d\n", n, invar_indices[n]);
         inv_site_lk = (invar_indices[n] == -1) ?
                           0 : freqs[invar_indices[n]];
         terma += rate_weights[i] * (terma_r * (1 - prop_invar) +

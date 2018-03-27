@@ -579,10 +579,10 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
      sites, or -1 for variant sites */
   if (!partition->invariant)
   {
-    partition->invariant = (int *)malloc(sites * sizeof(int));
+    partition->invariant = pll_aligned_alloc(partition->sites_padded*sizeof(int), partition->alignment);
   }
 
-  invariant = (pll_state_t *)malloc(sites * sizeof(pll_state_t));
+  invariant = (pll_state_t *)malloc(partition->sites * sizeof(pll_state_t));
 
   if (!invariant || !partition->invariant)
   {
@@ -645,9 +645,9 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
 
   /* if all basecalls at current site are the same and not degenerate set the
      index in invariant to the frequency index of the basecall, otherwise -1 */
-  for (i = 0; i < partition->sites; ++i)
+  for (i = 0; i < partition->sites_padded; ++i)
   {
-    if (invariant[i] == 0 || PLL_STATE_POPCNT(invariant[i]) > 1)
+    if (i >= partition->sites || invariant[i] == 0 || PLL_STATE_POPCNT(invariant[i]) > 1)
       partition->invariant[i] = -1;
     else
       partition->invariant[i] = PLL_STATE_CTZ(invariant[i]);

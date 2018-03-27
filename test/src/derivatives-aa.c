@@ -126,12 +126,7 @@ int main(int argc, char *argv[]) {
       return (-1);
     }
 
-    int elems_per_reg = partition->alignment / sizeof(double);
-    int sites_padded = (partition->sites + elems_per_reg - 1) & (0xFFFFFFFF - elems_per_reg + 1);
-
-    sumtable = pll_aligned_alloc(
-            sites_padded * partition->rate_cats * partition->states *
-            sizeof(double), partition->alignment);
+    sumtable = pll_allocate_sumtable(partition);
 
     if (!sumtable) {
       printf("Fail creating sumtable");
