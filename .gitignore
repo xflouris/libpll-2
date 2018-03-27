@@ -6,7 +6,7 @@ src/parse_rtree.h
 src/parse_utree.c
 src/parse_utree.h
 src/parse_phylip.h
-
+obj/
 #Generated support files
 m4/*
 !m4/ax*.m4
