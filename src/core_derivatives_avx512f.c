@@ -35,55 +35,6 @@ inline double reduce_add_pd(const __m512d zmm) {
 #define COMPUTE_GATHER_MASK(n, sites, elems_per_reg) \
   ((n) + (elems_per_reg) <= (sites) ? 0xff : 0xff >> ((elems_per_reg) - (sites) % (elems_per_reg)))
 
-#define COMPUTE_II_QCOL(q, offset) \
-/* row 0 */ \
-v_mat    = _mm512_load_pd(lm0 + (offset)); \
-v_lterm0 = _mm512_fmadd_pd(v_mat, v_lclv[q], v_lterm0); \
-v_mat    = _mm512_load_pd(rm0 + (offset)); \
-v_rterm0 = _mm512_fmadd_pd(v_mat, v_rclv[q], v_rterm0); \
-\
-/* row 1 */ \
-v_mat    = _mm512_load_pd(lm1 + (offset)); \
-v_lterm1 = _mm512_fmadd_pd(v_mat, v_lclv[q], v_lterm1); \
-v_mat    = _mm512_load_pd(rm1 + (offset)); \
-v_rterm1 = _mm512_fmadd_pd(v_mat, v_rclv[q], v_rterm1); \
-\
-/* row 2 */ \
-v_mat    = _mm512_load_pd(lm2 + (offset)); \
-v_lterm2 = _mm512_fmadd_pd(v_mat, v_lclv[q], v_lterm2); \
-v_mat    = _mm512_load_pd(rm2 + (offset)); \
-v_rterm2 = _mm512_fmadd_pd(v_mat, v_rclv[q], v_rterm2); \
-\
-/* row 3 */ \
-v_mat    = _mm512_load_pd(lm3 + (offset)); \
-v_lterm3 = _mm512_fmadd_pd(v_mat, v_lclv[q], v_lterm3); \
-v_mat    = _mm512_load_pd(rm3 + (offset)); \
-v_rterm3 = _mm512_fmadd_pd(v_mat, v_rclv[q], v_rterm3); \
-\
-/* row 4 */ \
-v_mat    = _mm512_load_pd(lm4 + (offset)); \
-v_lterm4 = _mm512_fmadd_pd(v_mat, v_lclv[q], v_lterm4); \
-v_mat    = _mm512_load_pd(rm4 + (offset)); \
-v_rterm4 = _mm512_fmadd_pd(v_mat, v_rclv[q], v_rterm4); \
-\
-/* row 5 */ \
-v_mat    = _mm512_load_pd(lm5 + (offset)); \
-v_lterm5 = _mm512_fmadd_pd(v_mat, v_lclv[q], v_lterm5); \
-v_mat    = _mm512_load_pd(rm5 + (offset)); \
-v_rterm5 = _mm512_fmadd_pd(v_mat, v_rclv[q], v_rterm5); \
-\
-/* row 6 */ \
-v_mat    = _mm512_load_pd(lm6 + (offset)); \
-v_lterm6 = _mm512_fmadd_pd(v_mat, v_lclv[q], v_lterm6); \
-v_mat    = _mm512_load_pd(rm6 + (offset)); \
-v_rterm6 = _mm512_fmadd_pd(v_mat, v_rclv[q], v_rterm6); \
-\
-/* row 7 */ \
-v_mat    = _mm512_load_pd(lm7 + (offset)); \
-v_lterm7 = _mm512_fmadd_pd(v_mat, v_lclv[q], v_lterm7); \
-v_mat    = _mm512_load_pd(rm7 + (offset)); \
-v_rterm7 = _mm512_fmadd_pd(v_mat, v_rclv[q], v_rterm7);
-
 #define COMPUTE_STATE_PART(i, j, k) \
 v_inv_eigenvecs = _mm512_set1_pd(tt_inv_eigenvecs[(i) * states * states \
                                                           + (j) * states \
