@@ -42,7 +42,8 @@ import time
 #####################
 do_memtest       =  1                 # Evaluate memory leaks
 num_replicates   = 20                 # Number of samples for the speed test
-all_args         = [0, 1, 2, 3, 4, 5, 8, 9, 16, 17, 32, 34, 36, 40, 48]
+#all_args         = [0, 1, 2, 3, 4, 5, 8, 9, 16, 17, 32, 34, 36, 40, 48]
+all_args         = [16, 80]
                                       # 0: No vector / No tip pattern
                                       # 1: No vector / Tip pattern
                                       # 2: AVX / No tip pattern
@@ -58,8 +59,7 @@ all_args         = [0, 1, 2, 3, 4, 5, 8, 9, 16, 17, 32, 34, 36, 40, 48]
                                       # 36: SSE / repeats
                                       # 40: AVX2 / repeats
                                       # 48: AVX512F / repeats
-                                      
-all_args         = [16,17,48]
+
 #####################
 
 colors={"default":"",
@@ -178,10 +178,14 @@ def runSpeedTest(files):
           attrib += " avx512f"
           attribstr += " AVX512F"
           typestr   += "G"
-      if (args & 32):
+      elif (args & 32):
           attrib    += " sr"
           attribstr += " Site repeats"
           typestr   += "R"
+      if (args & 64):
+          attrib    += " sml"
+          attribstr += " SIMD memory layout"
+          typestr   += "M"
       else:
           attribstr += " CPU"
           typestr   += "C"
@@ -314,10 +318,14 @@ def runValidation(files):
           attrib += " avx512f"
           attribstr += " AVX512F"
           typestr   += "G"
-      if (args & 32):
+      elif (args & 32):
           attrib    += " sr"
           attribstr += "Site repeats"
           typestr   += "R"
+      if (args & 64):
+          attrib    += " sml"
+          attribstr += " SIMD memory layout"
+          typestr   += "M"
       else:
         attribstr += " CPU"
         typestr   += "C"
@@ -431,8 +439,11 @@ if __name__ == "__main__":
     files=[f for f in files if os.stat("obj/"+f).st_mode & xmod]
   else:
     files=sys.argv[2:]
-    
+
   files.sort()
+
+  #TODO only for testing
+  files = ['pmatrix-aa','partials-aa', 'derivatives-aa']
 
   num_tests = len(files)
 
