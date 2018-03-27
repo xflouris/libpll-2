@@ -39,7 +39,7 @@ static double testbranches[NUM_BRANCHES] = {0.1, 0.2, 0.5, 0.9, 1.5, 5, 10, 50, 
 int main(int argc, char *argv[]) {
   unsigned int j, b;
   double d_f, dd_f;
-  unsigned int n_sites = 1000000;
+  unsigned int n_sites = 10000;
   unsigned int n_tips = 5;
   pll_operation_t *operations;
   double *sumtable;
