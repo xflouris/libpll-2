@@ -914,36 +914,53 @@ static int set_tipclv_sml(pll_partition_t *partition,
                           unsigned int tip_index,
                           const pll_state_t *map,
                           const char *sequence) {
-  pll_repeats_t *repeats = partition->repeats;
-  int use_repeats = pll_repeats_enabled(partition);
-  unsigned int ids = use_repeats ?
-                     repeats->pernode_ids[tip_index] : partition->sites;
+  pll_state_t* c = malloc(sizeof(pll_state_t)*ELEM_PER_REGISTER(partition));
+  double *tipclv = partition->clv[tip_index];
+
   /* iterate through sites */
-  for (unsigned int i = 0; i < ids; ++i) {
-    for (unsigned int j = 0; j < partition->rate_cats; ++j) {
-      unsigned int index = use_repeats ?
-                           repeats->pernode_id_site[tip_index][i] : i;
-      pll_state_t c;
-      if ((c = map[(int) sequence[index]]) == 0) {
+  for (unsigned int i = 0; i < partition->sites; i += ELEM_PER_REGISTER(partition)) {
+    for (unsigned int k = 0; k < ELEM_PER_REGISTER(partition) && i+k < partition->sites; k++) {
+      c[k] = map[(int) sequence[i+k]];
+      if (c[k] == 0) {
         pll_errno = PLL_ERROR_TIPDATA_ILLEGALSTATE;
-        snprintf(pll_errmsg, 200, "Illegal state code in tip \"%c\"", sequence[index]);
+        snprintf(pll_errmsg, 200, "Illegal state code in tip \"%c\"", sequence[i]);
         return PLL_FAILURE;
       }
+    }
 
-      /* decompose basecall into the encoded residues and set the appropriate
-         positions in the tip vector */
-      for (unsigned int k = 0; k < partition->states; ++k) {
-        CLV_VAL_SIMD(partition, tip_index, i, j, k) = c & 1;
-        c >>= 1;
+    /* decompose basecall into the encoded residues and set the appropriate
+       positions in the tip vector */
+    for (unsigned int j = 0; j < partition->states; ++j) {
+      for (unsigned int k = 0; k < ELEM_PER_REGISTER(partition) && i+k < partition->sites; k++) {
+        tipclv[k] = c[k] & 1;
+        c[k] >>= 1;
       }
+      tipclv += ELEM_PER_REGISTER(partition);
+    }
+
+    /* fill in the entries for the other gamma values */
+    for (unsigned int j = 0; j < partition->rate_cats - 1; ++j) {
+      memcpy(tipclv, tipclv - partition->states*ELEM_PER_REGISTER(partition),
+             partition->states*ELEM_PER_REGISTER(partition) * sizeof(double));
+      tipclv += partition->states*ELEM_PER_REGISTER(partition);
     }
   }
 
   /* if asc_bias is set, we initialize the additional positions */
   if (partition->asc_bias_alloc) {
-    for (unsigned i = 0; i < partition->states; ++i) {
-      for (unsigned k = 0; k < partition->states; ++k) {
-        CLV_VAL_SIMD(partition, tip_index, partition->sites + i, 0, k) = k == i;
+    for (unsigned int i = 0; i < partition->states; i+=ELEM_PER_REGISTER(partition)) {
+      for (unsigned int j = 0; j < partition->states; ++j) {
+        for (unsigned int k = 0; k < ELEM_PER_REGISTER(partition) && i+k < partition->sites; k++) {
+          tipclv[k] = j == (i+k);
+        }
+        tipclv += ELEM_PER_REGISTER(partition);
+      }
+
+      /* fill in the entries for the other gamma values */
+      for (unsigned int j = 0; j < partition->rate_cats - 1; ++j) {
+        memcpy(tipclv, tipclv - partition->states*ELEM_PER_REGISTER(partition),
+               partition->states*ELEM_PER_REGISTER(partition) * sizeof(double));
+        tipclv += partition->states*ELEM_PER_REGISTER(partition);
       }
     }
   }
