@@ -50,3 +50,5 @@ tmpvalgrind
 .project
 .settings
 .pydevproject
+.idea
+cmake-build-debug
