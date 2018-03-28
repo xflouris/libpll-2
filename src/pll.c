@@ -560,6 +560,7 @@ PLL_EXPORT pll_partition_t *pll_partition_create(unsigned int tips,
     for (i = start; i < partition->tips + partition->clv_buffers; ++i) {
       if (attributes & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present)
           && partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+        clv_states_padded = states;
       }
       partition->clv[i] = pll_aligned_alloc(sites_alloc * clv_states_padded *
                                             rate_cats * sizeof(double),
