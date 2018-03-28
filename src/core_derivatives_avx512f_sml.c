@@ -134,7 +134,6 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f_sml(unsigned int sites,
 
   /* build sumtable */
   for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX515_REGISTER) {
-    __mmask8 gather_mask = COMPUTE_GATHER_MASK(n, sites, ELEM_PER_AVX515_REGISTER);
     if (per_rate_scaling) {
       assert(0);
       /* compute minimum per-rate scaler -> common per-site scaler */
@@ -144,23 +143,21 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f_sml(unsigned int sites,
 
         //rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
         if (parent_scaler) {
-          __m512i v_parent_scaler = _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
-                                                                                      gather_mask,
-                                                                                      v_scaler_index,
-                                                                                      (void *) (parent_scaler +
-                                                                                                n * rate_cats + i),
-                                                                                      sizeof(unsigned int)));
+          __m512i v_parent_scaler = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(
+                                                                  v_scaler_index,
+                                                                  (void *) (parent_scaler +
+                                                                            n * rate_cats + i),
+                                                                  sizeof(unsigned int)));
           rate_scalings[i] = v_parent_scaler;
         }
 
         //rate_scalings[i] += (child_scaler) ? child_scaler[n*rate_cats+i] : 0;
         if (child_scaler) {
-          __m512i v_child_scaler = _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
-                                                                                     gather_mask,
-                                                                                     v_scaler_index,
-                                                                                     (void *) (child_scaler +
-                                                                                               n * rate_cats + i),
-                                                                                     sizeof(unsigned int)));
+          __m512i v_child_scaler = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(
+                                                                 v_scaler_index,
+                                                                 (void *) (child_scaler +
+                                                                           n * rate_cats + i),
+                                                                 sizeof(unsigned int)));
 
           rate_scalings[i] = _mm512_add_epi64(rate_scalings[i], v_child_scaler);
         }
@@ -232,8 +229,8 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f_sml(unsigned int sites,
         _mm512_store_pd(sum, v_sum);
         sum += ELEM_PER_AVX515_REGISTER;
       }
-      t_clvc += states*ELEM_PER_AVX515_REGISTER;
-      t_clvp += states*ELEM_PER_AVX515_REGISTER;
+      t_clvc += states * ELEM_PER_AVX515_REGISTER;
+      t_clvp += states * ELEM_PER_AVX515_REGISTER;
     }
   }
 
@@ -366,38 +363,31 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f_sml(unsigned int states,
 
   /* build sumtable */
   for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX515_REGISTER) {
-    __mmask8 gather_mask = COMPUTE_GATHER_MASK(n, sites, ELEM_PER_AVX515_REGISTER);
     if (per_rate_scaling) {
       /* compute minimum per-rate scaler -> common per-site scaler */
       min_scaler = _mm512_set1_epi64(UINT_MAX);
       for (unsigned int i = 0; i < rate_cats; ++i) {
         rate_scalings[i] = _mm512_setzero_epi32();
 
-        //rate_scalings[i] = (parent_scaler) ? parent_scaler[n*rate_cats+i] : 0;
         if (parent_scaler) {
-          __m512i v_parent_scaler = _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
-                                                                                      gather_mask,
-                                                                                      v_scaler_index,
-                                                                                      (void *) (parent_scaler +
-                                                                                                n * rate_cats + i),
-                                                                                      sizeof(unsigned int)));
+          __m512i v_parent_scaler = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(
+                                                                  v_scaler_index,
+                                                                  (void *) (parent_scaler +
+                                                                            n * rate_cats + i),
+                                                                  sizeof(unsigned int)));
           rate_scalings[i] = v_parent_scaler;
         }
 
-        //rate_scalings[i] += (child_scaler) ? child_scaler[n*rate_cats+i] : 0;
         if (child_scaler) {
-          __m512i v_child_scaler = _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_setzero_si256(),
-                                                                                     gather_mask,
-                                                                                     v_scaler_index,
-                                                                                     (void *) (child_scaler +
-                                                                                               n * rate_cats + i),
-                                                                                     sizeof(unsigned int)));
+          __m512i v_child_scaler = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(
+                                                                 v_scaler_index,
+                                                                 (void *) (child_scaler +
+                                                                           n * rate_cats + i),
+                                                                 sizeof(unsigned int)));
 
           rate_scalings[i] = _mm512_add_epi64(rate_scalings[i], v_child_scaler);
         }
 
-        //if (rate_scalings[i] < min_scaler)
-        //  min_scaler = rate_scalings[i];
         min_scaler = _mm512_mask_blend_epi64(_mm512_cmplt_epi64_mask(rate_scalings[i], min_scaler),
                                              min_scaler,
                                              rate_scalings[i]);
@@ -416,10 +406,10 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f_sml(unsigned int states,
         __m512d v_righterm = _mm512_setzero_pd();
 
         for (unsigned int k = 0; k < states; ++k) {
-          __m512d v_clvp = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvp + k,
-                                                    sizeof(double));
-          __m512d v_clvc = _mm512_mask_i64gather_pd(_mm512_setzero_pd(), gather_mask, v_index, t_clvc + k,
-                                                    sizeof(double));
+          __m512d v_clvp = _mm512_i64gather_pd(v_index, t_clvp + k,
+                                               sizeof(double));
+          __m512d v_clvc = _mm512_i64gather_pd(v_index, t_clvc + k,
+                                               sizeof(double));
 
           __m512d v_inv_eigenvecs = _mm512_set1_pd(tt_inv_eigenvecs[i * states * states + j * states + k]);
           __m512d v_eigenvecs = _mm512_set1_pd(tt_eigenvecs[i * states * states + j * states + k]);
@@ -553,7 +543,6 @@ int pll_core_likelihood_derivatives_avx512f_sml(unsigned int states,
   for (unsigned int n = 0;
        n < ef_sites;
        n += ELEM_PER_AVX515_REGISTER, invariant_ptr += ELEM_PER_AVX515_REGISTER) {
-    __mmask8 gather_mask = COMPUTE_GATHER_MASK(n, ef_sites, ELEM_PER_AVX515_REGISTER);
 
     site_lk[0] = _mm512_setzero_pd();
     site_lk[1] = _mm512_setzero_pd();
@@ -590,11 +579,9 @@ int pll_core_likelihood_derivatives_avx512f_sml(unsigned int states,
       if (t_prop_invar > 0) {
 
         //inv_site_lk = invariant_ptr[0] == -1 ? 0 : freqs[i][invariant_ptr[0]] * t_prop_invar;
-        __m512i v_invariant_ptr = _mm512_cvtepi32_epi64(_mm512_mask_i64gather_epi32(_mm256_set1_epi32(-1),
-                                                                                    gather_mask,
-                                                                                    v_index,
-                                                                                    invariant_ptr,
-                                                                                    sizeof(int)));
+        __m512i v_invariant_ptr = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(v_index,
+                                                                               invariant_ptr,
+                                                                               sizeof(int)));
         __mmask8 valid_invariants = _mm512_cmpneq_epi64_mask(v_invariant_ptr, _mm512_set1_epi64(-1));
         __m512d v_freqs = _mm512_mask_i64gather_pd(_mm512_setzero_pd(),
                                                    valid_invariants,
