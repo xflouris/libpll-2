@@ -345,7 +345,7 @@ PLL_EXPORT void pll_core_update_partial_ti_avx512f_sml(unsigned int states,
   assert(!(attrib & PLL_ATTRIB_PATTERN_TIP));
 }
 
-
+__attribute__((optimize("unroll-loops")))
 PLL_EXPORT
 void pll_core_update_partial_ii_20x20_avx512f_sml(unsigned int sites,
                                                   unsigned int rate_cats,
