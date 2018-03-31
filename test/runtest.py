@@ -443,7 +443,7 @@ if __name__ == "__main__":
   files.sort()
 
   #TODO only for testing
-  files = ['pmatrix-aa','partials-aa', 'derivatives-aa']
+  files = ['partials-aa', 'derivatives-aa']
 
   num_tests = len(files)
 
