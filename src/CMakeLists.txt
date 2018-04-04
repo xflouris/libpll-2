@@ -8,39 +8,43 @@ set (SSE_FLAGS "-msse3")
 set (AVX_FLAGS "-mavx")
 set (AVX2_FLAGS "-mfma -mavx2")
 
-find_package(BISON)
-find_package(FLEX)
-set(LIBPLL_BISON_FLAGS "-y -d -p pll_utree_")
-set(LIBPLL_FLEX_FLAGS "-P pll_utree_")
-BISON_TARGET(parse_utree_t 
-  ${CMAKE_CURRENT_SOURCE_DIR}/parse_utree.y ${CMAKE_CURRENT_BINARY_DIR}/parse_utree.c
-  COMPILE_FLAGS ${LIBPLL_BISON_FLAGS})
-FLEX_TARGET(lex_utree_t 
-  ${CMAKE_CURRENT_SOURCE_DIR}/lex_utree.l ${CMAKE_CURRENT_BINARY_DIR}/lex_utree.c
-  COMPILE_FLAGS ${LIBPLL_FLEX_FLAGS})
-ADD_FLEX_BISON_DEPENDENCY(lex_utree_t parse_utree_t)
-set(LIBPLL_BISON_FLAGS "-y -d -p pll_rtree_")
-set(LIBPLL_FLEX_FLAGS "-P pll_rtree_")
-BISON_TARGET(parse_rtree_t 
-  ${CMAKE_CURRENT_SOURCE_DIR}/parse_rtree.y ${CMAKE_CURRENT_BINARY_DIR}/parse_rtree.c
-  COMPILE_FLAGS ${LIBPLL_BISON_FLAGS})
-FLEX_TARGET(lex_rtree_t 
-  ${CMAKE_CURRENT_SOURCE_DIR}/lex_rtree.l ${CMAKE_CURRENT_BINARY_DIR}/lex_rtree.c
-  COMPILE_FLAGS ${LIBPLL_FLEX_FLAGS})
-ADD_FLEX_BISON_DEPENDENCY(lex_rtree_t parse_rtree_t)
+#find_package(BISON)
+#find_package(FLEX)
+#set(LIBPLL_BISON_FLAGS "-y -d -p pll_utree_")
+#set(LIBPLL_FLEX_FLAGS "-P pll_utree_")
+#BISON_TARGET(parse_utree_t 
+#  ${CMAKE_CURRENT_SOURCE_DIR}/parse_utree.y ${CMAKE_CURRENT_BINARY_DIR}/parse_utree.c
+#  COMPILE_FLAGS ${LIBPLL_BISON_FLAGS})
+#FLEX_TARGET(lex_utree_t 
+#  ${CMAKE_CURRENT_SOURCE_DIR}/lex_utree.l ${CMAKE_CURRENT_BINARY_DIR}/lex_utree.c
+#  COMPILE_FLAGS ${LIBPLL_FLEX_FLAGS})
+#ADD_FLEX_BISON_DEPENDENCY(lex_utree_t parse_utree_t)
+#set(LIBPLL_BISON_FLAGS "-y -d -p pll_rtree_")
+#set(LIBPLL_FLEX_FLAGS "-P pll_rtree_")
+#BISON_TARGET(parse_rtree_t 
+#  ${CMAKE_CURRENT_SOURCE_DIR}/parse_rtree.y ${CMAKE_CURRENT_BINARY_DIR}/parse_rtree.c
+#  COMPILE_FLAGS ${LIBPLL_BISON_FLAGS})
+#FLEX_TARGET(lex_rtree_t 
+#  ${CMAKE_CURRENT_SOURCE_DIR}/lex_rtree.l ${CMAKE_CURRENT_BINARY_DIR}/lex_rtree.c
+#  COMPILE_FLAGS ${LIBPLL_FLEX_FLAGS})
+#ADD_FLEX_BISON_DEPENDENCY(lex_rtree_t parse_rtree_t)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 #remove annoyting bison and flex warnings
-SET_SOURCE_FILES_PROPERTIES( ${FLEX_lex_utree_t_OUTPUTS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare )
-SET_SOURCE_FILES_PROPERTIES( ${FLEX_lex_rtree_t_OUTPUTS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare )
+#SET_SOURCE_FILES_PROPERTIES( ${FLEX_lex_utree_t_OUTPUTS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare )
+#SET_SOURCE_FILES_PROPERTIES( ${FLEX_lex_rtree_t_OUTPUTS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare )
 
 set(LIBPLL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/compress.c
-  ${BISON_parse_utree_t_OUTPUTS}
-  ${FLEX_lex_utree_t_OUTPUTS}
-  ${BISON_parse_rtree_t_OUTPUTS}
-  ${FLEX_lex_rtree_t_OUTPUTS}
+  #${BISON_parse_utree_t_OUTPUTS}
+  #${FLEX_lex_utree_t_OUTPUTS}
+  #${BISON_parse_rtree_t_OUTPUTS}
+  #${FLEX_lex_rtree_t_OUTPUTS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/parse_utree.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/parse_rtree.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/lex_utree.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/lex_rtree.c
   ${CMAKE_CURRENT_SOURCE_DIR}/core_derivatives.c
   ${CMAKE_CURRENT_SOURCE_DIR}/core_likelihood.c
   ${CMAKE_CURRENT_SOURCE_DIR}/core_partials.c

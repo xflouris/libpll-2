@@ -1,6 +1,3 @@
 src/libpll.so
-src/parse_rtree.h
-src/parse_utree.h
-src/parse_phylip.h
 *.o$
 *.so
