@@ -26,29 +26,23 @@
  */
 #include "common.h"
 #include <time.h>
+#include <locale.h>
 
-#define NUM_ALPHAS   3
 #define NUM_BRANCHES 9
-#define NUM_CATS     3
-#define NUM_PINV     4
 #define N_STATES_AA 20
 
 #define FLOAT_PRECISION 4
 
-static double alpha[NUM_ALPHAS] = {0.1, 0.75, 1.5};
-static double pinvar[NUM_PINV] = {0.0, 0.3, 0.5, 0.6};
-static unsigned int n_cat_gamma[NUM_CATS] = {1, 2, 4};
 unsigned int params_indices[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 static double testbranches[NUM_BRANCHES] = {0.1, 0.2, 0.5, 0.9, 1.5, 5, 10, 50, 90};
 
 int main(int argc, char *argv[]) {
-  unsigned int i, j, k, b, p;
   double d_f, dd_f;
-  unsigned int n_sites = 1000000  ;
   unsigned int n_tips = 5;
-  pll_operation_t *operations;
-  double *sumtable;
 
+  clock_t begin = clock();
+
+  pll_operation_t *operations;
   operations = (pll_operation_t *) malloc(4 * sizeof(pll_operation_t));
 
   operations[0].parent_clv_index = 5;
@@ -89,178 +83,232 @@ int main(int argc, char *argv[]) {
   operations[3].child1_scaler_index = PLL_SCALE_BUFFER_NONE;
   operations[3].child2_scaler_index = PLL_SCALE_BUFFER_NONE;
 
+  float pll_partition_create_secs = 0;
+  float pll_update_prob_matrices_secs = 0;
+  float pll_update_partials_secs = 0;
+  float pll_set_tip_states_secs = 0;
+  float pll_update_sumtable_secs = 0;
+  float pll_compute_edge_loglikelihood_secs = 0;
+  float pll_compute_likelihood_derivatives_secs = 0;
+
   /* check attributes */
-  unsigned int attributes = get_attributes(argc, argv);
+  pll_common_args_t *common_args = get_common_args(argc, argv);
+  unsigned int n_sites = common_args->n_sites;
+  unsigned int n_categories = common_args->n_categories;
 
-  clock_t begin = clock();
+  clock_t pll_partition_create_begin_time = clock();
 
-  float total_init_secs = 0.f;
-  float total_edge_loglikelihood_secs = 0.f;
-  float total_sumtable_secs = 0.f;
-  float total_derivetive_secs = 0.f;
+  pll_partition_t *partition;
+  partition = pll_partition_create(
+          n_tips,                 /* numer of tips */
+          4,                      /* clv buffers */
+          N_STATES_AA,            /* number of states */
+          n_sites,                /* sequence length */
+          1,                      /* different rate parameters */
+          2 * n_tips - 3,         /* probability matrices */
+          n_categories,           /* gamma categories */
+          0,                      /* scale buffers */
+          common_args->attributes /* attributes */
+  );
 
-  for (k = 0; k < NUM_CATS; ++k) {
-    clock_t calc_init = clock();
+  clock_t pll_partition_create_end_time = clock();
+  pll_partition_create_secs +=
+          (float) (pll_partition_create_end_time - pll_partition_create_begin_time) / CLOCKS_PER_SEC;
 
-    printf("Outer loop with num cats: %d\n", n_cat_gamma[k]);
-
-    pll_partition_t *partition;
-    partition = pll_partition_create(
-            n_tips,      /* numer of tips */
-            4,           /* clv buffers */
-            N_STATES_AA, /* number of states */
-            n_sites,     /* sequence length */
-            1,           /* different rate parameters */
-            2 * n_tips - 3,  /* probability matrices */
-            n_cat_gamma[k], /* gamma categories */
-            0,           /* scale buffers */
-            attributes
-    );          /* attributes */
-
-    if (!partition) {
-      printf("Fail creating partition");
-      return (-1);
-    }
-
-    int elems_per_reg = partition->alignment / sizeof(double);
-    int sites_padded = (partition->sites + elems_per_reg - 1) & (0xFFFFFFFF - elems_per_reg + 1);
-
-    sumtable = pll_aligned_alloc(
-            sites_padded * partition->rate_cats * partition->states *
-            sizeof(double), partition->alignment);
-
-    if (!sumtable) {
-      printf("Fail creating sumtable");
-      pll_partition_destroy(partition);
-      return (-1);
-    }
-
-    double branch_lengths[4] = {0.1, 0.2, 0.3, 0.4};
-    unsigned int matrix_indices[4] = {0, 1, 2, 3};
-
-    pll_set_frequencies(partition, 0, pll_aa_freqs_dayhoff);
-    pll_set_subst_params(partition, 0, pll_aa_rates_dayhoff);
-
-    const char *ref_seq = "PIGLRVTLRRDRMWI";
-    size_t align_seqs = 5;
-
-    char **align = calloc(align_seqs, sizeof(char *));
-
-    srand(time(NULL));
-
-    int return_val = PLL_SUCCESS;
-    for (size_t i = 0; i < align_seqs; i++) {
-      align[i] = calloc(n_sites + 1, sizeof(char));
-      for (size_t k = 0; k < n_sites; k++) {
-        align[i][k] = ref_seq[rand() % strlen(ref_seq)];
-      }
-      return_val &= pll_set_tip_states(partition, i, pll_map_aa,
-                                       align[i]);
-    }
-
-    if (!return_val)
-      fatal("Error setting tip states");
-
-    clock_t loop_begin = clock();
-    float cat_init_secs = (float) (loop_begin - calc_init) / CLOCKS_PER_SEC;
-    printf("  Outer loop init time: %f\n", cat_init_secs);
-
-    for (i = 0; i < NUM_ALPHAS; ++i) {
-      for (p = 0; p < NUM_PINV; ++p) {
-
-        printf("   Inner loop with alpha: %f, PINV, %f)\n", alpha[i], pinvar[p]);
-
-        clock_t init_time = clock();
-
-        double *rate_cats = (double *) malloc(n_cat_gamma[k] * sizeof(double));
-
-        if (pll_compute_gamma_cats(alpha[i], n_cat_gamma[k], rate_cats, PLL_GAMMA_RATES_MEAN) == PLL_FAILURE) {
-          printf("Fail computing the gamma rates\n");
-          continue;
-        }
-
-        pll_set_category_rates(partition, rate_cats);
-        free(rate_cats);
-
-        for (j = 0; j < partition->rate_matrices; ++j) {
-          pll_update_invariant_sites_proportion(partition, j, pinvar[p]);
-        }
-
-        pll_update_prob_matrices(partition, params_indices, matrix_indices, branch_lengths, 4);
-        pll_update_partials(partition, operations, 3);
-
-        clock_t edge_loglikelihood_time = clock();
-        float init_secs = (float) (edge_loglikelihood_time - init_time) / CLOCKS_PER_SEC;
-        total_init_secs += init_secs;
-        printf("      Init time:               %f\n", init_secs);
-
-        pll_compute_edge_loglikelihood(partition,
-                                       6,
-                                       PLL_SCALE_BUFFER_NONE,
-                                       7,
-                                       PLL_SCALE_BUFFER_NONE,
-                                       0,
-                                       params_indices,
-                                       NULL);
-
-        clock_t sumtable_time = clock();
-        float edge_loglikelihood_secs = (float) (sumtable_time - edge_loglikelihood_time) / CLOCKS_PER_SEC;
-        total_edge_loglikelihood_secs += edge_loglikelihood_secs;
-        printf("      Edge loglikelihood time: %f\n", edge_loglikelihood_secs);
-
-        pll_update_sumtable(partition, 6, 7,
-                            PLL_SCALE_BUFFER_NONE, PLL_SCALE_BUFFER_NONE,
-                            params_indices, sumtable);
-
-        clock_t derivetive_time = clock();
-        total_edge_loglikelihood_secs += edge_loglikelihood_secs;
-        float sumtable_secs = (float) (derivetive_time - sumtable_time) / CLOCKS_PER_SEC;
-        total_sumtable_secs += sumtable_secs;
-        printf("      Sumtable time:           %f\n", sumtable_secs);
-
-        for (b = 0; b < NUM_BRANCHES; ++b) {
-          pll_compute_likelihood_derivatives(partition,
-                                             PLL_SCALE_BUFFER_NONE,
-                                             PLL_SCALE_BUFFER_NONE,
-                                             testbranches[b],
-                                             params_indices,
-                                             sumtable,
-                                             &d_f, &dd_f);
-        }
-
-        clock_t inner_loop_time = clock();
-        float derivetive_secs = (float) (inner_loop_time - derivetive_time) / CLOCKS_PER_SEC;
-        total_derivetive_secs += derivetive_secs;
-        printf("      Derivative time:         %f\n", derivetive_secs);
-
-        float alpha_pinv_loop_secs = (float) (inner_loop_time - init_time) / CLOCKS_PER_SEC;
-        printf("   Inner loop time:            %f\n", alpha_pinv_loop_secs);
-      }
-    }
-
-    clock_t loop_end = clock();
-    float loop_secs = (float) (loop_end - loop_begin) / CLOCKS_PER_SEC;
-    printf("Outer loop time: %f\n", loop_secs);
-
-    pll_aligned_free(sumtable);
-    pll_partition_destroy(partition);
-
-    for (size_t i = 0; i < align_seqs; i++) {
-      free(align[i]);
-    }
-    free(align);
+  if (!partition) {
+    printf("Fail creating partition");
+    return (-1);
   }
+
+  double *sumtable = pll_allocate_sumtable(partition);
+
+  if (!sumtable) {
+    printf("Fail creating sumtable");
+    pll_partition_destroy(partition);
+    return (-1);
+  }
+
+  double branch_lengths[4] = {0.1, 0.2, 0.3, 0.4};
+  unsigned int matrix_indices[4] = {0, 1, 2, 3};
+
+  pll_set_frequencies(partition, 0, pll_aa_freqs_dayhoff);
+  pll_set_subst_params(partition, 0, pll_aa_rates_dayhoff);
+
+  const char *ref_seq = "ARNDCQEGHILKMFPSTWYV";
+  size_t align_seqs = 5;
+
+  char **align = calloc(align_seqs, sizeof(char *));
+
+  srand(common_args->seed);
+
+  clock_t pll_set_tip_states_before_time = clock();
+
+  int return_val = PLL_SUCCESS;
+  for (unsigned int i = 0; i < align_seqs; i++) {
+    align[i] = calloc(n_sites + 1, sizeof(char));
+    for (unsigned int j = 0; j < n_sites; j++) {
+      align[i][j] = ref_seq[rand() % strlen(ref_seq)];
+    }
+    return_val &= pll_set_tip_states(partition, i, pll_map_aa,
+                                     align[i]);
+  }
+
+  clock_t pll_set_tip_states_end_time = clock();
+  pll_set_tip_states_secs +=
+          (float) (pll_set_tip_states_end_time - pll_set_tip_states_before_time) / CLOCKS_PER_SEC;
+
+
+  if (!return_val)
+    fatal("Error setting tip states");
+
+  for (unsigned int n = 0; n < common_args->n_alpha_values; ++n) {
+
+    double *rate_cats = (double *) malloc(n_categories * sizeof(double));
+
+    if (pll_compute_gamma_cats(common_args->alpha_values[n], n_categories, rate_cats, PLL_GAMMA_RATES_MEAN)
+        == PLL_FAILURE) {
+      printf("Fail computing the gamma rates\n");
+      exit(0);
+    }
+
+    pll_set_category_rates(partition, rate_cats);
+    free(rate_cats);
+
+    for (unsigned int j = 0; j < partition->rate_matrices; ++j) {
+      pll_update_invariant_sites_proportion(partition, j, common_args->pinvar);
+    }
+
+    clock_t pll_update_prob_matrices_begin_time = clock();
+
+    for (int i = 0; i < common_args->n_pmatrix_itr; i++) {
+      pll_update_prob_matrices(partition, params_indices, matrix_indices, branch_lengths, 4);
+    }
+
+    clock_t pll_update_prob_matrices_end_time = clock();
+    pll_update_prob_matrices_secs +=
+            (float) (pll_update_prob_matrices_end_time - pll_update_prob_matrices_begin_time) / CLOCKS_PER_SEC;
+
+    clock_t pll_update_partials_begin_time = clock();
+
+    pll_update_partials(partition, operations, 3);
+
+    clock_t pll_update_partials_end_time = clock();
+    pll_update_partials_secs +=
+            (float) (pll_update_partials_end_time - pll_update_partials_begin_time) / CLOCKS_PER_SEC;
+
+    clock_t edge_loglikelihood_begin_time = clock();
+
+    pll_compute_edge_loglikelihood(partition,
+                                   6,
+                                   PLL_SCALE_BUFFER_NONE,
+                                   7,
+                                   PLL_SCALE_BUFFER_NONE,
+                                   0,
+                                   params_indices,
+                                   NULL);
+
+    clock_t edge_loglikelihood_end_time = clock();
+    pll_compute_edge_loglikelihood_secs +=
+            (float) (edge_loglikelihood_end_time - edge_loglikelihood_begin_time) / CLOCKS_PER_SEC;
+
+    clock_t pll_update_sumtable_begin_time = clock();
+
+    pll_update_sumtable(partition, 6, 7,
+                        PLL_SCALE_BUFFER_NONE, PLL_SCALE_BUFFER_NONE,
+                        params_indices, sumtable);
+
+    clock_t pll_update_sumtable_end_time = clock();
+    pll_update_sumtable_secs +=
+            (float) (pll_update_sumtable_end_time - pll_update_sumtable_begin_time) / CLOCKS_PER_SEC;
+
+
+    clock_t pll_compute_likelihood_derivatives_begin_time = clock();
+
+    for (unsigned int b = 0; b < NUM_BRANCHES; ++b) {
+      pll_compute_likelihood_derivatives(partition,
+                                         PLL_SCALE_BUFFER_NONE,
+                                         PLL_SCALE_BUFFER_NONE,
+                                         testbranches[b],
+                                         params_indices,
+                                         sumtable,
+                                         &d_f, &dd_f);
+    }
+
+    clock_t pll_compute_likelihood_derivatives_end_time = clock();
+    pll_compute_likelihood_derivatives_secs +=
+            (float) (pll_compute_likelihood_derivatives_end_time - pll_compute_likelihood_derivatives_begin_time) /
+            CLOCKS_PER_SEC;
+  }
+
+  pll_aligned_free(sumtable);
+  pll_partition_destroy(partition);
+
+  for (unsigned int i = 0; i < align_seqs; i++) {
+    free(align[i]);
+  }
+  free(align);
 
   clock_t end = clock();
   float total_secs = (float) (end - begin) / CLOCKS_PER_SEC;
 
+  printf("Execution Mode:                     ");
+  if (partition->attributes & PLL_ATTRIB_ARCH_AVX)
+  {
+    printf("avx");
+  }
+  else if (partition->attributes & PLL_ATTRIB_ARCH_SSE)
+  {
+    printf("sse");
+  }
+  else if (partition->attributes & PLL_ATTRIB_ARCH_AVX2)
+  {
+    printf("avx2");
+  }
+  else if (partition->attributes & PLL_ATTRIB_ARCH_AVX512F)
+  {
+    printf("avx512f");
+  }
+  else
+  {
+    printf("cpu");
+  }
+
+  if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
+  {
+    printf(" tv");
+  }
+  if (partition->attributes & PLL_ATTRIB_SITE_REPEATS)
+  {
+    printf(" sr");
+  }
+  if (partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT)
+  {
+    printf(" sml");
+  }
   printf("\n");
-  printf("Total inner loop init time: %f\n", total_init_secs);
-  printf("Total edge loglikelihood time: %f\n", total_edge_loglikelihood_secs);
-  printf("Total sumtable time: %f\n", total_sumtable_secs);
-  printf("Total derivative time: %f\n", total_derivetive_secs);
-  printf("Total exec time: %f\n", total_secs);
+  printf("Seed:                               %d\n", common_args->seed);
+  setlocale(LC_NUMERIC, "");
+  printf("No. Sites:                          %'d\n", n_sites);
+  printf("No. Categories:                     %d\n", n_categories);
+  printf("Proportion of invariant Sites:      %f\n", common_args->pinvar);
+  printf("Alpha Values:                       {");
+  printf("%f", common_args->alpha_values[0]);
+  for(int i = 1; i < common_args->n_alpha_values; i++) {
+    printf(", %f", common_args->alpha_values[i]);
+  }
+  printf("}\n");
+  printf("No. pll_update_prob_matrices calls: %'d\n", common_args->n_pmatrix_itr);
+  printf("pll_partition_create:               %f\n", pll_partition_create_secs);
+  printf("pll_set_tip_states:                 %f\n", pll_set_tip_states_secs);
+  printf("pll_update_prob_matrices:           %f\n", pll_update_prob_matrices_secs);
+  printf("pll_update_partials:                %f\n", pll_update_partials_secs);
+  printf("pll_compute_edge_loglikelihood:     %f\n", pll_compute_edge_loglikelihood_secs);
+  printf("pll_update_sumtable:                %f\n", pll_update_sumtable_secs);
+  printf("pll_compute_likelihood_derivatives: %f\n", pll_compute_likelihood_derivatives_secs);
+  printf("\n");
+  printf("Total exec time:                    %f\n", total_secs);
 
   free(operations);
+  destroy_common_args(&common_args);
   return (0);
 }

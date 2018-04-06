@@ -32,7 +32,7 @@ OBJCOMMON = ../test/src/common.o
 
 all: $(OBJCOMMON) $(OBJFILES)
 
-obj/%: src/%.c $(DEPS)
+obj/%: src/%.c ../test/src/common.c $(DEPS)
 	@mkdir -p "$(@D)"
 	$(CC) "-Wl,-rpath,$(ABS_LIB_DIR)" $(CPPFLAGS) $(CFLAGS) -o $@ $< $(OBJCOMMON) $(CLIBS) $(LDFLAGS)
 
