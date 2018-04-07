@@ -946,6 +946,7 @@ static int set_tipclv_sml(pll_partition_t *partition,
       tipclv += partition->states*ELEM_PER_REGISTER(partition);
     }
   }
+  free(c);
 
   /* if asc_bias is set, we initialize the additional positions */
   if (partition->asc_bias_alloc) {
