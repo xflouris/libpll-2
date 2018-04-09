@@ -621,24 +621,54 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
   }
   else
   {
-    unsigned int span_padded = rate_cats * states_padded;
-    for (i = 0; i < tips; ++i)
-    {
-      const unsigned int * site_id = NULL;
-      if (partition->repeats && partition->repeats->pernode_ids[i]) 
+    if(partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+      pll_state_t* v_state = (pll_state_t *)malloc(ELEM_PER_REGISTER(partition) * sizeof(pll_state_t));
+      for (i = 0; i < tips; ++i)
       {
-        site_id = partition->repeats->pernode_site_id[i];
-      }
-      for (j = 0; j < sites; ++j)
-      {
-        unsigned int site = site_id ? site_id[j] : j;
-        tipclv = partition->clv[i] + span_padded * site;
-        state = 0;
-        for (k = 0; k < states; ++k)
+        tipclv = partition->clv[i];
+        for (j = 0; j < sites; j+= ELEM_PER_REGISTER(partition))
         {
-          state |= ((pll_state_t)tipclv[k] << k);
+          for (unsigned int n = 0; n < ELEM_PER_REGISTER(partition); n++)
+          {
+            v_state[n] = 0;
+          }
+          for (k = 0; k < states; ++k)
+          {
+            for (unsigned int n = 0; n < ELEM_PER_REGISTER(partition); n++)
+            {
+              v_state[n] |= ((pll_state_t) tipclv[n] << k);
+            }
+            tipclv += ELEM_PER_REGISTER(partition);
+          }
+          for (unsigned int n = 0; n < ELEM_PER_REGISTER(partition) && j+n < partition->sites; n++) {
+            invariant[j + n] &= v_state[n];
+          }
+          tipclv += (rate_cats-1)*states*ELEM_PER_REGISTER(partition);
         }
-        invariant[j] &= state;
+      }
+      free(v_state);
+    }
+    else
+    {
+      unsigned int span_padded = rate_cats * states_padded;
+      for (i = 0; i < tips; ++i)
+      {
+        const unsigned int * site_id = NULL;
+        if (partition->repeats && partition->repeats->pernode_ids[i])
+        {
+          site_id = partition->repeats->pernode_site_id[i];
+        }
+        for (j = 0; j < sites; ++j)
+        {
+          unsigned int site = site_id ? site_id[j] : j;
+          tipclv = partition->clv[i] + span_padded * site;
+          state = 0;
+          for (k = 0; k < states; ++k)
+          {
+            state |= ((pll_state_t)tipclv[k] << k);
+          }
+          invariant[j] &= state;
+        }
       }
     }
   }
