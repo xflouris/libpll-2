@@ -316,7 +316,7 @@ double pll_core_edge_loglikelihood_ii_avx512f_sml(unsigned int states,
       if (rate_scalings && rate_scalings[i] > 0)
       {
         assert(0); //TODO not implemented yet :(
-        terma_r *= scale_minlh[rate_scalings[i]-1];
+        //terma_r *= scale_minlh[rate_scalings[i]-1];
       }
 
       /* account for invariant sites */
@@ -350,7 +350,7 @@ double pll_core_edge_loglikelihood_ii_avx512f_sml(unsigned int states,
     __m512d site_lk = __mm512_log_pd(terma);
     if (site_scalings) {
       assert(0); // TODO: not supported yet :(
-      site_lk += site_scalings * log(PLL_SCALE_THRESHOLD);
+      //site_lk += site_scalings * log(PLL_SCALE_THRESHOLD);
     }
 
     __m512d v_pattern_weights = __mm512_load_pattern_weights(pattern_weights + n);
