@@ -70,25 +70,3 @@ do
         ./obj/derivatives-aa-benchmark ${arch} -n-pmatrix-itr=${pmatrix} -n-sites=100000 > $fileName
     done
 done
-
-echo "Full Benchmark"
-pinvarDir=$experimentDir/full
-mkdir -p ${pinvarDir}
-for arch in "${ARCH[@]}"
-do
-    for pinvar in "${PINVAR[@]}"
-    do
-        for alphaValues in "${ALPHA_VALUES[@]}"
-        do
-            for categories in "${CATEGORIES[@]}"
-            do
-                for sites in "${SITES[@]}"
-                do
-                    subAlphaValues=${alphaValues//,/__}
-                    fileName=${pinvarDir}/${arch/ /_}__${pinvar/./_}__${subAlphaValues//./_}__${categories}__${sites}.txt
-                    ./obj/derivatives-aa-benchmark ${arch} -alpha=${alphaValues} -p-invar=${pinvar} -n-categories=${categories} -n-sites=${sites} > $fileName
-                done
-            done
-        done
-    done
-done
