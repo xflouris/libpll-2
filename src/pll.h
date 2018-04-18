@@ -525,6 +525,12 @@ struct pll_random_data
   int32_t *end_ptr;     /* Pointer behind state table.  */
 };
 
+typedef struct pll_random_state_s
+{
+  struct pll_random_data rdata;
+  char *state_buf;      /* Buffer to store state */
+} pll_random_state;
+
 /* common data */
 
 PLL_EXPORT extern __thread int pll_errno;
@@ -2561,6 +2567,12 @@ PLL_EXPORT extern int pll_initstate_r(unsigned int __seed,
 
 PLL_EXPORT extern int pll_setstate_r(char * __statebuf,
                                      struct pll_random_data * __buf);
+
+PLL_EXPORT pll_random_state * pll_random_create(unsigned int seed);
+
+PLL_EXPORT int pll_random_getint(pll_random_state * rstate, int maxval);
+
+PLL_EXPORT void pll_random_destroy(pll_random_state * rstate);
 
 /* functions in hardware.c */
 
