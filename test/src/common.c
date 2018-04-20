@@ -92,8 +92,9 @@ pll_common_args_t* get_common_args(int argc, char **argv) {
   common_args->n_alpha_values = 1;
   common_args->alpha_values[0] = 0.1;
   common_args->n_pmatrix_itr = 1;
-  common_args->n_categories = 1;
+  common_args->n_categories = 4;
   common_args->seed = (unsigned int) time(NULL);
+  common_args->print_seq = 0;
   common_args->n_sites = 1000000;
   common_args->pinvar = 0.0;
 
@@ -157,6 +158,10 @@ pll_common_args_t* get_common_args(int argc, char **argv) {
         printf("Number of sites must not be 0: %s\n", argv[i]);
         exit(1);
       }
+    }
+    else if (strstr (argv[i], "-print-seq") != NULL)
+    {
+      common_args->print_seq = 1;
     }
     else if (strstr (argv[i], "-n-pmatrix-itr=") != NULL)
     {

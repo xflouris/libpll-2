@@ -143,11 +143,17 @@ int main(int argc, char *argv[]) {
 
   clock_t pll_set_tip_states_before_time = clock();
 
+  if(common_args->print_seq) {
+    printf("Random alignment:\n");
+  }
   int return_val = PLL_SUCCESS;
   for (unsigned int i = 0; i < align_seqs; i++) {
     align[i] = calloc(n_sites + 1, sizeof(char));
     for (unsigned int j = 0; j < n_sites; j++) {
       align[i][j] = ref_seq[rand() % strlen(ref_seq)];
+    }
+    if(common_args->print_seq) {
+      printf("  [%d]=%s\n", i, align[i]);
     }
     return_val &= pll_set_tip_states(partition, i, pll_map_aa,
                                      align[i]);
