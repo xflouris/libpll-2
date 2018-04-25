@@ -21,17 +21,6 @@
 #include <limits.h>
 #include "pll.h"
 
-inline double reduce_add_pd(const __m512d zmm) {
-  __m256d low = _mm512_castpd512_pd256(zmm);
-  __m256d high = _mm512_extractf64x4_pd(zmm, 1);
-
-  __m256d a = _mm256_add_pd(low, high);
-  __m256d t1 = _mm256_hadd_pd(a, a);
-  __m128d t2 = _mm256_extractf128_pd(t1, 1);
-  __m128d t3 = _mm_add_sd(_mm256_castpd256_pd128(t1), t2);
-  return _mm_cvtsd_f64(t3);
-}
-
 #define COMPUTE_GATHER_MASK(n, sites, elems_per_reg) \
   ((n) + (elems_per_reg) <= (sites) ? 0xff : 0xff >> ((elems_per_reg) - (sites) % (elems_per_reg)))
 
@@ -622,8 +611,12 @@ int pll_core_likelihood_derivatives_avx512f_sml(unsigned int states,
     v_ddf = _mm512_fmadd_pd(v_deriv2, _mm512_set1_pd(pattern_weights[n]), v_ddf);
   }
 
-  *d_f = reduce_add_pd(v_df);
-  *dd_f = reduce_add_pd(v_ddf);
+  double reg[ELEM_PER_AVX515_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
+  _mm512_store_pd(reg, v_df);
+  *d_f = reg[0] + reg[1] + reg[2] + reg[3] + reg[4] + reg[5] + reg[6] + reg[7];
+
+  _mm512_store_pd(reg, v_ddf);
+  *dd_f = reg[0] + reg[1] + reg[2] + reg[3] + reg[4] + reg[5] + reg[6] + reg[7];
 
   return PLL_SUCCESS;
 }

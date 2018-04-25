@@ -22,17 +22,6 @@
 #include <limits.h>
 #include "pll.h"
 
-inline double reduce_add_pd(const __m512d zmm) {
-  __m256d low = _mm512_castpd512_pd256(zmm);
-  __m256d high = _mm512_extractf64x4_pd(zmm, 1);
-
-  __m256d a = _mm256_add_pd(low, high);
-  __m256d t1 = _mm256_hadd_pd(a, a);
-  __m128d t2 = _mm256_extractf128_pd(t1, 1);
-  __m128d t3 = _mm_add_sd(_mm256_castpd256_pd128(t1), t2);
-  return _mm_cvtsd_f64(t3);
-}
-
 PLL_EXPORT double pll_core_root_loglikelihood_avx512f(unsigned int states,
                                                       unsigned int sites,
                                                       unsigned int rate_cats,
@@ -58,6 +47,8 @@ PLL_EXPORT double pll_core_root_loglikelihood_avx512f(unsigned int states,
 
   __m512d xmm0, xmm1, xmm3;
 
+  double reg[ELEM_PER_AVX515_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
+
   for (i = 0; i < sites; ++i) {
     term = 0;
     for (j = 0; j < rate_cats; ++j) {
@@ -79,7 +70,9 @@ PLL_EXPORT double pll_core_root_loglikelihood_avx512f(unsigned int states,
       }
 
       /* add up the elements of xmm2 */
-      term_r = reduce_add_pd(xmm3);
+
+      _mm512_store_pd(reg, xmm3);
+      term_r = reg[0] + reg[1] + reg[2] + reg[3] + reg[4] + reg[5] + reg[6] + reg[7];
 
       /* account for invariant sites */
       prop_invar = invar_proportion ? invar_proportion[freqs_indices[j]] : 0;
@@ -202,6 +195,8 @@ double pll_core_edge_loglikelihood_ii_avx512f(unsigned int states,
   __m512d xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7;
 
   size_t displacement = (states_padded - states) * (states_padded);
+
+  double reg[ELEM_PER_AVX515_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
 
   /* scaling stuff */
   unsigned int site_scalings;
@@ -354,7 +349,8 @@ double pll_core_edge_loglikelihood_ii_avx512f(unsigned int states,
         xmm1 = _mm512_mul_pd(xmm2, xmm0);
 
         /* add up the elements of xmm1 */
-        terma_r += reduce_add_pd(xmm1);
+        _mm512_store_pd(reg, xmm1);
+        terma_r += reg[0] + reg[1] + reg[2] + reg[3] + reg[4] + reg[5] + reg[6] + reg[7];
 
         freqs += ELEM_PER_AVX515_REGISTER;
         clvp += ELEM_PER_AVX515_REGISTER;

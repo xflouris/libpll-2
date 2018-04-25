@@ -22,77 +22,21 @@
 #include <limits.h>
 #include "pll.h"
 
-__m512d __mm512_log_pd(__m512d x);
-
-//TODO: Only temporary
-void print_256d(const __m256d v) {
-  const double *val = (const double *) &v;
-  printf("% .3e % .3e % .3e % .3e\n",
-         val[3], val[2], val[1], val[0]);
-}
-
-void print_256i(const __m256i v) {
-  const int32_t *val = (const int32_t *) &v;
-  printf("%d %d %d %d %d %d %d %d\n",
-         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
-}
-
-void print_256i_u(const __m256i v) {
-  const uint32_t *val = (const uint32_t *) &v;
-  printf("%u %u %u %u %u %u %u %u\n",
-         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
-}
-
-void print_512d(const __m512d v) {
-  const double *val = (const double *) &v;
-  printf("% .3e % .3e % .3e % .3e % .3e % .3e % .3e % .3e\n",
-         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
-}
-
-void print_512i(const __m512i v) {
-  const int64_t *val = (const int64_t *) &v;
-  printf("%ld %ld %ld %ld %ld %ld %ld %ld\n",
-         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
-}
-
-void print_512i_u(const __m512i v) {
-  const uint64_t *val = (const uint64_t *) &v;
-  printf("%lu %lu %lu %lu %lu %lu %lu %lu\n",
-         val[7], val[6], val[5], val[4], val[3], val[2], val[1], val[0]);
-}
-
-void print_512d_half(const __m512d v, size_t half) {
-  const double *val = (const double *) &v;
-  printf("% .3e % .3e % .3e % .3e\n",
-         val[3 + 4 * half], val[2 + 4 * half], val[1 + 4 * half], val[0 + 4 * half]);
-}
-
-inline double reduce_add_pd(const __m512d zmm) {
-  __m256d low = _mm512_castpd512_pd256(zmm);
-  __m256d high = _mm512_extractf64x4_pd(zmm, 1);
-
-  __m256d a = _mm256_add_pd(low, high);
-  __m256d t1 = _mm256_hadd_pd(a, a);
-  __m128d t2 = _mm256_extractf128_pd(t1, 1);
-  __m128d t3 = _mm_add_sd(_mm256_castpd256_pd128(t1), t2);
-  return _mm_cvtsd_f64(t3);
-}
-
 #define SAVE_LOG(val) (val)<=0 ? 0 : log((val))
 
-inline __m512d __mm512_log_pd(__m512d x) {
+__m512d __mm512_log_pd(__m512d x) {
   const double *val = (const double *) &x;
   return _mm512_set_pd(SAVE_LOG(val[7]), SAVE_LOG(val[6]), SAVE_LOG(val[5]), SAVE_LOG(val[4]),
                        SAVE_LOG(val[3]), SAVE_LOG(val[2]), SAVE_LOG(val[1]), SAVE_LOG(val[0]));
 }
 
-inline __m512i __mm512_load_epi32_to_epi64(const int * x) {
+__m512i __mm512_load_epi32_to_epi64(const int * x) {
   return _mm512_set_epi64(x[7], x[6], x[5], x[4],
                           x[3], x[2], x[1], x[0]);
 }
 
 
-inline __m512d __mm512_load_pattern_weights(const unsigned int *x) {
+__m512d __mm512_load_pattern_weights(const unsigned int *x) {
   return _mm512_set_pd(x[7], x[6], x[5], x[4],
                        x[3], x[2], x[1], x[0]);
 }
@@ -123,6 +67,8 @@ PLL_EXPORT double pll_core_root_loglikelihood_avx512f_sml(unsigned int states,
 
   __m512d xmm0, xmm1, xmm3;
 
+  double reg[ELEM_PER_AVX515_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
+
   for (i = 0; i < sites; ++i) {
     term = 0;
     for (j = 0; j < rate_cats; ++j) {
@@ -144,7 +90,8 @@ PLL_EXPORT double pll_core_root_loglikelihood_avx512f_sml(unsigned int states,
       }
 
       /* add up the elements of xmm2 */
-      term_r = reduce_add_pd(xmm3);
+      _mm512_store_pd(reg, xmm3);
+      term_r = reg[0] + reg[1] + reg[2] + reg[3] + reg[4] + reg[5] + reg[6] + reg[7];
 
       /* account for invariant sites */
       prop_invar = invar_proportion ? invar_proportion[freqs_indices[j]] : 0;
@@ -369,7 +316,9 @@ double pll_core_edge_loglikelihood_ii_avx512f_sml(unsigned int states,
   if (rate_scalings)
     free(rate_scalings);
 
-  return reduce_add_pd(v_logl);
+  double reg[ELEM_PER_AVX515_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
+  _mm512_store_pd(reg, v_logl);
+  return reg[0] + reg[1] + reg[2] + reg[3] + reg[4] + reg[5] + reg[6] + reg[7];
 }
 
 
