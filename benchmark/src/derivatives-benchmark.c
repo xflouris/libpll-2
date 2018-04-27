@@ -29,7 +29,7 @@
 #include <locale.h>
 
 #define NUM_BRANCHES 9
-#define N_STATES_AA 20
+#define ALIGN_SEQS 5
 
 #define FLOAT_PRECISION 4
 
@@ -39,6 +39,18 @@ static double testbranches[NUM_BRANCHES] = {0.1, 0.2, 0.5, 0.9, 1.5, 5, 10, 50, 
 int main(int argc, char *argv[]) {
   double d_f, dd_f;
   unsigned int n_tips = 5;
+
+  const char *ref_seq_aa = "*-?ABCDEFGHIKLMNPQRSTVWXYZabcdefghiklmnpqrstvwxyz";
+  const char *ref_seq_nt = "-?ABCDGHKMNORSTUVWXYabcdghkmnorstuvwxy";
+
+  double titv = 2.5;
+  double pll_nt_freqs[4] = { 0.3, 0.4, 0.1, 0.2 };
+  double pll_nt_rates[6] = {1,titv,1,1,titv,1};
+
+  const double* pll_freqs = pll_aa_freqs_dayhoff;
+  const double* pll_rates = pll_aa_rates_dayhoff;
+  const pll_state_t* pll_map = pll_map_aa;
+  const char *ref_seq = ref_seq_aa;
 
   clock_t begin = clock();
 
@@ -96,13 +108,20 @@ int main(int argc, char *argv[]) {
   unsigned int n_sites = common_args->n_sites;
   unsigned int n_categories = common_args->n_categories;
 
+  if(common_args->n_states == 4) {
+    pll_freqs = pll_nt_freqs;
+    pll_rates = pll_nt_rates;
+    pll_map = pll_map_nt;
+    ref_seq = ref_seq_nt;
+  }
+
   clock_t pll_partition_create_begin_time = clock();
 
   pll_partition_t *partition;
   partition = pll_partition_create(
           n_tips,                 /* numer of tips */
           4,                      /* clv buffers */
-          N_STATES_AA,            /* number of states */
+          common_args->n_states,  /* number of states */
           n_sites,                /* sequence length */
           1,                      /* different rate parameters */
           2 * n_tips - 3,         /* probability matrices */
@@ -131,13 +150,10 @@ int main(int argc, char *argv[]) {
   double branch_lengths[4] = {0.1, 0.2, 0.3, 0.4};
   unsigned int matrix_indices[4] = {0, 1, 2, 3};
 
-  pll_set_frequencies(partition, 0, pll_aa_freqs_dayhoff);
-  pll_set_subst_params(partition, 0, pll_aa_rates_dayhoff);
+  pll_set_frequencies(partition, 0, pll_freqs);
+  pll_set_subst_params(partition, 0, pll_rates);
 
-  const char *ref_seq = "ARNDCQEGHILKMFPSTWYV";
-  size_t align_seqs = 5;
-
-  char **align = calloc(align_seqs, sizeof(char *));
+  char **align = calloc(ALIGN_SEQS, sizeof(char *));
 
   srand(common_args->seed);
 
@@ -147,7 +163,7 @@ int main(int argc, char *argv[]) {
     printf("Random alignment:\n");
   }
   int return_val = PLL_SUCCESS;
-  for (unsigned int i = 0; i < align_seqs; i++) {
+  for (unsigned int i = 0; i < ALIGN_SEQS; i++) {
     align[i] = calloc(n_sites + 1, sizeof(char));
     for (unsigned int j = 0; j < n_sites; j++) {
       align[i][j] = ref_seq[rand() % strlen(ref_seq)];
@@ -155,7 +171,7 @@ int main(int argc, char *argv[]) {
     if(common_args->print_seq) {
       printf("  [%d]=%s\n", i, align[i]);
     }
-    return_val &= pll_set_tip_states(partition, i, pll_map_aa,
+    return_val &= pll_set_tip_states(partition, i, pll_map,
                                      align[i]);
   }
 
@@ -249,7 +265,7 @@ int main(int argc, char *argv[]) {
   pll_aligned_free(sumtable);
   pll_partition_destroy(partition);
 
-  for (unsigned int i = 0; i < align_seqs; i++) {
+  for (unsigned int i = 0; i < ALIGN_SEQS; i++) {
     free(align[i]);
   }
   free(align);
@@ -294,6 +310,7 @@ int main(int argc, char *argv[]) {
   printf("\n");
   printf("Seed:                               %d\n", common_args->seed);
   setlocale(LC_NUMERIC, "");
+  printf("No. States:                         %d\n", common_args->n_states);
   printf("No. Sites:                          %'d\n", n_sites);
   printf("No. Categories:                     %d\n", n_categories);
   printf("Proportion of invariant Sites:      %f\n", common_args->pinvar);

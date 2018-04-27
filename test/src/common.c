@@ -96,6 +96,7 @@ pll_common_args_t* get_common_args(int argc, char **argv) {
   common_args->seed = (unsigned int) time(NULL);
   common_args->print_seq = 0;
   common_args->n_sites = 1000000;
+  common_args->n_states = 20;
   common_args->pinvar = 0.0;
 
   for (int i=1; i<argc; ++i)
@@ -122,6 +123,19 @@ pll_common_args_t* get_common_args(int argc, char **argv) {
         }
         idx++;
         token = strtok(NULL, ",");
+      }
+    }
+    else if (strstr (argv[i], "-n-states=") != NULL)
+    {
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->n_states = (unsigned int) strtol(value, NULL, 10);
+      if(common_args->n_states != 4 && common_args->n_states != 20) {
+        printf("Only specific number of states are allowed (4 / DNA or 20 / AA): %s\n", argv[i]);
+        exit(1);
       }
     }
     else if (strstr (argv[i], "-n-categories=") != NULL)

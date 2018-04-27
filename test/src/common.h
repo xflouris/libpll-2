@@ -28,6 +28,7 @@
 
 typedef struct pll_common_args {
     unsigned int attributes;
+    unsigned int n_states;
     unsigned int n_sites;
     unsigned int n_categories;
     unsigned int n_alpha_values;

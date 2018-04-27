@@ -10,7 +10,7 @@ include_directories(src)
 include_directories(test/src)
 
 add_executable(libpll_2
-        benchmark/src/derivatives-aa-benchmark.c
+        benchmark/src/derivatives-benchmark.c
         benchmark/src/likelihood-aa-benchmark.c
         benchmark/src/partials-benchmark.c
         benchmark/src/partials-oddstates-benchmark.c
