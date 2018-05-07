@@ -25,7 +25,7 @@ do
             mkdir -p $outputDir
             for repeat in "${REPEAT[@]}"
             do
-                ./obj/derivatives-aa-benchmark ${arch} -alpha=${alphaValues} -p-invar=${pinvar} > $outputDir/${repeat}.txt
+                ./obj/derivatives-benchmark ${arch} -alpha=${alphaValues} -p-invar=${pinvar} > $outputDir/${repeat}.txt
             done
         done
 
@@ -37,7 +37,7 @@ do
             mkdir -p $outputDir
             for repeat in "${REPEAT[@]}"
             do
-                ./obj/derivatives-aa-benchmark ${arch} -alpha=${alphaValues} -n-sites=${sites} > $outputDir/${repeat}.txt
+                ./obj/derivatives-benchmark ${arch} -alpha=${alphaValues} -n-sites=${sites} > $outputDir/${repeat}.txt
             done
         done
 
@@ -49,7 +49,7 @@ do
             mkdir -p $outputDir
             for repeat in "${REPEAT[@]}"
             do
-                ./obj/derivatives-aa-benchmark ${arch} -alpha=${alphaValues} -n-categories=${categories} > $outputDir/${repeat}.txt
+                ./obj/derivatives-benchmark ${arch} -alpha=${alphaValues} -n-categories=${categories} > $outputDir/${repeat}.txt
             done
         done
     done
@@ -62,7 +62,7 @@ do
         mkdir -p $outputDir
         for repeat in "${REPEAT[@]}"
         do
-            ./obj/derivatives-aa-benchmark ${arch} -n-pmatrix-itr=${pmatrix} -n-sites=1000000 > $outputDir/${repeat}.txt
+            ./obj/derivatives-benchmark ${arch} -n-pmatrix-itr=${pmatrix} -n-sites=1000000 > $outputDir/${repeat}.txt
         done
     done
 done

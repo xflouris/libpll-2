@@ -44,12 +44,12 @@ int main(int argc, char *argv[]) {
   const char *ref_seq_nt = "-?ABCDGHKMNORSTUVWXYabcdghkmnorstuvwxy";
 
   double titv = 2.5;
-  double pll_nt_freqs[4] = { 0.3, 0.4, 0.1, 0.2 };
-  double pll_nt_rates[6] = {1,titv,1,1,titv,1};
+  double pll_nt_freqs[4] = {0.3, 0.4, 0.1, 0.2};
+  double pll_nt_rates[6] = {1, titv, 1, 1, titv, 1};
 
-  const double* pll_freqs = pll_aa_freqs_dayhoff;
-  const double* pll_rates = pll_aa_rates_dayhoff;
-  const pll_state_t* pll_map = pll_map_aa;
+  const double *pll_freqs = pll_aa_freqs_dayhoff;
+  const double *pll_rates = pll_aa_rates_dayhoff;
+  const pll_state_t *pll_map = pll_map_aa;
   const char *ref_seq = ref_seq_aa;
 
   clock_t begin = clock();
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
   unsigned int n_sites = common_args->n_sites;
   unsigned int n_categories = common_args->n_categories;
 
-  if(common_args->n_states == 4) {
+  if (common_args->n_states == 4) {
     pll_freqs = pll_nt_freqs;
     pll_rates = pll_nt_rates;
     pll_map = pll_map_nt;
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 
   clock_t pll_set_tip_states_before_time = clock();
 
-  if(common_args->print_seq) {
+  if (common_args->print_seq) {
     printf("Random alignment:\n");
   }
   int return_val = PLL_SUCCESS;
@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
     for (unsigned int j = 0; j < n_sites; j++) {
       align[i][j] = ref_seq[rand() % strlen(ref_seq)];
     }
-    if(common_args->print_seq) {
+    if (common_args->print_seq) {
       printf("  [%d]=%s\n", i, align[i]);
     }
     return_val &= pll_set_tip_states(partition, i, pll_map,
@@ -274,37 +274,25 @@ int main(int argc, char *argv[]) {
   float total_secs = (float) (end - begin) / CLOCKS_PER_SEC;
 
   printf("Execution Mode:                     ");
-  if (partition->attributes & PLL_ATTRIB_ARCH_AVX)
-  {
+  if (partition->attributes & PLL_ATTRIB_ARCH_AVX) {
     printf("avx");
-  }
-  else if (partition->attributes & PLL_ATTRIB_ARCH_SSE)
-  {
+  } else if (partition->attributes & PLL_ATTRIB_ARCH_SSE) {
     printf("sse");
-  }
-  else if (partition->attributes & PLL_ATTRIB_ARCH_AVX2)
-  {
+  } else if (partition->attributes & PLL_ATTRIB_ARCH_AVX2) {
     printf("avx2");
-  }
-  else if (partition->attributes & PLL_ATTRIB_ARCH_AVX512F)
-  {
+  } else if (partition->attributes & PLL_ATTRIB_ARCH_AVX512F) {
     printf("avx512f");
-  }
-  else
-  {
+  } else {
     printf("cpu");
   }
 
-  if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
-  {
+  if (partition->attributes & PLL_ATTRIB_PATTERN_TIP) {
     printf(" tv");
   }
-  if (partition->attributes & PLL_ATTRIB_SITE_REPEATS)
-  {
+  if (partition->attributes & PLL_ATTRIB_SITE_REPEATS) {
     printf(" sr");
   }
-  if (partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT)
-  {
+  if (partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
     printf(" sml");
   }
   printf("\n");
@@ -316,7 +304,7 @@ int main(int argc, char *argv[]) {
   printf("Proportion of invariant Sites:      %f\n", common_args->pinvar);
   printf("Alpha Values:                       {");
   printf("%f", common_args->alpha_values[0]);
-  for(int i = 1; i < common_args->n_alpha_values; i++) {
+  for (int i = 1; i < common_args->n_alpha_values; i++) {
     printf(", %f", common_args->alpha_values[i]);
   }
   printf("}\n");
