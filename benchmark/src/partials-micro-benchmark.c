@@ -78,6 +78,18 @@ void pll_core_update_partial_ii_20x20_avx2(unsigned int sites,
                                            const unsigned int *right_scaler,
                                            unsigned int attrib);
 
+void pll_core_update_partial_ii_20x20_avx2_sml(unsigned int sites,
+                                               unsigned int rate_cats,
+                                               double *parent_clv,
+                                               unsigned int *parent_scaler,
+                                               const double *left_clv,
+                                               const double *right_clv,
+                                               const double *left_matrix,
+                                               const double *right_matrix,
+                                               const unsigned int *left_scaler,
+                                               const unsigned int *right_scaler,
+                                               unsigned int attrib);
+
 static float benchmark_kernel(unsigned int n_tips,
                               char **align,
                               const double *pll_freqs,
@@ -141,22 +153,24 @@ static float benchmark_kernel(unsigned int n_tips,
         pll_update_prob_matrices(partition, params_indices, matrix_indices, branch_lengths, 4);
     }
 
-    const pll_operation_t *op = &(operations[0]);
-
     clock_t pll_update_partials_begin_time = clock();
 
-    for(int i = 0; i < 10; i++)
-    kernel_fun(partition->sites,
-               partition->rate_cats,
-               partition->clv[op->parent_clv_index],
-               NULL,
-               partition->clv[op->child1_clv_index],
-               partition->clv[op->child2_clv_index],
-               partition->pmatrix[op->child1_matrix_index],
-               partition->pmatrix[op->child2_matrix_index],
-               NULL,
-               NULL,
-               partition->attributes);
+    for (int i = 0; i < 10; i++) {
+        for (int o = 0; o < 3; o++) {
+            const pll_operation_t *op = &(operations[o]);
+            kernel_fun(partition->sites,
+                       partition->rate_cats,
+                       partition->clv[op->parent_clv_index],
+                       NULL,
+                       partition->clv[op->child1_clv_index],
+                       partition->clv[op->child2_clv_index],
+                       partition->pmatrix[op->child1_matrix_index],
+                       partition->pmatrix[op->child2_matrix_index],
+                       NULL,
+                       NULL,
+                       partition->attributes);
+        }
+    }
 
     clock_t pll_update_partials_end_time = clock();
     float secs = (float) (pll_update_partials_end_time - pll_update_partials_begin_time) / CLOCKS_PER_SEC;
@@ -198,8 +212,7 @@ int main(int argc, char *argv[]) {
     operations[1].child1_matrix_index = 0;
     operations[1].child2_matrix_index = 1;
     operations[1].parent_scaler_index = PLL_SCALE_BUFFER_NONE;
-
-
+    operations[1].child1_scaler_index = PLL_SCALE_BUFFER_NONE;
     operations[1].child2_scaler_index = PLL_SCALE_BUFFER_NONE;
 
     operations[2].parent_clv_index = 7;
@@ -251,12 +264,17 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    #define MM_DAZ_ON    0x0040
-    _mm_setcsr( _mm_getcsr() | (_MM_FLUSH_ZERO_ON | MM_DAZ_ON)); 
+#define MM_DAZ_ON    0x0040
+    _mm_setcsr(_mm_getcsr() | (_MM_FLUSH_ZERO_ON | MM_DAZ_ON));
 
     float avx2_secs = benchmark_kernel(n_tips, align, pll_freqs, pll_rates, pll_map, common_args, operations,
                                        &pll_core_update_partial_ii_20x20_avx2,
                                        PLL_ATTRIB_ARCH_CPU | PLL_ATTRIB_ARCH_AVX2);
+
+    float avx2sml_secs = benchmark_kernel(n_tips, align, pll_freqs, pll_rates, pll_map, common_args, operations,
+                                          &pll_core_update_partial_ii_20x20_avx2_sml,
+                                          PLL_ATTRIB_ARCH_CPU | PLL_ATTRIB_ARCH_AVX2 |
+                                          PLL_ATTRIB_SIMD_MEM_LAYOUT);
 
     float avx512_secs = benchmark_kernel(n_tips, align, pll_freqs, pll_rates, pll_map, common_args, operations,
                                          &pll_core_update_partial_ii_20x20_avx512f,
@@ -279,6 +297,7 @@ int main(int argc, char *argv[]) {
     printf("No. Categories:                     %d\n", n_categories);
     printf("Proportion of invariant Sites:      %f\n", common_args->pinvar);
     printf("pll_update_partials (AVX2):         %f\n", avx2_secs);
+    printf("pll_update_partials (AVX2 SML):     %f\n", avx2sml_secs);
     printf("pll_update_partials (AVX512F):      %f\n", avx512_secs);
     printf("pll_update_partials (AVX512F SML):  %f\n", avx512sml_secs);
 

@@ -601,6 +601,120 @@ void pll_core_update_partial_ti_20x20_avx2(unsigned int sites,
   pll_aligned_free(lookup);
 }
 
+__attribute__((optimize("unroll-loops")))
+PLL_EXPORT
+void pll_core_update_partial_ii_20x20_avx2_sml(unsigned int sites,
+                                               unsigned int rate_cats,
+                                               double *parent_clv,
+                                               unsigned int *parent_scaler,
+                                               const double *left_clv,
+                                               const double *right_clv,
+                                               const double *left_matrix,
+                                               const double *right_matrix,
+                                               const unsigned int *left_scaler,
+                                               const unsigned int *right_scaler,
+                                               unsigned int attrib) {
+  unsigned int scale_mode;  /* 0 = none, 1 = per-site, 2 = per-rate */
+  unsigned int site_scale;
+  unsigned int init_mask;
+
+  unsigned int states = 20;
+  unsigned int states_padded    = (states + 3) & 0xFFFFFFFC;
+  unsigned int span = states * rate_cats;
+
+  /* init scaling-related stuff */
+  if (parent_scaler)
+  {
+    assert(0); // TODO Scaling not supported yet in AVX2 SML
+    /* determine the scaling mode and init the vars accordingly */
+    scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
+    init_mask = (scale_mode == 1) ? 1 : 0;
+    const size_t scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
+
+    /* add up the scale vectors of the two children if available */
+    fill_parent_scaler(scaler_size, parent_scaler, left_scaler, right_scaler);
+  }
+  else
+  {
+    /* scaling disabled / not required */
+    scale_mode = init_mask = 0;
+  }
+
+  /* compute CLV */
+  for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX2_REGISTER)
+  {
+    const double * lmat = left_matrix;
+    const double * rmat = right_matrix;
+    site_scale = init_mask;
+
+    //printf("Site (%d-%d)\n", n, n + ELEM_PER_AVX2_REGISTER - 1);
+
+    for (unsigned int k = 0; k < rate_cats; ++k)
+    {
+      //printf("   Rate-Cat: %d\n", k);
+      unsigned int rate_scale = 1;
+      for (unsigned int i = 0; i < states; ++i)
+      {
+        __m256d v_terma = _mm256_setzero_pd();
+        __m256d v_termb = _mm256_setzero_pd();
+        for (unsigned int j = 0; j < states; ++j)
+        {
+          __m256d v_lmat = _mm256_set1_pd(lmat[j]);
+          __m256d v_rmat = _mm256_set1_pd(rmat[j]);
+
+          __m256d v_left_clv = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*j);
+          __m256d v_right_clv = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*j);
+
+          v_terma = _mm256_fmadd_pd(v_lmat, v_left_clv, v_terma);
+          v_termb = _mm256_fmadd_pd(v_rmat, v_right_clv, v_termb);
+        }
+
+        __m256d v_parent_clv = _mm256_fmadd_pd(v_terma, v_termb, _mm256_setzero_pd());
+        _mm256_store_pd(parent_clv + ELEM_PER_AVX2_REGISTER*i, v_parent_clv);
+
+        //printf("      v_parent_clv[%d]: ", i);
+        //print_256d(v_parent_clv);
+
+        //TODO
+        //rate_scale &= (parent_clv[i] < PLL_SCALE_THRESHOLD);
+
+        lmat += states_padded;
+        rmat += states_padded;
+      }
+
+      /* check if scaling is needed for the current rate category */
+      if (scale_mode == 2)
+      {
+        /* PER-RATE SCALING: if *all* entries of the *rate* CLV were below
+         * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+        if (rate_scale)
+        {
+          for (unsigned int i = 0; i < states; ++i)
+            parent_clv[i] *= PLL_SCALE_FACTOR;
+          parent_scaler[n*rate_cats + k] += 1;
+        }
+      }
+      else
+        site_scale = site_scale && rate_scale;
+
+      parent_clv += states * ELEM_PER_AVX2_REGISTER;
+      left_clv   += states * ELEM_PER_AVX2_REGISTER;
+      right_clv  += states * ELEM_PER_AVX2_REGISTER;
+    }
+    /* PER-SITE SCALING: if *all* entries of the *site* CLV were below
+     * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+    if (site_scale)
+    {
+      assert(0); //TODO not tested ...
+      parent_clv -= span;
+      for (unsigned int i = 0; i < span; ++i)
+        parent_clv[i] *= PLL_SCALE_FACTOR;
+      parent_clv += span;
+      parent_scaler[n] += 1;
+    }
+  }
+}
+
 #define COMPUTE_II_QCOL(q, offset) \
 /* row 0 */ \
 v_mat    = _mm256_load_pd(lm0 + offset); \
@@ -628,16 +742,16 @@ v_termb3 = _mm256_fmadd_pd(v_mat, v_rclv[q], v_termb3);
 
 
 PLL_EXPORT void pll_core_update_partial_ii_20x20_avx2(unsigned int sites,
-                                                unsigned int rate_cats,
-                                                double * parent_clv,
-                                                unsigned int * parent_scaler,
-                                                const double * left_clv,
-                                                const double * right_clv,
-                                                const double * left_matrix,
-                                                const double * right_matrix,
-                                                const unsigned int * left_scaler,
-                                                const unsigned int * right_scaler,
-                                                unsigned int attrib)
+                                                      unsigned int rate_cats,
+                                                      double * parent_clv,
+                                                      unsigned int * parent_scaler,
+                                                      const double * left_clv,
+                                                      const double * right_clv,
+                                                      const double * left_matrix,
+                                                      const double * right_matrix,
+                                                      const unsigned int * left_scaler,
+                                                      const unsigned int * right_scaler,
+                                                      unsigned int attrib)
 {
   unsigned int i,k,n;
 
@@ -857,6 +971,20 @@ PLL_EXPORT void pll_core_update_partial_ii_avx2(unsigned int states,
   }
   else if (states == 20)
   {
+    if (attrib & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+      pll_core_update_partial_ii_20x20_avx2_sml(sites,
+                                                rate_cats,
+                                                parent_clv,
+                                                parent_scaler,
+                                                left_clv,
+                                                right_clv,
+                                                left_matrix,
+                                                right_matrix,
+                                                left_scaler,
+                                                right_scaler,
+                                                attrib);
+      return;
+    }
     pll_core_update_partial_ii_20x20_avx2(sites,
                                        rate_cats,
                                        parent_clv,

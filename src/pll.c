@@ -433,6 +433,17 @@ PLL_EXPORT pll_partition_t *pll_partition_create(unsigned int tips,
   if (attributes & PLL_ATTRIB_ARCH_AVX2 && PLL_STAT(avx2_present)) {
     partition->alignment = PLL_ALIGNMENT_AVX;
     partition->states_padded = (states + 3) & 0xFFFFFFFC;
+    if(partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+      partition->sites_padded = (sites + 3) & 0xFFFFFFFC;
+      //TODO AVX2 SIMD layout in combination with tips mode is not supported, fall back to AVX2 without tips mode
+      if (partition->attributes & PLL_ATTRIB_PATTERN_TIP) {
+        partition->attributes &= ~PLL_ATTRIB_PATTERN_TIP;
+      }
+      //TODO AVX2 SIMD layout in combination with repeats mode is not supported, fall back to AVX2 without repeats mode
+      if (partition->attributes & PLL_ATTRIB_SITE_REPEATS) {
+        partition->attributes &= ~PLL_ATTRIB_SITE_REPEATS;
+      }
+    }
   }
 #endif
 #ifdef HAVE_AVX512F
@@ -525,6 +536,10 @@ PLL_EXPORT pll_partition_t *pll_partition_create(unsigned int tips,
   if (attributes & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present)
       && partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
     sites_alloc = (sites_alloc + 7) & (0xFFFFFFFF - 7);
+  }
+  if (attributes & PLL_ATTRIB_ARCH_AVX2 && PLL_STAT(avx2_present)
+      && partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+    sites_alloc = (sites_alloc + 3) & 0xFFFFFFFC;
   }
 
   /* allocate structures */
