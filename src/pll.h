@@ -172,6 +172,7 @@
 #define PLL_ERROR_EINVAL                   130
 #define PLL_ERROR_MSA_EMPTY                131
 #define PLL_ERROR_MSA_MAP_INVALID          132
+#define PLL_ERROR_TREE_INVALID             133
 
 /* utree specific */
 
@@ -840,6 +841,10 @@ PLL_EXPORT pll_rtree_t * pll_rtree_wraptree(pll_rnode_t * root,
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename);
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s);
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string_unroot(const char * s);
+
+PLL_EXPORT pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root);
 
 PLL_EXPORT void pll_utree_destroy(pll_utree_t * tree,
                                   void (*cb_destroy)(void *));

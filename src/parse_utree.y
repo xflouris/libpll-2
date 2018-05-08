@@ -151,6 +151,7 @@ static void pll_utree_error(pll_unode_t * node, const char * s)
              s, pll_utree_lineno, pll_utree_colstart, pll_utree_colend);
 }
 
+
 %}
 
 %union
@@ -519,6 +520,37 @@ PLL_EXPORT pll_utree_t * pll_utree_wraptree_multi(pll_unode_t * root,
   return utree_wraptree(root, tip_count, inner_count, 0);
 }
 
+static int utree_is_rooted(const pll_unode_t * root)
+{
+  return (root->next && root->next->next == root) ? 1 : 0;
+}
+
+pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root)
+{
+  /* check for a bifurcation at the root */
+  if (utree_is_rooted(root))
+  {
+    pll_unode_t * left = root->back;
+    pll_unode_t * right =  root->next->back;
+
+    if (root->label)
+      free(root->label);
+    free(root);
+    free(root->next);
+
+    double new_length = left->length + right->length;
+    left->back = right;
+    right->back = left;
+    left->length = right->length = new_length;
+    left->pmatrix_index = right->pmatrix_index =
+        PLL_MIN(left->pmatrix_index, right->pmatrix_index);
+        
+    return left->next ? left : right;
+  }
+  else
+  	return root;
+}
+
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
 {
   pll_utree_t * tree;
@@ -565,7 +597,7 @@ PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
   return tree;
 }
 
-PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s)
+static pll_utree_t * utree_parse_newick_string(const char * s, int auto_unroot)
 {
   int rc; 
   struct pll_unode_s * root;
@@ -587,15 +619,40 @@ PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s)
 
   pll_utree_lex_destroy();
 
-  if (!rc)
+  if (rc)
   {
-    /* initialize clv and scaler indices */
-    pll_utree_reset_template_indices(root, tip_cnt);
-    
-    tree = utree_wraptree(root, 0, 0, 0);
+    pll_utree_graph_destroy(root,NULL);
+    root = NULL;
+    return PLL_FAILURE;
   }
-  else
-    free(root);
+  
+  if (auto_unroot)
+	root = pll_utree_unroot_inplace(root);
+
+  if (utree_is_rooted(root))
+  {
+    pll_utree_graph_destroy(root,NULL);
+    pll_errno = PLL_ERROR_TREE_INVALID;
+    snprintf(pll_errmsg, 200, "Rooted tree parsed but unrooted tree is expected.");
+    return PLL_FAILURE;
+  }
+	
+  /* initialize clv and scaler indices */
+  pll_utree_reset_template_indices(root, tip_cnt);
+	
+  tree = utree_wraptree(root, 0, 0, 0);
 
   return tree;
 }
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s)
+{
+  return utree_parse_newick_string(s, 0);
+}
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string_unroot(const char * s)
+{
+  return utree_parse_newick_string(s, 1);
+}
+
+

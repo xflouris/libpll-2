@@ -280,7 +280,7 @@ char * utree_export_newick(const pll_unode_t * root,
     {
       char * temp = cb_serialize(root);
       size_alloced = asprintf(&newick,
-                              "(%s,%s,%s)%s",
+                              "(%s,%s,%s)%s;",
                               subtree1,
                               subtree2,
                               subtree3,
