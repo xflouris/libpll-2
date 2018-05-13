@@ -163,9 +163,9 @@ int pll_core_update_pmatrix_20x20_avx512f(double ** pmatrix,
       if (pinvar > PLL_MISC_EPSILON)
         xmm6 = _mm512_set1_pd(1.0 - pinvar);
 
-      for (k = 0; k < STATES_PADDED/ELEM_PER_AVX515_REGISTER; ++k)
+      for (k = 0; k < STATES_PADDED/ELEM_PER_AVX512_REGISTER; ++k)
       {
-        xmm1 = _mm512_load_pd(evals+k*ELEM_PER_AVX515_REGISTER);
+        xmm1 = _mm512_load_pd(evals+k*ELEM_PER_AVX512_REGISTER);
 
         /* scalar multiplication with rates */
         xmm4 = _mm512_mul_pd(xmm1,xmm2);
@@ -178,7 +178,7 @@ int pll_core_update_pmatrix_20x20_avx512f(double ** pmatrix,
           xmm5 = _mm512_div_pd(xmm5,xmm6);
         }
 
-        _mm512_store_pd(expd+k*ELEM_PER_AVX515_REGISTER, xmm5);
+        _mm512_store_pd(expd+k*ELEM_PER_AVX512_REGISTER, xmm5);
       }
 
       for (k = 0; k < STATES; ++k)
@@ -262,7 +262,7 @@ int pll_core_update_pmatrix_20x20_avx512f(double ** pmatrix,
 
           _mm512_store_pd(pmat, zmm2);
 
-          pmat += ELEM_PER_AVX515_REGISTER;
+          pmat += ELEM_PER_AVX512_REGISTER;
         }
       }
 

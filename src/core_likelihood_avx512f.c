@@ -47,7 +47,7 @@ PLL_EXPORT double pll_core_root_loglikelihood_avx512f(unsigned int states,
 
   __m512d xmm0, xmm1, xmm3;
 
-  double reg[ELEM_PER_AVX515_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
+  double reg[ELEM_PER_AVX512_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
 
   for (i = 0; i < sites; ++i) {
     term = 0;
@@ -55,7 +55,7 @@ PLL_EXPORT double pll_core_root_loglikelihood_avx512f(unsigned int states,
       freqs = frequencies[freqs_indices[j]];
       xmm3 = _mm512_setzero_pd();
 
-      for (k = 0; k < states_padded; k += ELEM_PER_AVX515_REGISTER) {
+      for (k = 0; k < states_padded; k += ELEM_PER_AVX512_REGISTER) {
         /* load frequencies for current rate matrix */
         xmm0 = _mm512_load_pd(freqs);
 
@@ -65,8 +65,8 @@ PLL_EXPORT double pll_core_root_loglikelihood_avx512f(unsigned int states,
         /* multiply with frequencies */
         xmm3 = _mm512_fmadd_pd(xmm0, xmm1, xmm3);
 
-        freqs += ELEM_PER_AVX515_REGISTER;
-        clv += ELEM_PER_AVX515_REGISTER;
+        freqs += ELEM_PER_AVX512_REGISTER;
+        clv += ELEM_PER_AVX512_REGISTER;
       }
 
       /* add up the elements of xmm2 */
@@ -196,7 +196,7 @@ double pll_core_edge_loglikelihood_ii_avx512f(unsigned int states,
 
   size_t displacement = (states_padded - states) * (states_padded);
 
-  double reg[ELEM_PER_AVX515_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
+  double reg[ELEM_PER_AVX512_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
 
   /* scaling stuff */
   unsigned int site_scalings;
@@ -251,7 +251,7 @@ double pll_core_edge_loglikelihood_ii_avx512f(unsigned int states,
       terma_r = 0;
 
       /* iterate over octuples of rows */
-      for (j = 0; j < states_padded; j += ELEM_PER_AVX515_REGISTER) {
+      for (j = 0; j < states_padded; j += ELEM_PER_AVX512_REGISTER) {
         xmm0 = _mm512_setzero_pd();
         xmm1 = _mm512_setzero_pd();
         xmm2 = _mm512_setzero_pd();
@@ -272,48 +272,48 @@ double pll_core_edge_loglikelihood_ii_avx512f(unsigned int states,
         const double *row7 = row6 + states_padded;
 
         /* iterate quadruples of columns */
-        for (k = 0; k < states_padded; k += ELEM_PER_AVX515_REGISTER) {
+        for (k = 0; k < states_padded; k += ELEM_PER_AVX512_REGISTER) {
           __m512d v_clvc = _mm512_load_pd(clvc + k);
 
           /* row 0 */
           __m512d v_row0 = _mm512_load_pd(row0);
           xmm0 = _mm512_fmadd_pd(v_row0, v_clvc, xmm0);
-          row0 += ELEM_PER_AVX515_REGISTER;
+          row0 += ELEM_PER_AVX512_REGISTER;
 
           /* row 1 */
           __m512d v_row1 = _mm512_load_pd(row1);
           xmm1 = _mm512_fmadd_pd(v_row1, v_clvc, xmm1);
-          row1 += ELEM_PER_AVX515_REGISTER;
+          row1 += ELEM_PER_AVX512_REGISTER;
 
           /* row 2 */
           __m512d v_row2 = _mm512_load_pd(row2);
           xmm2 = _mm512_fmadd_pd(v_row2, v_clvc, xmm2);
-          row2 += ELEM_PER_AVX515_REGISTER;
+          row2 += ELEM_PER_AVX512_REGISTER;
 
           /* row 3 */
           __m512d v_row3 = _mm512_load_pd(row3);
           xmm3 = _mm512_fmadd_pd(v_row3, v_clvc, xmm3);
-          row3 += ELEM_PER_AVX515_REGISTER;
+          row3 += ELEM_PER_AVX512_REGISTER;
 
           /* row 4 */
           __m512d v_row4 = _mm512_load_pd(row4);
           xmm4 = _mm512_fmadd_pd(v_row4, v_clvc, xmm4);
-          row4 += ELEM_PER_AVX515_REGISTER;
+          row4 += ELEM_PER_AVX512_REGISTER;
 
           /* row 5 */
           __m512d v_row5 = _mm512_load_pd(row5);
           xmm5 = _mm512_fmadd_pd(v_row5, v_clvc, xmm5);
-          row5 += ELEM_PER_AVX515_REGISTER;
+          row5 += ELEM_PER_AVX512_REGISTER;
 
           /* row 6 */
           __m512d v_row6 = _mm512_load_pd(row6);
           xmm6 = _mm512_fmadd_pd(v_row6, v_clvc, xmm6);
-          row6 += ELEM_PER_AVX515_REGISTER;
+          row6 += ELEM_PER_AVX512_REGISTER;
 
           /* row 7 */
           __m512d v_row7 = _mm512_load_pd(row7);
           xmm7 = _mm512_fmadd_pd(v_row7, v_clvc, xmm7);
-          row7 += ELEM_PER_AVX515_REGISTER;
+          row7 += ELEM_PER_AVX512_REGISTER;
         }
 
         /* point pmatrix to the next four rows */
@@ -352,8 +352,8 @@ double pll_core_edge_loglikelihood_ii_avx512f(unsigned int states,
         _mm512_store_pd(reg, xmm1);
         terma_r += reg[0] + reg[1] + reg[2] + reg[3] + reg[4] + reg[5] + reg[6] + reg[7];
 
-        freqs += ELEM_PER_AVX515_REGISTER;
-        clvp += ELEM_PER_AVX515_REGISTER;
+        freqs += ELEM_PER_AVX512_REGISTER;
+        clvp += ELEM_PER_AVX512_REGISTER;
       }
 
       /* apply per-rate scalers, if necessary */

@@ -614,6 +614,7 @@ void pll_core_update_partial_ii_4x4_avx2_sml(unsigned int sites,
                                         const unsigned int *left_scaler,
                                         const unsigned int *right_scaler,
                                         unsigned int attrib) {
+
   unsigned int scale_mode;  /* 0 = none, 1 = per-site, 2 = per-rate */
   unsigned int site_scale;
   unsigned int init_mask;

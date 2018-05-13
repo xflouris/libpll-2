@@ -112,7 +112,7 @@
 /* SMID capacities */
 
 #define ELEM_PER_AVX2_REGISTER 4
-#define ELEM_PER_AVX515_REGISTER 8
+#define ELEM_PER_AVX512_REGISTER 8
 
 /* attribute flags */
 

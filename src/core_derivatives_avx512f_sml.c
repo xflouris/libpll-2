@@ -25,8 +25,8 @@
   ((n) + (elems_per_reg) <= (sites) ? 0xff : 0xff >> ((elems_per_reg) - (sites) % (elems_per_reg)))
 
 #define COMPUTE_STATE_PART(i, j, k) \
-v_clvc = _mm512_load_pd(t_clvc + (k) * ELEM_PER_AVX515_REGISTER); \
-v_clvp = _mm512_load_pd(t_clvp + (k) * ELEM_PER_AVX515_REGISTER); \
+v_clvc = _mm512_load_pd(t_clvc + (k) * ELEM_PER_AVX512_REGISTER); \
+v_clvp = _mm512_load_pd(t_clvp + (k) * ELEM_PER_AVX512_REGISTER); \
 v_inv_eigenvecs = _mm512_set1_pd(tt_inv_eigenvecs[(i) * states * states \
                                                           + (j) * states \
                                                           + (k)]); \
@@ -122,7 +122,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f_sml(unsigned int sites,
                                              7 * rate_cats);
 
   /* build sumtable */
-  for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX515_REGISTER) {
+  for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX512_REGISTER) {
     if (per_rate_scaling) {
       assert(0);
       /* compute minimum per-rate scaler -> common per-site scaler */
@@ -216,10 +216,10 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx512f_sml(unsigned int sites,
         }
 
         _mm512_store_pd(sum, v_sum);
-        sum += ELEM_PER_AVX515_REGISTER;
+        sum += ELEM_PER_AVX512_REGISTER;
       }
-      t_clvc += states * ELEM_PER_AVX515_REGISTER;
-      t_clvp += states * ELEM_PER_AVX515_REGISTER;
+      t_clvc += states * ELEM_PER_AVX512_REGISTER;
+      t_clvp += states * ELEM_PER_AVX512_REGISTER;
     }
   }
 
@@ -351,7 +351,7 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f_sml(unsigned int states,
                                              7 * rate_cats);
 
   /* build sumtable */
-  for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX515_REGISTER) {
+  for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX512_REGISTER) {
     if (per_rate_scaling) {
       /* compute minimum per-rate scaler -> common per-site scaler */
       min_scaler = _mm512_set1_epi64(UINT_MAX);
@@ -425,15 +425,15 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx512f_sml(unsigned int states,
         }
 
         _mm512_store_pd(sum, v_sum);
-        sum += ELEM_PER_AVX515_REGISTER;
+        sum += ELEM_PER_AVX512_REGISTER;
       }
       t_clvc += states_padded;
       t_clvp += states_padded;
     }
     //pointers already moved one site ahead, move another 7 sites forward,
     //so we start at the date of the 9th state
-    t_clvc += rate_cats * states_padded * (ELEM_PER_AVX515_REGISTER - 1);
-    t_clvp += rate_cats * states_padded * (ELEM_PER_AVX515_REGISTER - 1);
+    t_clvc += rate_cats * states_padded * (ELEM_PER_AVX512_REGISTER - 1);
+    t_clvp += rate_cats * states_padded * (ELEM_PER_AVX512_REGISTER - 1);
   }
 
   if (rate_scalings)
@@ -507,7 +507,7 @@ int pll_core_likelihood_derivatives_avx512f_sml(unsigned int states,
   const int *invariant_ptr = invariant;
 
   double *t_diagp = (double *) pll_aligned_alloc(
-          ELEM_PER_AVX515_REGISTER * 3 * rate_cats * states * sizeof(double), PLL_ALIGNMENT_AVX512F);
+          ELEM_PER_AVX512_REGISTER * 3 * rate_cats * states * sizeof(double), PLL_ALIGNMENT_AVX512F);
 
   if (!t_diagp) {
     pll_errno = PLL_ERROR_MEM_ALLOC;
@@ -521,9 +521,9 @@ int pll_core_likelihood_derivatives_avx512f_sml(unsigned int states,
       for (unsigned int k = 0; k < 3; ++k) {
         __m512d v_diagp = _mm512_set1_pd(diagptable[i * states * 4 + j * 4 + k]);
         _mm512_store_pd(t_diagp +
-                        i * ELEM_PER_AVX515_REGISTER * 3 * states +
-                        j * ELEM_PER_AVX515_REGISTER * 3 +
-                        k * ELEM_PER_AVX515_REGISTER,
+                        i * ELEM_PER_AVX512_REGISTER * 3 * states +
+                        j * ELEM_PER_AVX512_REGISTER * 3 +
+                        k * ELEM_PER_AVX512_REGISTER,
                         v_diagp);
       }
     }
@@ -531,7 +531,7 @@ int pll_core_likelihood_derivatives_avx512f_sml(unsigned int states,
 
   for (unsigned int n = 0;
        n < ef_sites;
-       n += ELEM_PER_AVX515_REGISTER, invariant_ptr += ELEM_PER_AVX515_REGISTER) {
+       n += ELEM_PER_AVX512_REGISTER, invariant_ptr += ELEM_PER_AVX512_REGISTER) {
 
     site_lk[0] = _mm512_setzero_pd();
     site_lk[1] = _mm512_setzero_pd();
@@ -549,17 +549,17 @@ int pll_core_likelihood_derivatives_avx512f_sml(unsigned int states,
       v_cat_sitelk[2] = _mm512_setzero_pd();
 
       for (unsigned int j = 0;
-           j < states; j++, diagp += 3 * ELEM_PER_AVX515_REGISTER, sum += ELEM_PER_AVX515_REGISTER) {
+           j < states; j++, diagp += 3 * ELEM_PER_AVX512_REGISTER, sum += ELEM_PER_AVX512_REGISTER) {
         __m512d v_sum = _mm512_load_pd(sum);
         __m512d v_diagp;
 
         v_diagp = _mm512_load_pd(diagp);
         v_cat_sitelk[0] = _mm512_fmadd_pd(v_sum, v_diagp, v_cat_sitelk[0]);
 
-        v_diagp = _mm512_load_pd(diagp + ELEM_PER_AVX515_REGISTER);
+        v_diagp = _mm512_load_pd(diagp + ELEM_PER_AVX512_REGISTER);
         v_cat_sitelk[1] = _mm512_fmadd_pd(v_sum, v_diagp, v_cat_sitelk[1]);
 
-        v_diagp = _mm512_load_pd(diagp + 2 * ELEM_PER_AVX515_REGISTER);
+        v_diagp = _mm512_load_pd(diagp + 2 * ELEM_PER_AVX512_REGISTER);
         v_cat_sitelk[2] = _mm512_fmadd_pd(v_sum, v_diagp, v_cat_sitelk[2]);
       }
 
@@ -600,7 +600,7 @@ int pll_core_likelihood_derivatives_avx512f_sml(unsigned int states,
                                      _mm512_mul_pd(site_lk[2], v_recip0));
 
     /* eliminates nan values on padded states */
-    if (n + ELEM_PER_AVX515_REGISTER > ef_sites) {
+    if (n + ELEM_PER_AVX512_REGISTER > ef_sites) {
       __mmask8 mask = _mm512_cmp_pd_mask(site_lk[0], _mm512_setzero_pd(), _CMP_NEQ_UQ);
 
       v_deriv1 = _mm512_maskz_expand_pd(mask, v_deriv1);
@@ -611,7 +611,7 @@ int pll_core_likelihood_derivatives_avx512f_sml(unsigned int states,
     v_ddf = _mm512_fmadd_pd(v_deriv2, _mm512_set1_pd(pattern_weights[n]), v_ddf);
   }
 
-  double reg[ELEM_PER_AVX515_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
+  double reg[ELEM_PER_AVX512_REGISTER] __attribute__( ( aligned ( PLL_ALIGNMENT_AVX512F ) ) ) ;
   _mm512_store_pd(reg, v_df);
   *d_f = reg[0] + reg[1] + reg[2] + reg[3] + reg[4] + reg[5] + reg[6] + reg[7];
 
