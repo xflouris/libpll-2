@@ -87,12 +87,14 @@ add_executable(libpll_2
         test/src/hky.c
         test/src/partial-traversal.c
         test/src/partials-aa.c
+        test/src/partials.c
         test/src/pmatrix-aa.c
         test/src/pmatrix.c
         test/src/protein-models.c
         test/src/rng.h
         test/src/rooted-tipinner.c
         test/src/rooted.c
+        test/src/pll.h
         test/src/scaling.c
         examples/heterotachy/heterotachy.c
         examples/lg4/lg4.c
