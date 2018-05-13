@@ -649,6 +649,14 @@ void pll_core_update_partial_ii_4x4_avx2_sml(unsigned int sites,
 
     for (unsigned int k = 0; k < rate_cats; ++k)
     {
+
+      __m256d v_left_clv[4];
+      __m256d v_right_clv[4];
+      for(unsigned int j = 0; j < states; ++j) {
+        v_left_clv[j] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*j);
+        v_right_clv[j] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*j);
+      }
+
       unsigned int rate_scale = 1;
       for (unsigned int i = 0; i < states; ++i)
       {
@@ -659,11 +667,8 @@ void pll_core_update_partial_ii_4x4_avx2_sml(unsigned int sites,
           __m256d v_lmat = _mm256_set1_pd(lmat[j]);
           __m256d v_rmat = _mm256_set1_pd(rmat[j]);
 
-          __m256d v_left_clv = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*j);
-          __m256d v_right_clv = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*j);
-
-          v_terma = _mm256_fmadd_pd(v_lmat, v_left_clv, v_terma);
-          v_termb = _mm256_fmadd_pd(v_rmat, v_right_clv, v_termb);
+          v_terma = _mm256_fmadd_pd(v_lmat, v_left_clv[j], v_terma);
+          v_termb = _mm256_fmadd_pd(v_rmat, v_right_clv[j], v_termb);
         }
 
         __m256d v_parent_clv = _mm256_fmadd_pd(v_terma, v_termb, _mm256_setzero_pd());

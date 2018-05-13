@@ -109,6 +109,14 @@ void pll_core_update_partial_ii_4x4_avx512f_sml(unsigned int sites,
     {
       //printf("   Rate-Cat: %d\n", k);
       unsigned int rate_scale = 1;
+
+      __m512d v_left_clv[4];
+      __m512d v_right_clv[4];
+      for(unsigned int j = 0; j < states; ++j) {
+        v_left_clv[j] = _mm512_load_pd(left_clv + ELEM_PER_AVX515_REGISTER*j);
+        v_right_clv[j] = _mm512_load_pd(right_clv + ELEM_PER_AVX515_REGISTER*j);
+      }
+
       for (unsigned int i = 0; i < states; ++i)
       {
         __m512d v_terma = _mm512_setzero_pd();
@@ -118,14 +126,11 @@ void pll_core_update_partial_ii_4x4_avx512f_sml(unsigned int sites,
           __m512d v_lmat = _mm512_set1_pd(lmat[j]);
           __m512d v_rmat = _mm512_set1_pd(rmat[j]);
 
-          __m512d v_left_clv = _mm512_load_pd(left_clv + ELEM_PER_AVX515_REGISTER*j);
-          __m512d v_right_clv = _mm512_load_pd(right_clv + ELEM_PER_AVX515_REGISTER*j);
-
-          v_terma = _mm512_fmadd_pd(v_lmat, v_left_clv, v_terma);
-          v_termb = _mm512_fmadd_pd(v_rmat, v_right_clv, v_termb);
+          v_terma = _mm512_fmadd_pd(v_lmat, v_left_clv[j], v_terma);
+          v_termb = _mm512_fmadd_pd(v_rmat, v_right_clv[j], v_termb);
         }
 
-        __m512d v_parent_clv = _mm512_fmadd_pd(v_terma, v_termb, _mm512_setzero_pd());
+        __m512d v_parent_clv = _mm512_mul_pd(v_terma, v_termb);
         _mm512_store_pd(parent_clv + ELEM_PER_AVX515_REGISTER*i, v_parent_clv);
 
         //printf("      v_parent_clv[%d]: ", i);
