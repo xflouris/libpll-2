@@ -37,6 +37,7 @@ int main(int argc, char * argv[])
   unsigned int n_tips = 5;
   double rate_cats[N_CAT_GAMMA];
   pll_operation_t * operations;
+  int return_val;
 
   operations = (pll_operation_t *)malloc(4* sizeof(pll_operation_t));
 
@@ -119,11 +120,15 @@ int main(int argc, char * argv[])
   pll_set_frequencies(partition, 0, frequencies);
   pll_set_subst_params(partition, 0, subst_params);
 
-  pll_set_tip_states(partition, 0, pll_map_nt, "WAC-CTA-ATCT");
-  pll_set_tip_states(partition, 1, pll_map_nt, "CCC-TTA-ATGT");
-  pll_set_tip_states(partition, 2, pll_map_nt, "A-C-TAG-CTCT");
-  pll_set_tip_states(partition, 3, pll_map_nt, "CTCTTAA-A-CG");
-  pll_set_tip_states(partition, 4, pll_map_nt, "CAC-TCA-A-TG");
+  return_val = PLL_SUCCESS;
+  return_val &= pll_set_tip_states(partition, 0, pll_map_nt, "WAC-CTA-ATCT");
+  return_val &= pll_set_tip_states(partition, 1, pll_map_nt, "CCC-TTA-ATGT");
+  return_val &= pll_set_tip_states(partition, 2, pll_map_nt, "A-C-TAG-CTCT");
+  return_val &= pll_set_tip_states(partition, 3, pll_map_nt, "CTCTTAA-A-CG");
+  return_val &= pll_set_tip_states(partition, 4, pll_map_nt, "CAC-TCA-A-TG");
+
+  if (!return_val)
+    fatal("Error setting tip states");
 
   pll_set_category_rates(partition, rate_cats);
 
