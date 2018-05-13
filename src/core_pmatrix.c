@@ -161,6 +161,19 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
   {
     if (states == 4)
     {
+      if(attrib & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+        return pll_core_update_pmatrix_4x4_avx(pmatrix,
+                                               rate_cats,
+                                               rates,
+                                               branch_lengths,
+                                               matrix_indices,
+                                               params_indices,
+                                               prop_invar,
+                                               eigenvals,
+                                               eigenvecs,
+                                               inv_eigenvecs,
+                                               count);
+      }
       assert(states != 4);
       /* TODO: cannot fallback to AVX due to states padding */
       /*

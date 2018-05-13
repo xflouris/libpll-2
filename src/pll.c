@@ -474,8 +474,11 @@ PLL_EXPORT pll_partition_t *pll_partition_create(unsigned int tips,
       && partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
     partition->alignment = PLL_ALIGNMENT_AVX512F;
     partition->sites_padded = (sites + 7) & (0xFFFFFFFF - 7);
-    //Still needed because of pmatrix calculation
+    //Still needed because of pmatrix calculation (corresponding AVX512 kernel relies on it)
     partition->states_padded = (states + 7) & (0xFFFFFFFF - 7);
+    if(states == 4) {
+      partition->states_padded = states;
+    }
     //TODO AVX512F SIMD layout in combination with tips mode is not supported, fall back to AVX512F without tips mode
     if (partition->attributes & PLL_ATTRIB_PATTERN_TIP) {
       partition->attributes &= ~PLL_ATTRIB_PATTERN_TIP;
