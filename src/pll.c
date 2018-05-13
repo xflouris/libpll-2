@@ -572,12 +572,11 @@ PLL_EXPORT pll_partition_t *pll_partition_create(unsigned int tips,
     int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
                 partition->tips : 0;
 
-    //Avoid state padding in CLVs when in SIMD mode
+    //Avoid state padding in CLVs when in SML mode
     unsigned int clv_states_padded = states_padded;
 
     for (i = start; i < partition->tips + partition->clv_buffers; ++i) {
-      if (attributes & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present)
-          && partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+      if (partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
         clv_states_padded = states;
       }
       partition->clv[i] = pll_aligned_alloc(sites_alloc * clv_states_padded *
