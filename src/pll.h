@@ -840,6 +840,8 @@ PLL_EXPORT pll_rtree_t * pll_rtree_wraptree(pll_rnode_t * root,
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename);
 
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_unroot(const char * filename);
+
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s);
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string_unroot(const char * s);

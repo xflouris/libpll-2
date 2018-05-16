@@ -160,10 +160,11 @@ PLL_EXPORT void pll_utree_show_ascii(const pll_unode_t * root, int options)
 }
 
 static char * newick_utree_recurse(const pll_unode_t * root,
-                                   char * (*cb_serialize)(const pll_unode_t *))
+                                    char * (*cb_serialize)(const pll_unode_t *),
+                                    int level)
 {
   char * newick;
-  int size_alloced;
+  int size_alloced = 0;
   assert(root != NULL);
   if (!root->next)
   {
@@ -179,44 +180,62 @@ static char * newick_utree_recurse(const pll_unode_t * root,
   }
   else
   {
-    char * subtree1 = newick_utree_recurse(root->next->back,cb_serialize);
-    if (subtree1 == NULL)
+    const pll_unode_t * start = root->next;
+    const pll_unode_t * snode = start;
+    char * cur_newick;
+    do
     {
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-      return NULL;
-    }
-    char * subtree2 = newick_utree_recurse(root->next->next->back,cb_serialize);
-    if (subtree2 == NULL)
-    {
-      free(subtree1);
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-      return NULL;
-    }
+      char * subtree = newick_utree_recurse(snode->back, cb_serialize, level+1);
+      if (subtree == NULL)
+      {
+        pll_errno = PLL_ERROR_MEM_ALLOC;
+        snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
+        return NULL;
+      }
 
-    if (cb_serialize)
+      if (snode == start)
+      {
+        cur_newick = subtree;
+      }
+      else
+      {
+        char * temp = cur_newick;
+        size_alloced = asprintf(&cur_newick,
+                                "%s,%s",
+                                temp,
+                                subtree);
+        free(temp);
+        free(subtree);
+      }
+      snode = snode->next;
+    }
+    while(snode != root);
+
+    if (level > 0)
     {
-      char * temp = cb_serialize(root);
-      size_alloced = asprintf(&newick,
-                              "(%s,%s)%s",
-                              subtree1,
-                              subtree2,
-                              temp);
-      free(temp);
+      if (cb_serialize)
+      {
+        char * temp = cb_serialize(root);
+        size_alloced = asprintf(&newick,
+                                "(%s)%s",
+                                cur_newick,
+                                temp);
+        free(temp);
+      }
+      else
+      {
+        size_alloced = asprintf(&newick,
+                                "(%s)%s:%f",
+                                cur_newick,
+                                root->label ? root->label : "",
+                                root->length);
+      }
+      free(cur_newick);
     }
     else
-    {
-      size_alloced = asprintf(&newick,
-                              "(%s,%s)%s:%f",
-                              subtree1,
-                              subtree2,
-                              root->label ? root->label : "",
-                              root->length);
-    }
-    free(subtree1);
-    free(subtree2);
+      newick = cur_newick;
   }
+
   if (size_alloced < 0)
   {
     pll_errno = PLL_ERROR_MEM_ALLOC;
@@ -233,79 +252,51 @@ char * utree_export_newick(const pll_unode_t * root,
                            char * (*cb_serialize)(const pll_unode_t *))
 {
   char * newick;
+  char * subtree1;
+  char * subtree2;
   int size_alloced;
+
   if (!root) return NULL;
 
-  if (!root->next) root=root->back;
-
-  char * subtree1 = newick_utree_recurse(root->back,cb_serialize);
-  if (subtree1 == NULL)
-  {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-    return NULL;
-  }
-  char * subtree2 = newick_utree_recurse(root->next->back,cb_serialize);
-  if (subtree2 == NULL)
-  {
-    free(subtree1);
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-    return NULL;
-  }
-  char * subtree3 = newick_utree_recurse(root->next->next->back,cb_serialize);
-  if (subtree3 == NULL)
-  {
-    free(subtree1);
-    free(subtree2);
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-    return NULL;
-  }
+  if (!root->next) root = root->back;
 
   if (export_rooted)
   {
     assert(!cb_serialize);
+
+    subtree1 = newick_utree_recurse(root->back, cb_serialize, 1);
+    subtree2 = newick_utree_recurse(root, cb_serialize, 0);
+
     size_alloced = asprintf(&newick,
-                            "(%s,(%s,%s):%f)%s:0.0;",
+                            "(%s,(%s)%s:%f):0.0;",
                             subtree1,
                             subtree2,
-                            subtree3,
-                            root_brlen,
-                            root->label ? root->label : "");
+                            root->label ? root->label : "",
+                            root_brlen);
   }
   else
   {
-    if (cb_serialize)
-    {
-      char * temp = cb_serialize(root);
-      size_alloced = asprintf(&newick,
-                              "(%s,%s,%s)%s;",
-                              subtree1,
-                              subtree2,
-                              subtree3,
-                              temp);
-      free(temp);
-    }
-    else
-    {
-      size_alloced = asprintf(&newick,
-                              "(%s,%s,%s)%s:0.0;",
-                              subtree1,
-                              subtree2,
-                              subtree3,
-                              root->label ? root->label : "");
-    }
+    subtree1 = newick_utree_recurse(root->back, cb_serialize, 1);
+    subtree2 = newick_utree_recurse(root, cb_serialize, 0);
+
+    size_alloced = asprintf(&newick,
+                            "(%s,%s)%s:0.0;",
+                            subtree1,
+                            subtree2,
+                            root->label ? root->label : "");
   }
+
   free(subtree1);
   free(subtree2);
-  free(subtree3);
+
   if (size_alloced < 0)
   {
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg, 200, "memory allocation during newick export failed");
     return NULL;
   }
+
+//  printf("newick: %s\n", newick);
 
   return (newick);
 }

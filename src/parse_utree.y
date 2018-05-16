@@ -420,6 +420,11 @@ static unsigned int utree_count_nodes(pll_unode_t * root, unsigned int * tip_cou
   return count;
 }
 
+static int utree_is_rooted(const pll_unode_t * root)
+{
+  return (root->next && root->next->next == root) ? 1 : 0;
+}
+
 static pll_utree_t * utree_wraptree(pll_unode_t * root,
                                     unsigned int tip_count,
                                     unsigned int inner_count,
@@ -497,7 +502,7 @@ static pll_utree_t * utree_wraptree(pll_unode_t * root,
   tree->tip_count = tip_count;
   tree->inner_count = inner_count;
   tree->edge_count = node_count - 1;
-  tree->binary = (inner_count == tip_count-2);
+  tree->binary = (inner_count == tip_count - (utree_is_rooted(root) ? 1 : 2));
   tree->vroot = root;
 
   return tree;
@@ -520,11 +525,6 @@ PLL_EXPORT pll_utree_t * pll_utree_wraptree_multi(pll_unode_t * root,
   return utree_wraptree(root, tip_count, inner_count, 0);
 }
 
-static int utree_is_rooted(const pll_unode_t * root)
-{
-  return (root->next && root->next->next == root) ? 1 : 0;
-}
-
 pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root)
 {
   /* check for a bifurcation at the root */
@@ -535,8 +535,8 @@ pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root)
 
     if (root->label)
       free(root->label);
-    free(root);
     free(root->next);
+    free(root);
 
     double new_length = left->length + right->length;
     left->back = right;
@@ -551,7 +551,7 @@ pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root)
   	return root;
 }
 
-PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
+static pll_utree_t * utree_parse_newick(const char * filename, int auto_unroot)
 {
   pll_utree_t * tree;
 
@@ -587,6 +587,17 @@ PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
   if (pll_utree_in) fclose(pll_utree_in);
 
   pll_utree_lex_destroy();
+  
+  if (auto_unroot)
+	root = pll_utree_unroot_inplace(root);
+
+  if (utree_is_rooted(root))
+  {
+    pll_utree_graph_destroy(root,NULL);
+    pll_errno = PLL_ERROR_TREE_INVALID;
+    snprintf(pll_errmsg, 200, "Rooted tree parsed but unrooted tree is expected.");
+    return PLL_FAILURE;
+  }
 
   /* initialize clv and scaler indices to the default template */
   pll_utree_reset_template_indices(root, tip_cnt);
@@ -595,6 +606,16 @@ PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
   tree = utree_wraptree(root, 0, 0, 0);
 
   return tree;
+}
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
+{
+  return utree_parse_newick(filename, 0);
+}
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_unroot(const char * filename)
+{
+  return utree_parse_newick(filename, 1);
 }
 
 static pll_utree_t * utree_parse_newick_string(const char * s, int auto_unroot)
