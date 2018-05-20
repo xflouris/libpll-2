@@ -601,6 +601,286 @@ void pll_core_update_partial_ti_20x20_avx2(unsigned int sites,
   pll_aligned_free(lookup);
 }
 
+__attribute__((optimize("unroll-loops")))
+PLL_EXPORT
+void pll_core_update_partial_ii_4x4_avx2_sml(unsigned int sites,
+                                             unsigned int rate_cats,
+                                             double *parent_clv,
+                                             unsigned int *parent_scaler,
+                                             const double *left_clv,
+                                             const double *right_clv,
+                                             const double *left_matrix,
+                                             const double *right_matrix,
+                                             const unsigned int *left_scaler,
+                                             const unsigned int *right_scaler,
+                                             unsigned int attrib) {
+
+  unsigned int scale_mode;  /* 0 = none, 1 = per-site, 2 = per-rate */
+  unsigned int site_scale;
+  unsigned int init_mask;
+
+  unsigned int states = 4;
+  unsigned int states_padded    = (states + 3) & 0xFFFFFFFC;
+  unsigned int span = states * rate_cats;
+
+  /* init scaling-related stuff */
+  if (parent_scaler)
+  {
+    assert(0); // TODO Scaling not supported yet in AVX2 SML
+    /* determine the scaling mode and init the vars accordingly */
+    scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
+    init_mask = (scale_mode == 1) ? 1 : 0;
+    const size_t scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
+
+    /* add up the scale vectors of the two children if available */
+    fill_parent_scaler(scaler_size, parent_scaler, left_scaler, right_scaler);
+  }
+  else
+  {
+    /* scaling disabled / not required */
+    scale_mode = init_mask = 0;
+  }
+
+  /* compute CLV */
+  for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX2_REGISTER)
+  {
+    const double * lmat = left_matrix;
+    const double * rmat = right_matrix;
+    site_scale = init_mask;
+
+    for (unsigned int k = 0; k < rate_cats; ++k)
+    {
+
+      __m256d v_left_clv[4];
+      __m256d v_right_clv[4];
+      for(unsigned int j = 0; j < states; ++j) {
+        v_left_clv[j] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*j);
+        v_right_clv[j] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*j);
+      }
+
+      unsigned int rate_scale = 1;
+      for (unsigned int i = 0; i < states; ++i)
+      {
+        __m256d v_terma = _mm256_setzero_pd();
+        __m256d v_termb = _mm256_setzero_pd();
+        for (unsigned int j = 0; j < states; ++j)
+        {
+          __m256d v_lmat = _mm256_set1_pd(lmat[j]);
+          __m256d v_rmat = _mm256_set1_pd(rmat[j]);
+
+          v_terma = _mm256_fmadd_pd(v_lmat, v_left_clv[j], v_terma);
+          v_termb = _mm256_fmadd_pd(v_rmat, v_right_clv[j], v_termb);
+        }
+
+        __m256d v_parent_clv = _mm256_fmadd_pd(v_terma, v_termb, _mm256_setzero_pd());
+        _mm256_store_pd(parent_clv + ELEM_PER_AVX2_REGISTER*i, v_parent_clv);
+
+        //TODO
+        //rate_scale &= (parent_clv[i] < PLL_SCALE_THRESHOLD);
+
+        lmat += states_padded;
+        rmat += states_padded;
+      }
+
+      /* check if scaling is needed for the current rate category */
+      if (scale_mode == 2)
+      {
+        /* PER-RATE SCALING: if *all* entries of the *rate* CLV were below
+         * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+        if (rate_scale)
+        {
+          for (unsigned int i = 0; i < states; ++i)
+            parent_clv[i] *= PLL_SCALE_FACTOR;
+          parent_scaler[n*rate_cats + k] += 1;
+        }
+      }
+      else
+        site_scale = site_scale && rate_scale;
+
+      parent_clv += states * ELEM_PER_AVX2_REGISTER;
+      left_clv   += states * ELEM_PER_AVX2_REGISTER;
+      right_clv  += states * ELEM_PER_AVX2_REGISTER;
+    }
+    /* PER-SITE SCALING: if *all* entries of the *site* CLV were below
+     * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+    if (site_scale)
+    {
+      assert(0); //TODO not tested ...
+      parent_clv -= span;
+      for (unsigned int i = 0; i < span; ++i)
+        parent_clv[i] *= PLL_SCALE_FACTOR;
+      parent_clv += span;
+      parent_scaler[n] += 1;
+    }
+  }
+}
+
+//#define COMPUTE_SINGLE_CLV(i) \
+//{ \
+//__m256d v_lmat[4] __attribute__((aligned(32))); \
+//v_lmat[0] = _mm256_set1_pd(lmat[0]); \
+//v_lmat[1] = _mm256_set1_pd(lmat[1]); \
+//v_lmat[2] = _mm256_set1_pd(lmat[2]); \
+//v_lmat[3] = _mm256_set1_pd(lmat[3]); \
+//\
+//__m256d v_rmat[4] __attribute__((aligned(32))); \
+//v_rmat[0] = _mm256_set1_pd(rmat[0]); \
+//v_rmat[1] = _mm256_set1_pd(rmat[1]); \
+//v_rmat[2] = _mm256_set1_pd(rmat[2]); \
+//v_rmat[3] = _mm256_set1_pd(rmat[3]); \
+//\
+//__m256d v_terma = _mm256_setzero_pd(); \
+//v_terma = _mm256_fmadd_pd(v_lmat[0], v_left_clv[0], v_terma); \
+//v_terma = _mm256_fmadd_pd(v_lmat[1], v_left_clv[1], v_terma); \
+//v_terma = _mm256_fmadd_pd(v_lmat[2], v_left_clv[2], v_terma); \
+//v_terma = _mm256_fmadd_pd(v_lmat[3], v_left_clv[3], v_terma); \
+//\
+//__m256d v_termb = _mm256_setzero_pd(); \
+//v_termb = _mm256_fmadd_pd(v_rmat[0], v_right_clv[0], v_termb); \
+//v_termb = _mm256_fmadd_pd(v_rmat[1], v_right_clv[1], v_termb); \
+//v_termb = _mm256_fmadd_pd(v_rmat[2], v_right_clv[2], v_termb); \
+//v_termb = _mm256_fmadd_pd(v_rmat[3], v_right_clv[3], v_termb); \
+//\
+//__m256d v_parent_clv = _mm256_fmadd_pd(v_terma, v_termb, _mm256_setzero_pd()); \
+//_mm256_store_pd(parent_clv, v_parent_clv); \
+//\
+//lmat += states_padded; \
+//rmat += states_padded; \
+//parent_clv += ELEM_PER_AVX2_REGISTER;\
+//} \
+//
+//PLL_EXPORT
+//void pll_core_update_partial_ii_4x4_avx2_sml(unsigned int sites,
+//                                        unsigned int rate_cats,
+//                                        double *parent_clv,
+//                                        unsigned int *parent_scaler,
+//                                        const double *left_clv,
+//                                        const double *right_clv,
+//                                        const double *left_matrix,
+//                                        const double *right_matrix,
+//                                        const unsigned int *left_scaler,
+//                                        const unsigned int *right_scaler,
+//                                        unsigned int attrib) {
+//
+//  unsigned int scale_mode;  /* 0 = none, 1 = per-site, 2 = per-rate */
+//  unsigned int site_scale;
+//  unsigned int init_mask;
+//
+//  unsigned int states = 4;
+//  unsigned int states_padded    = (states + 3) & 0xFFFFFFFC;
+//  unsigned int span = states * rate_cats;
+//
+//  /* init scaling-related stuff */
+//  if (parent_scaler)
+//  {
+//    assert(0); // TODO Scaling not supported yet in AVX2 SML
+//    /* determine the scaling mode and init the vars accordingly */
+//    scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
+//    init_mask = (scale_mode == 1) ? 1 : 0;
+//    const size_t scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
+//
+//    /* add up the scale vectors of the two children if available */
+//    fill_parent_scaler(scaler_size, parent_scaler, left_scaler, right_scaler);
+//  }
+//  else
+//  {
+//    /* scaling disabled / not required */
+//    scale_mode = init_mask = 0;
+//  }
+//
+//  /* compute CLV */
+//  for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX2_REGISTER)
+//  {
+//    const double * lmat = left_matrix;
+//    const double * rmat = right_matrix;
+//    site_scale = init_mask;
+//
+//    for (unsigned int k = 0; k < rate_cats; ++k)
+//    {
+//      __m256d v_left_clv[4] __attribute__((aligned(32)));
+//      v_left_clv[0] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*0);
+//      v_left_clv[1] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*1);
+//      v_left_clv[2] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*2);
+//      v_left_clv[3] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*3);
+//
+//      __m256d v_right_clv[4] __attribute__((aligned(32)));
+//      v_right_clv[0] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*0);
+//      v_right_clv[1] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*1);
+//      v_right_clv[2] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*2);
+//      v_right_clv[3] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*3);
+//
+//      unsigned int rate_scale = 1;
+//      COMPUTE_SINGLE_CLV();
+//      COMPUTE_SINGLE_CLV();
+//      COMPUTE_SINGLE_CLV();
+//      COMPUTE_SINGLE_CLV();
+//
+//      /* check if scaling is needed for the current rate category */
+//      if (scale_mode == 2)
+//      {
+//        /* PER-RATE SCALING: if *all* entries of the *rate* CLV were below
+//         * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+//        if (rate_scale)
+//        {
+//          for (unsigned int i = 0; i < states; ++i)
+//            parent_clv[i] *= PLL_SCALE_FACTOR;
+//          parent_scaler[n*rate_cats + k] += 1;
+//        }
+//      }
+//      else
+//        site_scale = site_scale && rate_scale;
+//
+//      left_clv   += states * ELEM_PER_AVX2_REGISTER;
+//      right_clv  += states * ELEM_PER_AVX2_REGISTER;
+//    }
+//    /* PER-SITE SCALING: if *all* entries of the *site* CLV were below
+//     * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
+//    if (site_scale)
+//    {
+//      assert(0); //TODO not tested ...
+//      parent_clv -= span;
+//      for (unsigned int i = 0; i < span; ++i)
+//        parent_clv[i] *= PLL_SCALE_FACTOR;
+//      parent_clv += span;
+//      parent_scaler[n] += 1;
+//    }
+//  }
+//}
+
+//#define COMPUTE_SINGLE_CLV(i) \
+//{ \
+//__m256d v_lmat[4] __attribute__((aligned(32))); \
+//v_lmat[0] = _mm256_load_pd(t_lmat + 0*ELEM_PER_AVX2_REGISTER); \
+//v_lmat[1] = _mm256_load_pd(t_lmat + 1*ELEM_PER_AVX2_REGISTER); \
+//v_lmat[2] = _mm256_load_pd(t_lmat + 2*ELEM_PER_AVX2_REGISTER); \
+//v_lmat[3] = _mm256_load_pd(t_lmat + 3*ELEM_PER_AVX2_REGISTER); \
+//\
+//__m256d v_rmat[4] __attribute__((aligned(32))); \
+//v_rmat[0] = _mm256_load_pd(t_rmat + 0*ELEM_PER_AVX2_REGISTER); \
+//v_rmat[1] = _mm256_load_pd(t_rmat + 1*ELEM_PER_AVX2_REGISTER); \
+//v_rmat[2] = _mm256_load_pd(t_rmat + 2*ELEM_PER_AVX2_REGISTER); \
+//v_rmat[3] = _mm256_load_pd(t_rmat + 3*ELEM_PER_AVX2_REGISTER); \
+//\
+//__m256d v_terma = _mm256_setzero_pd(); \
+//v_terma = _mm256_fmadd_pd(v_lmat[0], v_left_clv[0], v_terma); \
+//v_terma = _mm256_fmadd_pd(v_lmat[1], v_left_clv[1], v_terma); \
+//v_terma = _mm256_fmadd_pd(v_lmat[2], v_left_clv[2], v_terma); \
+//v_terma = _mm256_fmadd_pd(v_lmat[3], v_left_clv[3], v_terma); \
+//\
+//__m256d v_termb = _mm256_setzero_pd(); \
+//v_termb = _mm256_fmadd_pd(v_rmat[0], v_right_clv[0], v_termb); \
+//v_termb = _mm256_fmadd_pd(v_rmat[1], v_right_clv[1], v_termb); \
+//v_termb = _mm256_fmadd_pd(v_rmat[2], v_right_clv[2], v_termb); \
+//v_termb = _mm256_fmadd_pd(v_rmat[3], v_right_clv[3], v_termb); \
+//\
+//__m256d v_parent_clv = _mm256_fmadd_pd(v_terma, v_termb, _mm256_setzero_pd()); \
+//_mm256_store_pd(parent_clv, v_parent_clv); \
+//\
+//t_lmat += states*ELEM_PER_AVX2_REGISTER; \
+//t_rmat += states*ELEM_PER_AVX2_REGISTER; \
+//parent_clv += ELEM_PER_AVX2_REGISTER; \
+//} \
+//
 //__attribute__((optimize("unroll-loops")))
 //PLL_EXPORT
 //void pll_core_update_partial_ii_4x4_avx2_sml(unsigned int sites,
@@ -641,46 +921,81 @@ void pll_core_update_partial_ti_20x20_avx2(unsigned int sites,
 //    scale_mode = init_mask = 0;
 //  }
 //
+//  double *t_left_matrix = pll_aligned_alloc(states * states * rate_cats * ELEM_PER_AVX2_REGISTER * sizeof(double), PLL_ALIGNMENT_AVX);
+//  double *t_right_matrix = pll_aligned_alloc(states * states * rate_cats * ELEM_PER_AVX2_REGISTER * sizeof(double), PLL_ALIGNMENT_AVX);
+//
+//  const double *lmat = left_matrix;
+//  const double *rmat = right_matrix;
+//  double *t_lmat = t_left_matrix;
+//  double *t_rmat = t_right_matrix;
+//
+//  for (unsigned int k = 0; k < rate_cats; ++k) {
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*0, _mm256_set1_pd(lmat[0]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*1, _mm256_set1_pd(lmat[1]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*2, _mm256_set1_pd(lmat[2]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*3, _mm256_set1_pd(lmat[3]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*4, _mm256_set1_pd(lmat[4]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*5, _mm256_set1_pd(lmat[5]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*6, _mm256_set1_pd(lmat[6]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*7, _mm256_set1_pd(lmat[7]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*8, _mm256_set1_pd(lmat[8]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*9, _mm256_set1_pd(lmat[9]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*10, _mm256_set1_pd(lmat[10]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*11, _mm256_set1_pd(lmat[11]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*12, _mm256_set1_pd(lmat[12]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*13, _mm256_set1_pd(lmat[13]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*14, _mm256_set1_pd(lmat[14]));
+//    _mm256_store_pd(t_lmat + ELEM_PER_AVX2_REGISTER*15, _mm256_set1_pd(lmat[15]));
+//
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*0, _mm256_set1_pd(rmat[0]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*1, _mm256_set1_pd(rmat[1]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*2, _mm256_set1_pd(rmat[2]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*3, _mm256_set1_pd(rmat[3]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*4, _mm256_set1_pd(rmat[4]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*5, _mm256_set1_pd(rmat[5]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*6, _mm256_set1_pd(rmat[6]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*7, _mm256_set1_pd(rmat[7]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*8, _mm256_set1_pd(rmat[8]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*9, _mm256_set1_pd(rmat[9]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*10, _mm256_set1_pd(rmat[10]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*11, _mm256_set1_pd(rmat[11]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*12, _mm256_set1_pd(rmat[12]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*13, _mm256_set1_pd(rmat[13]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*14, _mm256_set1_pd(rmat[14]));
+//    _mm256_store_pd(t_rmat + ELEM_PER_AVX2_REGISTER*15, _mm256_set1_pd(rmat[15]));
+//
+//    t_rmat += states*states*ELEM_PER_AVX2_REGISTER;
+//    t_lmat += states*states*ELEM_PER_AVX2_REGISTER;
+//    lmat += states*states_padded;
+//    rmat += states*states_padded;
+//  }
+//
 //  /* compute CLV */
 //  for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX2_REGISTER)
 //  {
-//    const double * lmat = left_matrix;
-//    const double * rmat = right_matrix;
+//    const double * t_lmat = t_left_matrix;
+//    const double * t_rmat = t_right_matrix;
 //    site_scale = init_mask;
 //
 //    for (unsigned int k = 0; k < rate_cats; ++k)
 //    {
+//      __m256d v_left_clv[4] __attribute__((aligned(PLL_ALIGNMENT_AVX)));
+//      v_left_clv[0] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*0);
+//      v_left_clv[1] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*1);
+//      v_left_clv[2] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*2);
+//      v_left_clv[3] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*3);
 //
-//      __m256d v_left_clv[4];
-//      __m256d v_right_clv[4];
-//      for(unsigned int j = 0; j < states; ++j) {
-//        v_left_clv[j] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*j);
-//        v_right_clv[j] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*j);
-//      }
+//      __m256d v_right_clv[4] __attribute__((aligned(PLL_ALIGNMENT_AVX)));
+//      v_right_clv[0] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*0);
+//      v_right_clv[1] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*1);
+//      v_right_clv[2] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*2);
+//      v_right_clv[3] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*3);
 //
 //      unsigned int rate_scale = 1;
-//      for (unsigned int i = 0; i < states; ++i)
-//      {
-//        __m256d v_terma = _mm256_setzero_pd();
-//        __m256d v_termb = _mm256_setzero_pd();
-//        for (unsigned int j = 0; j < states; ++j)
-//        {
-//          __m256d v_lmat = _mm256_set1_pd(lmat[j]);
-//          __m256d v_rmat = _mm256_set1_pd(rmat[j]);
-//
-//          v_terma = _mm256_fmadd_pd(v_lmat, v_left_clv[j], v_terma);
-//          v_termb = _mm256_fmadd_pd(v_rmat, v_right_clv[j], v_termb);
-//        }
-//
-//        __m256d v_parent_clv = _mm256_fmadd_pd(v_terma, v_termb, _mm256_setzero_pd());
-//        _mm256_store_pd(parent_clv + ELEM_PER_AVX2_REGISTER*i, v_parent_clv);
-//
-//        //TODO
-//        //rate_scale &= (parent_clv[i] < PLL_SCALE_THRESHOLD);
-//
-//        lmat += states_padded;
-//        rmat += states_padded;
-//      }
+//      COMPUTE_SINGLE_CLV();
+//      COMPUTE_SINGLE_CLV();
+//      COMPUTE_SINGLE_CLV();
+//      COMPUTE_SINGLE_CLV();
 //
 //      /* check if scaling is needed for the current rate category */
 //      if (scale_mode == 2)
@@ -697,7 +1012,6 @@ void pll_core_update_partial_ti_20x20_avx2(unsigned int sites,
 //      else
 //        site_scale = site_scale && rate_scale;
 //
-//      parent_clv += states * ELEM_PER_AVX2_REGISTER;
 //      left_clv   += states * ELEM_PER_AVX2_REGISTER;
 //      right_clv  += states * ELEM_PER_AVX2_REGISTER;
 //    }
@@ -713,139 +1027,9 @@ void pll_core_update_partial_ti_20x20_avx2(unsigned int sites,
 //      parent_scaler[n] += 1;
 //    }
 //  }
+//  pll_aligned_free(t_left_matrix);
+//  pll_aligned_free(t_right_matrix);
 //}
-
-#define COMPUTE_SINGLE_CLV(i) \
-{ \
-__m256d v_lmat[4] __attribute__((aligned(32))); \
-v_lmat[0] = _mm256_set1_pd(lmat[0]); \
-v_lmat[1] = _mm256_set1_pd(lmat[1]); \
-v_lmat[2] = _mm256_set1_pd(lmat[2]); \
-v_lmat[3] = _mm256_set1_pd(lmat[3]); \
-\
-__m256d v_rmat[4] __attribute__((aligned(32))); \
-v_rmat[0] = _mm256_set1_pd(rmat[0]); \
-v_rmat[1] = _mm256_set1_pd(rmat[1]); \
-v_rmat[2] = _mm256_set1_pd(rmat[2]); \
-v_rmat[3] = _mm256_set1_pd(rmat[3]); \
-\
-__m256d v_terma = _mm256_setzero_pd(); \
-v_terma = _mm256_fmadd_pd(v_lmat[0], v_left_clv[0], v_terma); \
-v_terma = _mm256_fmadd_pd(v_lmat[1], v_left_clv[1], v_terma); \
-v_terma = _mm256_fmadd_pd(v_lmat[2], v_left_clv[2], v_terma); \
-v_terma = _mm256_fmadd_pd(v_lmat[3], v_left_clv[3], v_terma); \
-\
-__m256d v_termb = _mm256_setzero_pd(); \
-v_termb = _mm256_fmadd_pd(v_rmat[0], v_right_clv[0], v_termb); \
-v_termb = _mm256_fmadd_pd(v_rmat[1], v_right_clv[1], v_termb); \
-v_termb = _mm256_fmadd_pd(v_rmat[2], v_right_clv[2], v_termb); \
-v_termb = _mm256_fmadd_pd(v_rmat[3], v_right_clv[3], v_termb); \
-\
-__m256d v_parent_clv = _mm256_fmadd_pd(v_terma, v_termb, _mm256_setzero_pd()); \
-_mm256_store_pd(parent_clv, v_parent_clv); \
-\
-lmat += states_padded; \
-rmat += states_padded; \
-parent_clv += ELEM_PER_AVX2_REGISTER;\
-} \
-
-PLL_EXPORT
-void pll_core_update_partial_ii_4x4_avx2_sml(unsigned int sites,
-                                        unsigned int rate_cats,
-                                        double *parent_clv,
-                                        unsigned int *parent_scaler,
-                                        const double *left_clv,
-                                        const double *right_clv,
-                                        const double *left_matrix,
-                                        const double *right_matrix,
-                                        const unsigned int *left_scaler,
-                                        const unsigned int *right_scaler,
-                                        unsigned int attrib) {
-
-  unsigned int scale_mode;  /* 0 = none, 1 = per-site, 2 = per-rate */
-  unsigned int site_scale;
-  unsigned int init_mask;
-
-  unsigned int states = 4;
-  unsigned int states_padded    = (states + 3) & 0xFFFFFFFC;
-  unsigned int span = states * rate_cats;
-
-  /* init scaling-related stuff */
-  if (parent_scaler)
-  {
-    assert(0); // TODO Scaling not supported yet in AVX2 SML
-    /* determine the scaling mode and init the vars accordingly */
-    scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
-    init_mask = (scale_mode == 1) ? 1 : 0;
-    const size_t scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
-
-    /* add up the scale vectors of the two children if available */
-    fill_parent_scaler(scaler_size, parent_scaler, left_scaler, right_scaler);
-  }
-  else
-  {
-    /* scaling disabled / not required */
-    scale_mode = init_mask = 0;
-  }
-
-  /* compute CLV */
-  for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX2_REGISTER)
-  {
-    const double * lmat = left_matrix;
-    const double * rmat = right_matrix;
-    site_scale = init_mask;
-
-    for (unsigned int k = 0; k < rate_cats; ++k)
-    {
-      __m256d v_left_clv[4] __attribute__((aligned(32)));
-      v_left_clv[0] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*0);
-      v_left_clv[1] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*1);
-      v_left_clv[2] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*2);
-      v_left_clv[3] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*3);
-
-      __m256d v_right_clv[4] __attribute__((aligned(32)));
-      v_right_clv[0] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*0);
-      v_right_clv[1] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*1);
-      v_right_clv[2] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*2);
-      v_right_clv[3] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*3);
-
-      unsigned int rate_scale = 1;
-      COMPUTE_SINGLE_CLV();
-      COMPUTE_SINGLE_CLV();
-      COMPUTE_SINGLE_CLV();
-      COMPUTE_SINGLE_CLV();
-
-      /* check if scaling is needed for the current rate category */
-      if (scale_mode == 2)
-      {
-        /* PER-RATE SCALING: if *all* entries of the *rate* CLV were below
-         * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
-        if (rate_scale)
-        {
-          for (unsigned int i = 0; i < states; ++i)
-            parent_clv[i] *= PLL_SCALE_FACTOR;
-          parent_scaler[n*rate_cats + k] += 1;
-        }
-      }
-      else
-        site_scale = site_scale && rate_scale;
-
-      left_clv   += states * ELEM_PER_AVX2_REGISTER;
-      right_clv  += states * ELEM_PER_AVX2_REGISTER;
-    }
-    /* PER-SITE SCALING: if *all* entries of the *site* CLV were below
-     * the threshold then scale (all) entries by PLL_SCALE_FACTOR */
-    if (site_scale)
-    {
-      assert(0); //TODO not tested ...
-      parent_clv -= span;
-      for (unsigned int i = 0; i < span; ++i)
-        parent_clv[i] *= PLL_SCALE_FACTOR;
-      parent_clv += span;
-      parent_scaler[n] += 1;
-    }
-  }
-}
 
 __attribute__((optimize("unroll-loops")))
 PLL_EXPORT
