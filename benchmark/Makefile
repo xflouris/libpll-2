@@ -26,15 +26,25 @@ CLIBS = -lpll -lm
 
 CFILES = $(shell find src -name '*.c')
 
-OBJFILES = $(patsubst src/%.c, obj/%, $(CFILES))
+OBJFILES = $(patsubst src/benchmarks/%.c, obj/%, $(CFILES))
 
 OBJCOMMON = ../test/src/common.o
 
 all: $(OBJCOMMON) $(OBJFILES)
 
-obj/%: src/%.c ../test/src/common.c $(DEPS)
+obj/test-cache: src/benchmarks/test-cache.c obj/test_avx2.o obj/test_avx512.o ../test/src/common.c $(DEPS)
+	@mkdir -p "$(@D)"
+	$(CC) "-Wl,-rpath,$(ABS_LIB_DIR)" $(CPPFLAGS) $(CFLAGS) -o $@ $< obj/test_avx2.o obj/test_avx512.o $(OBJCOMMON) $(CLIBS) $(LDFLAGS)
+
+obj/%: src/benchmarks/%.c ../test/src/common.c $(DEPS)
 	@mkdir -p "$(@D)"
 	$(CC) "-Wl,-rpath,$(ABS_LIB_DIR)" $(CPPFLAGS) $(CFLAGS) -o $@ $< $(OBJCOMMON) $(CLIBS) $(LDFLAGS)
+
+obj/test_avx2.o: src/lib/test_avx2.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -mavx2 -mfma -c -o $@ $< $(CLIBS) $(LDFLAGS)
+
+obj/test_avx512.o: src/lib/test_avx512.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -mavx512f -c -o $@ $< $(CLIBS) $(LDFLAGS)
 
 %.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $< $(CLIBS) $(LDFLAGS)

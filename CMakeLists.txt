@@ -10,8 +10,11 @@ include_directories(src)
 include_directories(test/src)
 
 add_executable(libpll_2
-        benchmark/src/derivatives-benchmark.c
-        benchmark/src/partials-micro-benchmark.c
+        benchmark/src/benchmarks/derivatives-benchmark.c
+        benchmark/src/benchmarks/partials-micro-benchmark.c
+        benchmark/src/benchmarks/test-cache.c
+        benchmark/src/lib/test_avx2.c
+        benchmark/src/lib/test_avx512.c
         src/compress.c
         src/core_derivatives.c
         src/core_derivatives_avx.c

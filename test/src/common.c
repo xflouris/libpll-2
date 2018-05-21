@@ -93,6 +93,7 @@ pll_common_args_t* get_common_args(int argc, char **argv) {
   common_args->alpha_values[0] = 0.1;
   common_args->n_pmatrix_itr = 1;
   common_args->n_categories = 4;
+  common_args->n_itr = 1;
   common_args->seed = (unsigned int) time(NULL);
   common_args->print_seq = 0;
   common_args->n_sites = 1000000;
@@ -148,6 +149,19 @@ pll_common_args_t* get_common_args(int argc, char **argv) {
       common_args->n_categories = (unsigned int) strtol(value, NULL, 10);
       if(common_args->n_categories == 0) {
         printf("Number of categories must not be 0: %s\n", argv[i]);
+        exit(1);
+      }
+    }
+    else if (strstr (argv[i], "-n-itr=") != NULL)
+    {
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->n_itr = (unsigned int) strtol(value, NULL, 10);
+      if(common_args->n_itr == 0) {
+        printf("Number of iterations must not be 0: %s\n", argv[i]);
         exit(1);
       }
     }

@@ -34,6 +34,7 @@ typedef struct pll_common_args {
     unsigned int n_alpha_values;
     unsigned int seed;
     unsigned int print_seq;
+    unsigned int n_itr;
     unsigned int n_pmatrix_itr;
     double *alpha_values;
     double pinvar;
