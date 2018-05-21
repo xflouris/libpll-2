@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
   size_t elems = (unsigned int)abs(atoi(argv[1]));
   size_t repeats = (unsigned int)abs(atoi(argv[2]));
 
-  printf("Array elements %lu*8 (= %f KB)\n", elems, elems*8*sizeof(double)/1024.0);
+  printf("Array elements %lu*8*3 (= %f KB)\n", elems, elems*8*3*sizeof(double)/1024.0);
   printf("Repeated calculation %lu\n", repeats);
 
   benchmark_test_func(32, seed, test_avx2, elems*8, repeats);
