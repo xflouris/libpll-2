@@ -325,7 +325,8 @@ PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,
   unsigned int i;
 
   *ops_count = 0;
-  *matrix_count = 0;
+  if (matrix_count)
+    *matrix_count = 0;
 
   for (i = 0; i < trav_buffer_size; ++i)
   {
@@ -337,9 +338,12 @@ PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,
     in the list) */
     if (node != trav_buffer[trav_buffer_size - 1]->back)
     {
-      *branches++ = node->length;
-      *pmatrix_indices++ = node->pmatrix_index;
-      *matrix_count = *matrix_count + 1;
+      if (branches)
+        *branches++ = node->length;
+      if (pmatrix_indices)
+        *pmatrix_indices++ = node->pmatrix_index;
+      if (matrix_count)
+        *matrix_count = *matrix_count + 1;
     }
 
     if (node->next)

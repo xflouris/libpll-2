@@ -404,6 +404,7 @@ PLL_EXPORT pll_random_state * pll_random_create(unsigned int seed)
   return rstate;
 }
 
+/* return a random integer r, 0 <= r < maxval */
 PLL_EXPORT int pll_random_getint(pll_random_state * rstate, int maxval)
 {
   int32_t r;
