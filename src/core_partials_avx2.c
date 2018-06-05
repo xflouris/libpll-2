@@ -715,6 +715,7 @@ void pll_core_update_partial_ii_4x4_avx2_sml(unsigned int sites,
   }
 }
 
+//TODO: Remove this
 //#define COMPUTE_SINGLE_CLV(i) \
 //{ \
 //__m256d v_lmat[4] __attribute__((aligned(32))); \
@@ -846,7 +847,6 @@ void pll_core_update_partial_ii_4x4_avx2_sml(unsigned int sites,
 //    }
 //  }
 //}
-
 //#define COMPUTE_SINGLE_CLV(i) \
 //{ \
 //__m256d v_lmat[4] __attribute__((aligned(32))); \
@@ -1077,6 +1077,13 @@ void pll_core_update_partial_ii_20x20_avx2_sml(unsigned int sites,
     const double * rmat = right_matrix;
     site_scale = init_mask;
 
+    __m256d v_left_clv[20];
+    __m256d v_right_clv[20];
+    for(unsigned int j = 0; j < states; ++j) {
+      v_left_clv[j] = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*j);
+      v_right_clv[j] = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*j);
+    }
+
     //printf("Site (%d-%d)\n", n, n + ELEM_PER_AVX2_REGISTER - 1);
 
     for (unsigned int k = 0; k < rate_cats; ++k)
@@ -1092,11 +1099,8 @@ void pll_core_update_partial_ii_20x20_avx2_sml(unsigned int sites,
           __m256d v_lmat = _mm256_set1_pd(lmat[j]);
           __m256d v_rmat = _mm256_set1_pd(rmat[j]);
 
-          __m256d v_left_clv = _mm256_load_pd(left_clv + ELEM_PER_AVX2_REGISTER*j);
-          __m256d v_right_clv = _mm256_load_pd(right_clv + ELEM_PER_AVX2_REGISTER*j);
-
-          v_terma = _mm256_fmadd_pd(v_lmat, v_left_clv, v_terma);
-          v_termb = _mm256_fmadd_pd(v_rmat, v_right_clv, v_termb);
+          v_terma = _mm256_fmadd_pd(v_lmat, v_left_clv[j], v_terma);
+          v_termb = _mm256_fmadd_pd(v_rmat, v_right_clv[j], v_termb);
         }
 
         __m256d v_parent_clv = _mm256_fmadd_pd(v_terma, v_termb, _mm256_setzero_pd());
