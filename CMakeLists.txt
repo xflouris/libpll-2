@@ -63,6 +63,7 @@ add_executable(libpll_2
         src/phylip.c
         src/pll.c
         src/pll.h
+        src/simd_count.h
         src/random.c
         src/repeats.c
         src/rtree.c
@@ -114,4 +115,4 @@ add_executable(libpll_2
         examples/rooted-tacg/rooted-tacg.c
         examples/stepwise/stepwise.c
         examples/unrooted/unrooted.c
-        config.h)
+        config.h src/simd_count.c)

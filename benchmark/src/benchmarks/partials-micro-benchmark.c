@@ -127,6 +127,108 @@ void pll_core_update_partial_ii_4x4_avx512f_sml(unsigned int sites,
                                                 const unsigned int *right_scaler,
                                                 unsigned int attrib);
 
+#ifdef SIMD_COUNTING_MODE
+static void print_and_reset_instr_counts() {
+  printf("   _mm256_setzero_pd_counter:      %'lu\n", _mm256_setzero_pd_counter);
+  printf("   _mm256_store_pd_counter:        %'lu\n", _mm256_store_pd_counter);
+  printf("   _mm256_fmadd_pd_counter:        %'lu\n", _mm256_fmadd_pd_counter);
+  printf("   _mm256_set1_pd_counter:         %'lu\n", _mm256_set1_pd_counter);
+  printf("   _mm256_load_pd_counter:         %'lu\n", _mm256_load_pd_counter);
+  printf("   _mm256_unpackhi_pd_counter:     %'lu\n", _mm256_unpackhi_pd_counter);
+  printf("   _mm256_unpacklo_pd_counter:     %'lu\n", _mm256_unpacklo_pd_counter);
+  printf("   _mm256_add_pd_counter:          %'lu\n", _mm256_add_pd_counter);
+  printf("   _mm256_mul_pd_counter:          %'lu\n", _mm256_mul_pd_counter);
+  printf("   _mm256_cmp_pd_counter:          %'lu\n", _mm256_cmp_pd_counter);
+  printf("   _mm256_permute2f128_pd_counter: %'lu\n", _mm256_permute2f128_pd_counter);
+  printf("   _mm256_movemask_pd_counter:     %'lu\n", _mm256_movemask_pd_counter);
+  printf("   _mm256_blend_pd_counter:        %'lu\n", _mm256_blend_pd_counter);
+
+  pll_reset_simd_counter();
+}
+#endif /* SIMD_COUNTING_MODE */
+
+static void count_instrs_of_kernel(unsigned int n_tips,
+                                    char **align,
+                                    const double *pll_freqs,
+                                    const double *pll_rates,
+                                    const pll_state_t *pll_map,
+                                    const unsigned int n_states,
+                                    const pll_common_args_t *common_args,
+                                    pll_operation_t *operations,
+                                    kernel_ptr kernel_fun,
+                                    unsigned int attributes) {
+  unsigned int n_sites = common_args->n_sites;
+  unsigned int n_categories = common_args->n_categories;
+
+  pll_partition_t *partition;
+  partition = pll_partition_create(
+          n_tips,                 /* numer of tips */
+          4,                      /* clv buffers */
+          n_states,               /* number of states */
+          n_sites,                /* sequence length */
+          1,                      /* different rate parameters */
+          2 * n_tips - 3,         /* probability matrices */
+          n_categories,           /* gamma categories */
+          0,                      /* scale buffers */
+          attributes /* attributes */
+  );
+
+  if (!partition) {
+    fatal("Fail creating partition");
+  }
+
+  double branch_lengths[4] = {0.1, 0.2, 0.3, 0.4};
+  unsigned int matrix_indices[4] = {0, 1, 2, 3};
+
+  pll_set_frequencies(partition, 0, pll_freqs);
+  pll_set_subst_params(partition, 0, pll_rates);
+
+  int return_val = PLL_SUCCESS;
+  for (unsigned int i = 0; i < ALIGN_SEQS; i++) {
+    return_val &= pll_set_tip_states(partition, i, pll_map,
+                                     align[i]);
+  }
+
+  if (!return_val)
+    fatal("Error setting tip states");
+
+  double *rate_cats = (double *) malloc(n_categories * sizeof(double));
+
+  if (pll_compute_gamma_cats(0.1, n_categories, rate_cats, PLL_GAMMA_RATES_MEAN)
+      == PLL_FAILURE) {
+    printf("Fail computing the gamma rates\n");
+    exit(0);
+  }
+
+  pll_set_category_rates(partition, rate_cats);
+  free(rate_cats);
+
+  for (unsigned int j = 0; j < partition->rate_matrices; ++j) {
+    pll_update_invariant_sites_proportion(partition, j, common_args->pinvar);
+  }
+
+  pll_update_prob_matrices(partition, params_indices, matrix_indices, branch_lengths, 4);
+
+  pll_reset_simd_counter();
+
+  const pll_operation_t *op = &(operations[0]);
+  kernel_fun(partition->sites,
+             partition->rate_cats,
+             partition->clv[op->parent_clv_index],
+             NULL,
+             partition->clv[op->child1_clv_index],
+             partition->clv[op->child2_clv_index],
+             partition->pmatrix[op->child1_matrix_index],
+             partition->pmatrix[op->child2_matrix_index],
+             NULL,
+             NULL,
+             partition->attributes);
+
+  print_and_reset_instr_counts();
+
+  pll_partition_destroy(partition);
+}
+
 static float benchmark_kernel(unsigned int n_tips,
                               char **align,
                               const double *pll_freqs,
@@ -335,9 +437,6 @@ int main(int argc, char *argv[]) {
                                              PLL_ATTRIB_ARCH_CPU | PLL_ATTRIB_ARCH_AVX512F |
                                              PLL_ATTRIB_SIMD_MEM_LAYOUT);
 
-  delete_random_align(align_aa);
-  delete_random_align(align_nt);
-
   setlocale(LC_NUMERIC, "");
   printf("Seed:                                  %d\n", common_args->seed);
   printf("No. Sites:                             %'d\n", n_sites);
@@ -358,6 +457,38 @@ int main(int argc, char *argv[]) {
   printf("pll_update_partials NT (AVX2 SML):     %f %f (vs AVX)\n", avx2sml_nt_secs, avx2_nt_secs/avx2sml_nt_secs);
   printf("pll_update_partials NT (AVX512F SML):  %f %f (vs AVX)\n", avx512sml_nt_secs, avx2_nt_secs/avx512sml_nt_secs);
 
+#ifdef SIMD_COUNTING_MODE
+
+  printf("Instruction counts for pll_core_update_partial_ii_20x20_avx2:\n");
+  count_instrs_of_kernel(n_tips, align_aa, pll_aa_freqs_dayhoff, pll_aa_rates_dayhoff, pll_map_aa,
+                         20, common_args, operations,
+                         &pll_core_update_partial_ii_20x20_avx2,
+                         PLL_ATTRIB_ARCH_CPU | PLL_ATTRIB_ARCH_AVX2);
+
+  printf("Instruction counts for pll_core_update_partial_ii_20x20_avx2_sml:\n");
+  count_instrs_of_kernel(n_tips, align_aa, pll_aa_freqs_dayhoff, pll_aa_rates_dayhoff, pll_map_aa,
+                         20, common_args, operations,
+                         &pll_core_update_partial_ii_20x20_avx2_sml,
+                         PLL_ATTRIB_ARCH_CPU | PLL_ATTRIB_ARCH_AVX2 |
+                         PLL_ATTRIB_SIMD_MEM_LAYOUT);
+
+  printf("Instruction counts for pll_core_update_partial_ii_4x4_avx:\n");
+  count_instrs_of_kernel(n_tips, align_nt, pll_nt_freqs, pll_nt_rates, pll_map_nt, 4, common_args,
+                         operations,
+                         &pll_core_update_partial_ii_4x4_avx,
+                         PLL_ATTRIB_ARCH_CPU | PLL_ATTRIB_ARCH_AVX);
+
+  printf("Instruction counts for pll_core_update_partial_ii_4x4_avx2_sml:\n");
+  count_instrs_of_kernel(n_tips, align_nt, pll_nt_freqs, pll_nt_rates, pll_map_nt, 4, common_args,
+                         operations,
+                         &pll_core_update_partial_ii_4x4_avx2_sml,
+                         PLL_ATTRIB_ARCH_CPU | PLL_ATTRIB_ARCH_AVX2 |
+                         PLL_ATTRIB_SIMD_MEM_LAYOUT);
+
+#endif /* SIMD_COUNTING_MODE */
+
+  delete_random_align(align_aa);
+  delete_random_align(align_nt);
 
   free(operations);
   destroy_common_args(&common_args);

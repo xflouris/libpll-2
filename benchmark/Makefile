@@ -21,7 +21,7 @@ LIB_DIR = ../src/.libs
 ABS_LIB_DIR=`readlink -m "../src/.libs"`
 
 CC = gcc
-CFLAGS = -I../test/src -L$(LIB_DIR) -g -O3 -Wall -std=c99
+CFLAGS = -I../test/src -L$(LIB_DIR) -g -O3 -Wall -std=c99 -DHAVE_X86INTRIN_H
 CLIBS = -lpll -lm
 
 CFILES = $(shell find src -name '*.c')
@@ -41,9 +41,11 @@ obj/%: src/benchmarks/%.c ../test/src/common.c $(DEPS)
 	$(CC) "-Wl,-rpath,$(ABS_LIB_DIR)" $(CPPFLAGS) $(CFLAGS) -o $@ $< $(OBJCOMMON) $(CLIBS) $(LDFLAGS)
 
 obj/test_avx2.o: src/lib/test_avx2.c
+	@mkdir -p "$(@D)"
 	$(CC) $(CPPFLAGS) $(CFLAGS) -mavx2 -mfma -c -o $@ $< $(CLIBS) $(LDFLAGS)
 
 obj/test_avx512.o: src/lib/test_avx512.c
+	@mkdir -p "$(@D)"
 	$(CC) $(CPPFLAGS) $(CFLAGS) -mavx512f -c -o $@ $< $(CLIBS) $(LDFLAGS)
 
 %.o: %.c

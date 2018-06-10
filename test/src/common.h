@@ -21,10 +21,7 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-#ifndef PLL_H_
-#define PLL_H_
 #include "pll.h"
-#endif
 
 typedef struct pll_common_args {
     unsigned int attributes;

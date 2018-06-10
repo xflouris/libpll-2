@@ -36,6 +36,7 @@ lex_rtree.l \
 fast_parsimony.c \
 stepwise.c \
 random.c \
+simd_count.c \
 phylip.c \
 hardware.c \
 repeats.c 

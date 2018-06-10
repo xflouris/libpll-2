@@ -96,7 +96,7 @@ pll_common_args_t* get_common_args(int argc, char **argv) {
   common_args->n_itr = 1;
   common_args->seed = (unsigned int) time(NULL);
   common_args->print_seq = 0;
-  common_args->n_sites = 1000000;
+  common_args->n_sites = 1000;
   common_args->n_states = 20;
   common_args->pinvar = 0.0;
 

@@ -21,8 +21,6 @@
 
 #include "pll.h"
 
-
-
 PLL_EXPORT void pll_core_create_lookup_avx(unsigned int states,
                                            unsigned int rate_cats,
                                            double * ttlookup,
