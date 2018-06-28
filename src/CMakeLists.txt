@@ -176,3 +176,12 @@ add_library(pll $<TARGET_OBJECTS:pll_obj>)
 # with pll include dirs themselves
 target_include_directories(pll INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
+# Export PLL_LIBRARIES and PLL_INCLUDE_DIRS as CACHE entries
+set(PLL_LIBRARIES
+  pll
+  CACHE INTERNAL "${PROJECT_NAME}: Libraries to link against")
+
+set(PLL_INCLUDE_DIRS
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  CACHE INTERNAL "${PROJECT_NAME}: Include dirs")
+
