@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0.2)
 
 include(CheckIncludeFile) 
 
@@ -170,9 +170,8 @@ add_definitions(-DHAVE_X86INTRIN_H)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LIBPLL_BASE_FLAGS}")
 
-add_library(pll OBJECT ${LIBPLL_SOURCES})
-set_property(TARGET pll PROPERTY POSITION_INDEPENDENT_CODE 1)
-add_library(pll_shared SHARED $<TARGET_OBJECTS:pll>)
-add_library(pll_static STATIC $<TARGET_OBJECTS:pll>)
-
+# Build either static or shared library
+# depending on the value of BUILD_SHARED_LIBS
+add_library(pll_obj OBJECT ${LIBPLL_SOURCES})
+add_library(pll $<TARGET_OBJECTS:pll_obj>)
 
