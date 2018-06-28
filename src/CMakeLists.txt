@@ -172,3 +172,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LIBPLL_BASE_FLAGS}")
 add_library(pll_obj OBJECT ${LIBPLL_SOURCES})
 add_library(pll $<TARGET_OBJECTS:pll_obj>)
 
+# Add interface include dir so that users linking to pll don't have to bother
+# with pll include dirs themselves
+target_include_directories(pll INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
