@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0.2)
 
 include(CheckIncludeFile) 
 
@@ -28,9 +28,6 @@ set (AVX2_FLAGS "-mfma -mavx2")
 #  ${CMAKE_CURRENT_SOURCE_DIR}/lex_rtree.l ${CMAKE_CURRENT_BINARY_DIR}/lex_rtree.c
 #  COMPILE_FLAGS ${LIBPLL_FLEX_FLAGS})
 #ADD_FLEX_BISON_DEPENDENCY(lex_rtree_t parse_rtree_t)
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 #remove annoyting bison and flex warnings
 #SET_SOURCE_FILES_PROPERTIES( ${FLEX_lex_utree_t_OUTPUTS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare )
@@ -170,9 +167,47 @@ add_definitions(-DHAVE_X86INTRIN_H)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LIBPLL_BASE_FLAGS}")
 
-add_library(pll OBJECT ${LIBPLL_SOURCES})
-set_property(TARGET pll PROPERTY POSITION_INDEPENDENT_CODE 1)
-add_library(pll_shared SHARED $<TARGET_OBJECTS:pll>)
-add_library(pll_static STATIC $<TARGET_OBJECTS:pll>)
+# Set BUILD_LIBPLL_SHARED and BUILD_LIBPLL_SHARED if both are unset
+# Use BUILD_SHARED_LIBS to decide whether we should build shared or static libraries
+if(NOT DEFINED BUILD_LIBPLL_SHARED AND NOT DEFINED BUILD_LIBPLL_STATIC)
+  set(BUILD_LIBPLL_SHARED ${BUILD_SHARED_LIBS})
+  if (BUILD_SHARED_LIBS)
+    set(BUILD_LIBPLL_STATIC FALSE)
+  else()
+    set(BUILD_LIBPLL_STATIC TRUE)
+  endif()
+endif()
+
+add_library(pll_obj OBJECT ${LIBPLL_SOURCES})
+  
+# Build static library
+if(BUILD_LIBPLL_SHARED)
+  message(STATUS "Libpll shared build enabled")
+  set_property(TARGET pll_obj PROPERTY POSITION_INDEPENDENT_CODE 1) 
+  add_library(pll_shared  SHARED $<TARGET_OBJECTS:pll_obj>)
+  target_include_directories(pll_shared INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+  set(PLL_LIBRARIES
+    pll_shared
+    CACHE INTERNAL "${PROJECT_NAME}: Libraries to link against")
+endif()
+
+# Build shared library
+if(BUILD_LIBPLL_STATIC)
+  message(STATUS "Libpll static build enabled")
+  add_library(pll_static STATIC $<TARGET_OBJECTS:pll_obj>)
+  target_include_directories(pll_static INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+  set(PLL_LIBRARIES 
+    pll_static ${PLL_LIBRARIES}
+    CACHE INTERNAL "${PROJECT_NAME}: Libraries to link against")
+endif()
+
+message(STATUS "${PLL_LIBRARIES}")
+set_target_properties(${PLL_LIBRARIES} PROPERTIES OUTPUT_NAME "pll")
+
+
+# Export PLL_LIBRARIES and PLL_INCLUDE_DIRS as CACHE entries
+set(PLL_INCLUDE_DIRS
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  CACHE INTERNAL "${PROJECT_NAME}: Include dirs")
 
 
