@@ -167,21 +167,47 @@ add_definitions(-DHAVE_X86INTRIN_H)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LIBPLL_BASE_FLAGS}")
 
-# Build either static or shared library
-# depending on the value of BUILD_SHARED_LIBS
-add_library(pll_obj OBJECT ${LIBPLL_SOURCES})
-add_library(pll $<TARGET_OBJECTS:pll_obj>)
+# Set BUILD_LIBPLL_SHARED and BUILD_LIBPLL_SHARED if both are unset
+# Use BUILD_SHARED_LIBS to decide whether we should build shared or static libraries
+if(NOT DEFINED BUILD_LIBPLL_SHARED AND NOT DEFINED BUILD_LIBPLL_STATIC)
+  set(BUILD_LIBPLL_SHARED ${BUILD_SHARED_LIBS})
+  if (BUILD_SHARED_LIBS)
+    set(BUILD_LIBPLL_STATIC FALSE)
+  else()
+    set(BUILD_LIBPLL_STATIC TRUE)
+  endif()
+endif()
 
-# Add interface include dir so that users linking to pll don't have to bother
-# with pll include dirs themselves
-target_include_directories(pll INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(pll_obj OBJECT ${LIBPLL_SOURCES})
+  
+# Build static library
+if(BUILD_LIBPLL_SHARED)
+  message(STATUS "Libpll shared build enabled")
+  set_property(TARGET pll_obj PROPERTY POSITION_INDEPENDENT_CODE 1) 
+  add_library(pll_shared  SHARED $<TARGET_OBJECTS:pll_obj>)
+  target_include_directories(pll_shared INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+  set(PLL_LIBRARIES
+    pll_shared
+    CACHE INTERNAL "${PROJECT_NAME}: Libraries to link against")
+endif()
+
+# Build shared library
+if(BUILD_LIBPLL_STATIC)
+  message(STATUS "Libpll static build enabled")
+  add_library(pll_static STATIC $<TARGET_OBJECTS:pll_obj>)
+  target_include_directories(pll_static INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+  set(PLL_LIBRARIES 
+    pll_static ${PLL_LIBRARIES}
+    CACHE INTERNAL "${PROJECT_NAME}: Libraries to link against")
+endif()
+
+message(STATUS "${PLL_LIBRARIES}")
+set_target_properties(${PLL_LIBRARIES} PROPERTIES OUTPUT_NAME "pll")
+
 
 # Export PLL_LIBRARIES and PLL_INCLUDE_DIRS as CACHE entries
-set(PLL_LIBRARIES
-  pll
-  CACHE INTERNAL "${PROJECT_NAME}: Libraries to link against")
-
 set(PLL_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}
   CACHE INTERNAL "${PROJECT_NAME}: Include dirs")
+
 
