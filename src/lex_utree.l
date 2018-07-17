@@ -98,11 +98,11 @@ static char * append(size_t * dstlen, const char * src, size_t srclen)
 ([^\"\'\\]|\n)+   { append(&string_length, pll_utree_text, pll_utree_leng);    }
 }
 
-\:                { return ':';                                              }
-\;                { return ';';                                          }
-\)                { return ')';                                               }
-\(                { return '(';                                               }
-\,                { return ',';                                              }
+\:                { return COLON;                                              }
+\;                { return SEMICOLON;                                          }
+\)                { return CPAR;                                               }
+\(                { return OPAR;                                               }
+\,                { return COMMA;                                              }
 \"                { string_length = 0; BEGIN(quot);                            }
 \'                { string_length = 0; BEGIN(apos);                            }                           
 \n                { pll_utree_colstart = pll_utree_colend = 0;                 }

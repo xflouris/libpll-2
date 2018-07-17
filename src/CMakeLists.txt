@@ -142,7 +142,7 @@ endif()
 
 # set simd flags
 if (ENABLE_SSE)
-  add_definitions(-DHAVE_SSE)
+  add_definitions(-DHAVE_SSE3)
   set(SIMD_FLAGS "${SIMD_FLAGS} ${SSE_FLAGS}")
   message(STATUS "SSE enabled. To disable it, run cmake with -DENABLE_SSE=false")
   set(LIBPLL_SOURCES ${LIBPLL_SOURCES} ${LIBPLL_SSE_SOURCES})

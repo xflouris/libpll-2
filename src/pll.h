@@ -172,6 +172,7 @@
 #define PLL_ERROR_EINVAL                   130
 #define PLL_ERROR_MSA_EMPTY                131
 #define PLL_ERROR_MSA_MAP_INVALID          132
+#define PLL_ERROR_TREE_INVALID             133
 
 /* utree specific */
 
@@ -180,6 +181,8 @@
 #define PLL_UTREE_SHOW_CLV_INDEX         (1 << 2)
 #define PLL_UTREE_SHOW_SCALER_INDEX      (1 << 3)
 #define PLL_UTREE_SHOW_PMATRIX_INDEX     (1 << 4)
+#define PLL_UTREE_SHOW_DATA              (1 << 5)
+
 
 /* GAMMA discretization modes */
 #define PLL_GAMMA_RATES_MEAN             0
@@ -385,9 +388,10 @@ typedef struct pll_utree_s
   unsigned int tip_count;
   unsigned int inner_count;
   unsigned int edge_count;
+  int binary;
 
   pll_unode_t ** nodes;
-
+  pll_unode_t * vroot;
 } pll_utree_t;
 
 typedef struct pll_rnode_s
@@ -521,6 +525,12 @@ struct pll_random_data
   int rand_sep;         /* Distance between front and rear.  */
   int32_t *end_ptr;     /* Pointer behind state table.  */
 };
+
+typedef struct pll_random_state_s
+{
+  struct pll_random_data rdata;
+  char *state_buf;      /* Buffer to store state */
+} pll_random_state;
 
 /* common data */
 
@@ -830,7 +840,13 @@ PLL_EXPORT pll_rtree_t * pll_rtree_wraptree(pll_rnode_t * root,
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename);
 
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_unroot(const char * filename);
+
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s);
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string_unroot(const char * s);
+
+PLL_EXPORT pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root);
 
 PLL_EXPORT void pll_utree_destroy(pll_utree_t * tree,
                                   void (*cb_destroy)(void *));
@@ -843,6 +859,10 @@ PLL_EXPORT void pll_utree_graph_destroy(pll_unode_t * root,
 
 PLL_EXPORT pll_utree_t * pll_utree_wraptree(pll_unode_t * root,
                                             unsigned int tip_count);
+
+PLL_EXPORT pll_utree_t * pll_utree_wraptree_multi(pll_unode_t * root,
+                                                  unsigned int tip_count,
+                                                  unsigned int inner_count);
 
 /* functions in utree.c */
 
@@ -859,14 +879,6 @@ PLL_EXPORT int pll_utree_traverse(pll_unode_t * root,
                                   int (*cbtrav)(pll_unode_t *),
                                   pll_unode_t ** outbuffer,
                                   unsigned int * trav_size);
-
-#if 0
-PLL_EXPORT unsigned int pll_utree_query_tipnodes(pll_utree_t * root,
-                                                 pll_utree_t ** node_list);
-
-PLL_EXPORT unsigned int pll_utree_query_innernodes(pll_utree_t * root,
-                                                   pll_utree_t ** node_list);
-#endif
 
 PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,
                                             unsigned int trav_buffer_size,
@@ -885,10 +897,12 @@ PLL_EXPORT pll_utree_t * pll_utree_clone(const pll_utree_t * root);
 PLL_EXPORT pll_utree_t * pll_rtree_unroot(pll_rtree_t * tree);
 
 PLL_EXPORT int pll_utree_every(pll_utree_t * tree,
-                               int (*cb)(pll_unode_t *));
+                               int (*cb)(const pll_utree_t *,
+                                         const pll_unode_t *));
 
 PLL_EXPORT int pll_utree_every_const(const pll_utree_t * tree,
-                                     int (*cb)(const pll_unode_t *));
+                                     int (*cb)(const pll_utree_t * tree,
+                                               const pll_unode_t *));
 
 PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
                                                unsigned int trav_buffer_size,
@@ -2560,6 +2574,12 @@ PLL_EXPORT extern int pll_initstate_r(unsigned int __seed,
 
 PLL_EXPORT extern int pll_setstate_r(char * __statebuf,
                                      struct pll_random_data * __buf);
+
+PLL_EXPORT pll_random_state * pll_random_create(unsigned int seed);
+
+PLL_EXPORT int pll_random_getint(pll_random_state * rstate, int maxval);
+
+PLL_EXPORT void pll_random_destroy(pll_random_state * rstate);
 
 /* functions in hardware.c */
 
