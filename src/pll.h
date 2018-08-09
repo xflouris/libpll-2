@@ -536,7 +536,7 @@ typedef struct pll_random_state_s
 
 PLL_EXPORT extern __thread int pll_errno;
 PLL_EXPORT extern __thread char pll_errmsg[200];
-PLL_EXPORT extern pll_hardware_t pll_hardware;
+PLL_EXPORT extern __thread pll_hardware_t pll_hardware;
 
 PLL_EXPORT extern const pll_state_t pll_map_bin[256];
 PLL_EXPORT extern const pll_state_t pll_map_nt[256];
