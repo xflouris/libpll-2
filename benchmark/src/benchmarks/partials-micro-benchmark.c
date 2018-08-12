@@ -18,12 +18,10 @@
     Exelixis Lab, Heidelberg Instutute for Theoretical Studies
     Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 */
-
 /*
-    derivatives-aa-benchmark.c
-
-    Benchmark version of derivatives-aa.c
+    This minimal benchmark executes a fixed set of partial kernels with different memory layouts and/or instruction sets
  */
+
 #include "common.h"
 #include <time.h>
 #include <locale.h>
