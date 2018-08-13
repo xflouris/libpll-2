@@ -1070,6 +1070,7 @@ void pll_core_update_partial_ii_20x20_avx2_sml(unsigned int sites,
     scale_mode = init_mask = 0;
   }
 
+
   /* compute CLV */
   for (unsigned int n = 0; n < sites; n += ELEM_PER_AVX2_REGISTER)
   {

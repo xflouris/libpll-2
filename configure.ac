@@ -87,7 +87,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
     [AC_SUBST(AM_AVX512F_FLAGS, [-xCOMMON-AVX512])],
     [AC_MSG_RESULT([no])]
 )
+
 CFLAGS="$my_save_cflags"
+
+# SIMD management
+AC_ARG_ENABLE([simd_counting],
+    AS_HELP_STRING([--enable-simd-counting], [Enable debug instructions for SIMD counting (not for productive use)])
+)
+
+AS_IF([test "x$enable_simd_counting" = "xyes"],
+    CFLAGS+=" -DSIMD_COUNTING_MODE"
+)
+
 
 # Compile-time detection of processor features - now disabled
 #TODO: No detection for AVX512F yet

@@ -53,8 +53,6 @@
 
 #include <x86intrin.h>
 
-//TODO set this through command line
-#define SIMD_COUNTING_MODE 1
 #include "simd_count.h"
 #endif
 

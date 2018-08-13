@@ -22,6 +22,10 @@
     This minimal benchmark executes a fixed set of partial kernels with different memory layouts and/or instruction sets
  */
 
+/* uncomment this to enable SIMD counting */
+/* #define SIMD_COUNTING_MODE */
+
+
 #include "common.h"
 #include <time.h>
 #include <locale.h>
@@ -143,7 +147,6 @@ static void print_and_reset_instr_counts() {
 
   pll_reset_simd_counter();
 }
-#endif /* SIMD_COUNTING_MODE */
 
 static void count_instrs_of_kernel(unsigned int n_tips,
                                     char **align,
@@ -226,6 +229,8 @@ static void count_instrs_of_kernel(unsigned int n_tips,
 
   pll_partition_destroy(partition);
 }
+
+#endif /* SIMD_COUNTING_MODE */
 
 static float benchmark_kernel(unsigned int n_tips,
                               char **align,
