@@ -87,6 +87,12 @@ extern void pll_utree__delete_buffer(struct pll_utree_buffer_state * buffer);
 
 static unsigned int tip_cnt = 0;
 
+static pll_unode_t * alloc_node()
+{
+  pll_unode_t * node = (pll_unode_t *)calloc(1, sizeof(pll_unode_t)); 
+  return node;
+}
+
 static void dealloc_data(pll_unode_t * node, void (*cb_destroy)(void *))
 {
   if (node->data)
@@ -96,67 +102,61 @@ static void dealloc_data(pll_unode_t * node, void (*cb_destroy)(void *))
   }
 }
 
+static void close_roundabout(pll_unode_t * first)
+{
+  pll_unode_t * last = first;
+  while(last->next != NULL && last->next != first)
+  {
+  	if (!last->next->label)
+  	  last->next->label = last->label;
+  	last = last->next;
+  }
+  last->next = first;
+}
+
 static void dealloc_graph_recursive(pll_unode_t * node,
-                                   void (*cb_destroy)(void *))
+                                   void (*cb_destroy)(void *), 
+                                   int level)
 {
   if (!node->next)
   {
-    dealloc_data(node,cb_destroy);
+    /* tip node */
+    dealloc_data(node, cb_destroy);
     free(node->label);
     free(node);
-    return;
   }
-
-  dealloc_graph_recursive(node->next->back, cb_destroy);
-  dealloc_graph_recursive(node->next->next->back, cb_destroy);
-
-  /* deallocate any extra data */
-  dealloc_data(node,cb_destroy);
-  dealloc_data(node->next,cb_destroy);
-  dealloc_data(node->next->next,cb_destroy);
-
-  free(node->next->next);
-  free(node->next);
-  free(node->label);
-  free(node);
+  else
+  {
+    /* inner node */
+    if (node->label)
+      free(node->label);
+    
+    pll_unode_t * snode = node;
+	do
+    {
+      if (node != snode || level == 0)
+        dealloc_graph_recursive(snode->back, cb_destroy, level+1);
+      pll_unode_t * next = snode->next;
+      dealloc_data(snode, cb_destroy);
+      free(snode);
+      snode = next;
+    }
+    while(snode && snode != node);
+  }
 }
 
 PLL_EXPORT void pll_utree_graph_destroy(pll_unode_t * root,
                                         void (*cb_destroy)(void *))
 {
   if (!root) return;
-  if (!(root->next))
-  {
-    dealloc_data(root,cb_destroy);
-    free(root->label);
-    free(root);
-    return;
-  }
-
-  if (root->next)
-    dealloc_graph_recursive(root->next->back,cb_destroy);
-  if (root->next->next)
-    dealloc_graph_recursive(root->next->next->back,cb_destroy);
-  if (root->back)
-    dealloc_graph_recursive(root->back,cb_destroy);
-
-  /* deallocate any extra data */
-  dealloc_data(root,cb_destroy);
-  dealloc_data(root->next,cb_destroy);
-  dealloc_data(root->next->next,cb_destroy);
-
-  free(root->label);
-
-  free(root->next->next);
-  free(root->next);
-  free(root);
+  
+  dealloc_graph_recursive(root, cb_destroy, 0);
 }
 
 PLL_EXPORT void pll_utree_destroy(pll_utree_t * tree,
                                   void (*cb_destroy)(void *))
 {
   unsigned int i;
-  pll_unode_t * node;
 
   /* deallocate tip nodes */
   for (i = 0; i < tree->tip_count; ++i)
@@ -170,18 +170,22 @@ PLL_EXPORT void pll_utree_destroy(pll_utree_t * tree,
   /* deallocate inner nodes */
   for (i = tree->tip_count; i < tree->tip_count + tree->inner_count; ++i)
   {
-    node = tree->nodes[i];
+    pll_unode_t * first = tree->nodes[i];
+    
+    assert(first);
 
-    dealloc_data(node, cb_destroy);
-    dealloc_data(node->next, cb_destroy);
-    dealloc_data(node->next->next, cb_destroy);
+    if (first->label)
+      free(first->label);
 
-    if (node->label)
-      free(node->label);
-
-    free(node->next->next);
-    free(node->next);
-    free(node);
+    pll_unode_t * node = first;
+	do
+    {
+      pll_unode_t * next = node->next;
+      dealloc_data(node, cb_destroy);
+      free(node);
+      node = next;
+    }
+    while(node && node != first);
   }
 
   /* deallocate tree structure */
@@ -201,8 +205,9 @@ static void pll_utree_error(pll_unode_t * node, const char * s)
 }
 
 
+
 /* Line 371 of yacc.c  */
-#line 206 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/parse_utree.c"
+#line 211 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/parse_utree.c"
 
 # ifndef YY_NULL
 #  if defined __cplusplus && 201103L <= __cplusplus
@@ -222,8 +227,8 @@ static void pll_utree_error(pll_unode_t * node, const char * s)
 
 /* In a future release of Bison, this section will be replaced
    by #include "parse_utree.h".  */
-#ifndef YY_PLL_UTREE_HITS_BASEMENT_SCO_MOREL_GITHUB_RAXML_NG_BUILD_LIBS_PLL_MODULES_LIBS_LIBPLL_SRC_PARSE_UTREE_H_INCLUDED
-# define YY_PLL_UTREE_HITS_BASEMENT_SCO_MOREL_GITHUB_RAXML_NG_BUILD_LIBS_PLL_MODULES_LIBS_LIBPLL_SRC_PARSE_UTREE_H_INCLUDED
+#ifndef YY_PLL_UTREE_HITS_BASEMENT_SCO_MOREL_GITHUB_RAXML_NG_LIBS_PLL_MODULES_LIBS_LIBPLL_BUILD_DEV_SRC_PARSE_UTREE_H_INCLUDED
+# define YY_PLL_UTREE_HITS_BASEMENT_SCO_MOREL_GITHUB_RAXML_NG_LIBS_PLL_MODULES_LIBS_LIBPLL_BUILD_DEV_SRC_PARSE_UTREE_H_INCLUDED
 /* Enabling traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -238,13 +243,23 @@ extern int pll_utree_debug;
    /* Put the tokens into the symbol table, so that GDB and other debuggers
       know about them.  */
    enum yytokentype {
-     STRING = 258,
-     NUMBER = 259
+     OPAR = 258,
+     CPAR = 259,
+     COMMA = 260,
+     COLON = 261,
+     SEMICOLON = 262,
+     STRING = 263,
+     NUMBER = 264
    };
 #endif
 /* Tokens.  */
-#define STRING 258
-#define NUMBER 259
+#define OPAR 258
+#define CPAR 259
+#define COMMA 260
+#define COLON 261
+#define SEMICOLON 262
+#define STRING 263
+#define NUMBER 264
 
 
 
@@ -252,7 +267,7 @@ extern int pll_utree_debug;
 typedef union YYSTYPE
 {
 /* Line 387 of yacc.c  */
-#line 153 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 158 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
 
   char * s;
   char * d;
@@ -260,7 +275,7 @@ typedef union YYSTYPE
 
 
 /* Line 387 of yacc.c  */
-#line 264 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/parse_utree.c"
+#line 279 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/parse_utree.c"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -283,12 +298,12 @@ int pll_utree_parse ();
 #endif
 #endif /* ! YYPARSE_PARAM */
 
-#endif /* !YY_PLL_UTREE_HITS_BASEMENT_SCO_MOREL_GITHUB_RAXML_NG_BUILD_LIBS_PLL_MODULES_LIBS_LIBPLL_SRC_PARSE_UTREE_H_INCLUDED  */
+#endif /* !YY_PLL_UTREE_HITS_BASEMENT_SCO_MOREL_GITHUB_RAXML_NG_LIBS_PLL_MODULES_LIBS_LIBPLL_BUILD_DEV_SRC_PARSE_UTREE_H_INCLUDED  */
 
 /* Copy the second part of user declarations.  */
 
 /* Line 390 of yacc.c  */
-#line 292 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/parse_utree.c"
+#line 307 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/parse_utree.c"
 
 #ifdef short
 # undef short
@@ -506,22 +521,22 @@ union yyalloc
 #endif /* !YYCOPY_NEEDED */
 
 /* YYFINAL -- State number of the termination state.  */
-#define YYFINAL  8
+#define YYFINAL  10
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   25
+#define YYLAST   19
 
 /* YYNTOKENS -- Number of terminals.  */
 #define YYNTOKENS  10
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  7
+#define YYNNTS  9
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  11
+#define YYNRULES  14
 /* YYNRULES -- Number of states.  */
-#define YYNSTATES  28
+#define YYNSTATES  24
 
 /* YYTRANSLATE(YYLEX) -- Bison symbol number corresponding to YYLEX.  */
 #define YYUNDEFTOK  2
-#define YYMAXUTOK   259
+#define YYMAXUTOK   264
 
 #define YYTRANSLATE(YYX)						\
   ((unsigned int) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
@@ -533,8 +548,6 @@ static const yytype_uint8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       5,     7,     2,     2,     6,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     9,     8,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -554,7 +567,10 @@ static const yytype_uint8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     1,     2,     3,     4
+       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
+       5,     6,     7,     8,     9
 };
 
 #if YYDEBUG
@@ -562,24 +578,24 @@ static const yytype_uint8 yytranslate[] =
    YYRHS.  */
 static const yytype_uint8 yyprhs[] =
 {
-       0,     0,     3,    14,    22,    25,    26,    28,    29,    32,
-      34,    36
+       0,     0,     3,     8,    12,    14,    18,    22,    25,    26,
+      28,    29,    32,    34,    36
 };
 
 /* YYRHS -- A `-1'-separated list of the rules' RHS.  */
 static const yytype_int8 yyrhs[] =
 {
-      11,     0,    -1,     5,    12,     6,    12,     6,    12,     7,
-      13,    14,     8,    -1,     5,    12,     6,    12,     7,    13,
-      14,    -1,    15,    14,    -1,    -1,    15,    -1,    -1,     9,
-      16,    -1,     3,    -1,     4,    -1,     4,    -1
+      11,     0,    -1,    12,    15,    16,     7,    -1,     3,    13,
+       4,    -1,    14,    -1,    13,     5,    14,    -1,    12,    15,
+      16,    -1,    17,    16,    -1,    -1,    17,    -1,    -1,     6,
+      18,    -1,     8,    -1,     9,    -1,     9,    -1
 };
 
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
-static const yytype_uint8 yyrline[] =
+static const yytype_uint16 yyrline[] =
 {
-       0,   175,   175,   201,   227,   239,   239,   240,   240,   241,
-     241,   242
+       0,   184,   184,   199,   204,   212,   227,   243,   259,   259,
+     260,   260,   261,   261,   262
 };
 #endif
 
@@ -588,9 +604,10 @@ static const yytype_uint8 yyrline[] =
    First, the terminals, then, starting at YYNTOKENS, nonterminals.  */
 static const char *const yytname[] =
 {
-  "$end", "error", "$undefined", "STRING", "NUMBER", "'('", "','", "')'",
-  "';'", "':'", "$accept", "input", "subtree", "optional_label",
-  "optional_length", "label", "number", YY_NULL
+  "$end", "error", "$undefined", "OPAR", "CPAR", "COMMA", "COLON",
+  "SEMICOLON", "STRING", "NUMBER", "$accept", "input", "descendant_list",
+  "descendant_list_item", "subtree", "optional_label", "optional_length",
+  "label", "number", YY_NULL
 };
 #endif
 
@@ -599,22 +616,22 @@ static const char *const yytname[] =
    token YYLEX-NUM.  */
 static const yytype_uint16 yytoknum[] =
 {
-       0,   256,   257,   258,   259,    40,    44,    41,    59,    58
+       0,   256,   257,   258,   259,   260,   261,   262,   263,   264
 };
 # endif
 
 /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_uint8 yyr1[] =
 {
-       0,    10,    11,    12,    12,    13,    13,    14,    14,    15,
-      15,    16
+       0,    10,    11,    12,    13,    13,    14,    14,    15,    15,
+      16,    16,    17,    17,    18
 };
 
 /* YYR2[YYN] -- Number of symbols composing right hand side of rule YYN.  */
 static const yytype_uint8 yyr2[] =
 {
-       0,     2,    10,     7,     2,     0,     1,     0,     2,     1,
-       1,     1
+       0,     2,     4,     3,     1,     3,     3,     2,     0,     1,
+       0,     2,     1,     1,     1
 };
 
 /* YYDEFACT[STATE-NAME] -- Default reduction number in state STATE-NUM.
@@ -622,31 +639,31 @@ static const yytype_uint8 yyr2[] =
    means the default is an error.  */
 static const yytype_uint8 yydefact[] =
 {
-       0,     0,     0,     9,    10,     0,     0,     7,     1,     0,
-       0,     0,     4,     0,     0,    11,     8,     0,     0,     5,
-       0,     7,     6,     5,     3,     7,     0,     2
+       0,     0,     0,     8,    12,    13,     8,     0,     4,    10,
+       1,    10,     9,    10,     3,     0,     0,     7,     0,     6,
+       5,    14,    11,     2
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-      -1,     2,     6,    21,    12,     7,    16
+      -1,     2,     6,     7,     8,    11,    17,     9,    22
 };
 
 /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
    STATE-NUM.  */
-#define YYPACT_NINF -20
+#define YYPACT_NINF -7
 static const yytype_int8 yypact[] =
 {
-      -4,     6,     4,   -20,   -20,     6,    10,     3,   -20,    12,
-       6,    13,   -20,     6,    14,   -20,   -20,    15,     6,    11,
-      16,     3,   -20,    11,   -20,     3,    17,   -20
+       5,    -3,    12,    -6,    -7,    -7,    -6,     6,    -7,     7,
+      -7,     7,    -7,     7,    -7,    -3,     8,    -7,     9,    -7,
+      -7,    -7,    -7,    -7
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -20,   -20,    -5,    -2,   -19,   -16,   -20
+      -7,    -7,    14,    -7,     0,    13,    -4,    -2,    -7
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]].  What to do in state STATE-NUM.  If
@@ -655,31 +672,29 @@ static const yytype_int8 yypgoto[] =
 #define YYTABLE_NINF -1
 static const yytype_uint8 yytable[] =
 {
-       9,     1,    24,    22,     8,    14,    26,    22,    17,     3,
-       4,     5,    11,    20,     3,     4,    10,    15,    13,     0,
-      18,    25,    19,    23,     0,    27
+       1,    12,     4,     5,    12,     4,     5,    18,     1,    19,
+      14,    15,    10,    16,     3,    20,    23,    21,     0,    13
 };
 
 #define yypact_value_is_default(Yystate) \
-  (!!((Yystate) == (-20)))
+  (!!((Yystate) == (-7)))
 
 #define yytable_value_is_error(Yytable_value) \
   YYID (0)
 
 static const yytype_int8 yycheck[] =
 {
-       5,     5,    21,    19,     0,    10,    25,    23,    13,     3,
-       4,     5,     9,    18,     3,     4,     6,     4,     6,    -1,
-       6,    23,     7,     7,    -1,     8
+       3,     3,     8,     9,     6,     8,     9,    11,     3,    13,
+       4,     5,     0,     6,     0,    15,     7,     9,    -1,     6
 };
 
 /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
    symbol of state STATE-NUM.  */
 static const yytype_uint8 yystos[] =
 {
-       0,     5,    11,     3,     4,     5,    12,    15,     0,    12,
-       6,     9,    14,     6,    12,     4,    16,    12,     6,     7,
-      12,    13,    15,     7,    14,    13,    14,     8
+       0,     3,    11,    12,     8,     9,    12,    13,    14,    17,
+       0,    15,    17,    15,     4,     5,     6,    16,    16,    16,
+      14,     9,    18,     7
 };
 
 #define yyerrok		(yyerrstatus = 0)
@@ -1199,33 +1214,33 @@ yydestruct (yymsg, yytype, yyvaluep, tree)
 
   switch (yytype)
     {
-      case 3: /* STRING */
+      case 8: /* STRING */
 /* Line 1398 of yacc.c  */
-#line 162 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 167 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
         { free(((*yyvaluep).s)); };
 /* Line 1398 of yacc.c  */
-#line 1208 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/parse_utree.c"
+#line 1223 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/parse_utree.c"
         break;
-      case 4: /* NUMBER */
+      case 9: /* NUMBER */
 /* Line 1398 of yacc.c  */
-#line 163 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 168 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
         { free(((*yyvaluep).d)); };
 /* Line 1398 of yacc.c  */
-#line 1215 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/parse_utree.c"
+#line 1230 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/parse_utree.c"
         break;
-      case 12: /* subtree */
+      case 14: /* subtree */
 /* Line 1398 of yacc.c  */
-#line 161 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 166 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
         { pll_utree_graph_destroy(((*yyvaluep).tree),NULL); };
 /* Line 1398 of yacc.c  */
-#line 1222 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/parse_utree.c"
+#line 1237 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/parse_utree.c"
         break;
-      case 15: /* label */
+      case 17: /* label */
 /* Line 1398 of yacc.c  */
-#line 164 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 169 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
         { free(((*yyvaluep).s)); };
 /* Line 1398 of yacc.c  */
-#line 1229 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/parse_utree.c"
+#line 1244 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/parse_utree.c"
         break;
 
       default:
@@ -1515,122 +1530,144 @@ yyreduce:
     {
         case 2:
 /* Line 1792 of yacc.c  */
-#line 176 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 185 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
     {
-  tree->next               = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
-
-  tree->next->next         = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
-  tree->next->next->next   = tree;
-
-  tree->back               = (yyvsp[(2) - (10)].tree);
-  tree->next->back         = (yyvsp[(4) - (10)].tree);
-  tree->next->next->back   = (yyvsp[(6) - (10)].tree);
-
-  (yyvsp[(2) - (10)].tree)->back                 = tree;
-  (yyvsp[(4) - (10)].tree)->back                 = tree->next;
-  (yyvsp[(6) - (10)].tree)->back                 = tree->next->next;
-
-  tree->label              = (yyvsp[(8) - (10)].s);
-  tree->next->label        = (yyvsp[(8) - (10)].s);
-  tree->next->next->label  = (yyvsp[(8) - (10)].s);
-
-  tree->length             = (yyvsp[(2) - (10)].tree)->length;
-  tree->next->length       = (yyvsp[(4) - (10)].tree)->length;
-  tree->next->next->length = (yyvsp[(6) - (10)].tree)->length;
-
-  free((yyvsp[(9) - (10)].d));
+ tree->back = (yyvsp[(1) - (4)].tree)->back;
+ (yyvsp[(1) - (4)].tree)->back->back = tree;
+ tree->next = (yyvsp[(1) - (4)].tree)->next;
+ tree->node_index = (yyvsp[(1) - (4)].tree)->node_index;
+ tree->length = (yyvsp[(1) - (4)].tree)->length;
+ tree->label = (yyvsp[(2) - (4)].s);
+ close_roundabout(tree);
+ free((yyvsp[(1) - (4)].tree));
+ /* ignore root length if specified -> we create an unrooted tree structure! */
+ if ((yyvsp[(3) - (4)].d))
+   free((yyvsp[(3) - (4)].d));
 }
     break;
 
   case 3:
 /* Line 1792 of yacc.c  */
-#line 202 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 200 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
     {
-  (yyval.tree)                     = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
-
-  (yyval.tree)->next               = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
-
-  (yyval.tree)->next->next         = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
-  (yyval.tree)->next->next->next   = (yyval.tree);
-
-
-  (yyval.tree)->next->back         = (yyvsp[(2) - (7)].tree);
-  (yyval.tree)->next->next->back   = (yyvsp[(4) - (7)].tree);
-
-  (yyvsp[(2) - (7)].tree)->back               = (yyval.tree)->next;
-  (yyvsp[(4) - (7)].tree)->back               = (yyval.tree)->next->next;
-
-  (yyval.tree)->label              = (yyvsp[(6) - (7)].s);
-  (yyval.tree)->next->label        = (yyvsp[(6) - (7)].s);
-  (yyval.tree)->next->next->label  = (yyvsp[(6) - (7)].s);
-
-  (yyval.tree)->length = (yyvsp[(7) - (7)].d) ? atof((yyvsp[(7) - (7)].d)) : 0;
-  free((yyvsp[(7) - (7)].d));
-
-  (yyval.tree)->next->length       = (yyvsp[(2) - (7)].tree)->length;
-  (yyval.tree)->next->next->length = (yyvsp[(4) - (7)].tree)->length;
+  (yyval.tree)=(yyvsp[(2) - (3)].tree);
 }
     break;
 
   case 4:
 /* Line 1792 of yacc.c  */
-#line 228 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 205 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
     {
-  (yyval.tree) = (pll_unode_t *)calloc(1, sizeof(pll_unode_t));
-
-  (yyval.tree)->label  = (yyvsp[(1) - (2)].s);
-  (yyval.tree)->length = (yyvsp[(2) - (2)].d) ? atof((yyvsp[(2) - (2)].d)) : 0;
-  (yyval.tree)->next   = NULL;
-  tip_cnt++;
-  free((yyvsp[(2) - (2)].d));
+  /* create inner node (1st subtree)  */
+  (yyval.tree) = alloc_node();
+  (yyval.tree)->back = (yyvsp[(1) - (1)].tree);
+  (yyvsp[(1) - (1)].tree)->back = (yyval.tree);
+  (yyval.tree)->length = (yyvsp[(1) - (1)].tree)->length;
 }
     break;
 
   case 5:
 /* Line 1792 of yacc.c  */
-#line 239 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
-    { (yyval.s) = NULL;}
+#line 213 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+    {
+  (yyval.tree)=(yyvsp[(1) - (3)].tree);
+  pll_unode_t * last = (yyvsp[(1) - (3)].tree);
+  while(last->next != NULL)
+  {
+    last = last->next;
+  }
+  last->next = alloc_node();
+  last->next->label = last->label;
+  last->next->length = (yyvsp[(3) - (3)].tree)->length;
+  last->next->back = (yyvsp[(3) - (3)].tree);
+  (yyvsp[(3) - (3)].tree)->back = last->next;
+}
     break;
 
   case 6:
 /* Line 1792 of yacc.c  */
-#line 239 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
-    {(yyval.s) = (yyvsp[(1) - (1)].s);}
+#line 228 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+    {
+  /* create internal node */
+  (yyval.tree) = alloc_node();
+  (yyval.tree)->next = (yyvsp[(1) - (3)].tree);
+  (yyval.tree)->label=(yyvsp[(2) - (3)].s);
+  if ((yyvsp[(3) - (3)].d))
+  {
+    (yyval.tree)->length = atof((yyvsp[(3) - (3)].d));
+    free((yyvsp[(3) - (3)].d));
+  }
+  else
+    (yyval.tree)->length = 0;
+  
+  close_roundabout((yyval.tree));
+}
     break;
 
   case 7:
 /* Line 1792 of yacc.c  */
-#line 240 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
-    { (yyval.d) = NULL;}
+#line 244 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+    {
+  /* create tip node */
+  (yyval.tree) = alloc_node();
+  (yyval.tree)->label = (yyvsp[(1) - (2)].s);
+  if ((yyvsp[(2) - (2)].d))
+  {
+    (yyval.tree)->length = atof((yyvsp[(2) - (2)].d));
+    free((yyvsp[(2) - (2)].d));
+  }
+  else
+    (yyval.tree)->length = 0;
+  
+  tip_cnt++;
+}
     break;
 
   case 8:
 /* Line 1792 of yacc.c  */
-#line 240 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
-    {(yyval.d) = (yyvsp[(2) - (2)].d);}
+#line 259 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+    { (yyval.s) = NULL;}
     break;
 
   case 9:
 /* Line 1792 of yacc.c  */
-#line 241 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
-    { (yyval.s)=(yyvsp[(1) - (1)].s);}
+#line 259 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+    {(yyval.s) = (yyvsp[(1) - (1)].s);}
     break;
 
   case 10:
 /* Line 1792 of yacc.c  */
-#line 241 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
-    {(yyval.s)=(yyvsp[(1) - (1)].d);}
+#line 260 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+    { (yyval.d) = NULL;}
     break;
 
   case 11:
 /* Line 1792 of yacc.c  */
-#line 242 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 260 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+    {(yyval.d) = (yyvsp[(2) - (2)].d);}
+    break;
+
+  case 12:
+/* Line 1792 of yacc.c  */
+#line 261 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+    { (yyval.s)=(yyvsp[(1) - (1)].s);}
+    break;
+
+  case 13:
+/* Line 1792 of yacc.c  */
+#line 261 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+    {(yyval.s)=(yyvsp[(1) - (1)].d);}
+    break;
+
+  case 14:
+/* Line 1792 of yacc.c  */
+#line 262 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
     { (yyval.d)=(yyvsp[(1) - (1)].d);}
     break;
 
 
 /* Line 1792 of yacc.c  */
-#line 1634 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/parse_utree.c"
+#line 1671 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/parse_utree.c"
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -1862,59 +1899,61 @@ yyreturn:
 
 
 /* Line 2055 of yacc.c  */
-#line 244 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
+#line 264 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/parse_utree.y"
 
 
 static void recursive_assign_indices(pll_unode_t * node,
                                     unsigned int * tip_clv_index,
                                     unsigned int * inner_clv_index,
                                     int * inner_scaler_index,
-                                    unsigned int * inner_node_index)
+                                    unsigned int * inner_node_index,
+                                    unsigned int level)
 {
   if (!node->next)
   {
+    /* tip node */
     node->node_index = *tip_clv_index;
     node->clv_index = *tip_clv_index;
     node->pmatrix_index = *tip_clv_index;
     node->scaler_index = PLL_SCALE_BUFFER_NONE;
     *tip_clv_index = *tip_clv_index + 1;
-    return;
   }
+  else
+  {
+    /* inner node */
+    pll_unode_t * snode = level ? node->next : node;
+    do 
+    {
+      recursive_assign_indices(snode->back,
+                               tip_clv_index,
+                               inner_clv_index,
+                               inner_scaler_index,
+                               inner_node_index,
+                               level+1);
+      snode = snode->next;
+    }
+    while (snode != node);
 
-  recursive_assign_indices(node->next->back,
-                           tip_clv_index,
-                           inner_clv_index,
-                           inner_scaler_index,
-                           inner_node_index);
-
-  recursive_assign_indices(node->next->next->back,
-                           tip_clv_index,
-                           inner_clv_index,
-                           inner_scaler_index,
-                           inner_node_index);
-
-  node->node_index = *inner_node_index;
-  node->next->node_index = *inner_node_index + 1;
-  node->next->next->node_index = *inner_node_index + 2;
-
-  node->clv_index = *inner_clv_index;
-  node->next->clv_index = *inner_clv_index;
-  node->next->next->clv_index = *inner_clv_index;
-
-  node->pmatrix_index = *inner_clv_index;
-  node->next->pmatrix_index = node->next->back->pmatrix_index;
-  node->next->next->pmatrix_index = node->next->next->back->pmatrix_index;
-
-  node->scaler_index = *inner_scaler_index;
-  node->next->scaler_index = *inner_scaler_index;
-  node->next->next->scaler_index = *inner_scaler_index;
-
-  *inner_clv_index = *inner_clv_index + 1;
-  *inner_scaler_index = *inner_scaler_index + 1;
-  *inner_node_index = *inner_node_index + 3;
+    snode = node;
+    do 
+    {
+      snode->node_index = (*inner_node_index)++;
+      snode->clv_index = *inner_clv_index;
+      snode->scaler_index = *inner_scaler_index;
+      if (snode == node && level > 0)
+      	snode->pmatrix_index = *inner_clv_index; 
+      else
+      	snode->pmatrix_index = snode->back->pmatrix_index;
+      snode = snode->next;
+    }
+    while (snode != node);
+    
+    *inner_clv_index += 1;
+    *inner_scaler_index += 1;
+  }
 }
 
-PLL_EXPORT void pll_utree_reset_template_indices(pll_unode_t * node,
+PLL_EXPORT void pll_utree_reset_template_indices(pll_unode_t * root,
                                                  unsigned int tip_count)
 {
   unsigned int tip_clv_index = 0;
@@ -1922,97 +1961,116 @@ PLL_EXPORT void pll_utree_reset_template_indices(pll_unode_t * node,
   unsigned int inner_node_index = tip_count;
   int inner_scaler_index = 0;
 
-  recursive_assign_indices(node->back,
+  if (!root->next)
+    root = root->back;
+
+  recursive_assign_indices(root,
                            &tip_clv_index,
                            &inner_clv_index,
                            &inner_scaler_index,
-                           &inner_node_index);
-
-  recursive_assign_indices(node->next->back,
-                           &tip_clv_index,
-                           &inner_clv_index,
-                           &inner_scaler_index,
-                           &inner_node_index);
-
-  recursive_assign_indices(node->next->next->back,
-                           &tip_clv_index,
-                           &inner_clv_index,
-                           &inner_scaler_index,
-                           &inner_node_index);
-
-  node->node_index = inner_node_index;
-  node->next->node_index = inner_node_index + 1;
-  node->next->next->node_index = inner_node_index + 2;
-
-  node->clv_index = inner_clv_index;
-  node->next->clv_index = inner_clv_index;
-  node->next->next->clv_index = inner_clv_index;
-
-  node->scaler_index = inner_scaler_index;
-  node->next->scaler_index = inner_scaler_index;
-  node->next->next->scaler_index = inner_scaler_index;
-
-  node->pmatrix_index = node->back->pmatrix_index;
-  node->next->pmatrix_index = node->next->back->pmatrix_index;
-  node->next->next->pmatrix_index = node->next->next->back->pmatrix_index;
+                           &inner_node_index,
+                           0);
 }
 
 static void fill_nodes_recursive(pll_unode_t * node,
                                  pll_unode_t ** array,
+                                 unsigned int array_size,
                                  unsigned int * tip_index,
-                                 unsigned int * inner_index)
+                                 unsigned int * inner_index,
+                                 unsigned int level)
+{
+  unsigned int index;
+  if (!node->next)
+  {
+    /* tip node */
+    index = *tip_index;
+    *tip_index += 1;
+  }
+  else
+  {
+    /* inner node */
+    pll_unode_t * snode = level ? node->next : node;
+    do 
+    {
+      fill_nodes_recursive(snode->back, array, array_size, tip_index, 
+                           inner_index, level+1);
+      snode = snode->next;
+    }
+    while (snode != node);
+
+    index = *inner_index;
+    *inner_index += 1;
+  }
+
+  assert(index < array_size);
+  array[index] = node;
+}
+
+static unsigned int utree_count_nodes_recursive(pll_unode_t * node, 
+                                                unsigned int * tip_count,
+                                                unsigned int * inner_count,
+                                                unsigned int level)
 {
   if (!node->next)
   {
-    array[*tip_index] = node;
-    *tip_index = *tip_index + 1;
-    return;
-  }
-
-  fill_nodes_recursive(node->next->back,       array, tip_index, inner_index);
-  fill_nodes_recursive(node->next->next->back, array, tip_index, inner_index);
-
-  array[*inner_index] = node;
-  *inner_index = *inner_index + 1;
-}
-
-static unsigned int utree_count_tips_recursive(pll_unode_t * node)
-{
-  unsigned int count = 0;
-
-  if (!node->next)
+    *tip_count += 1;
     return 1;
+  }
+  else
+  {
+    unsigned int count = 0;
 
-  count += utree_count_tips_recursive(node->next->back);
-  count += utree_count_tips_recursive(node->next->next->back);
+    pll_unode_t * snode = level ? node->next : node;
+	do 
+	{
+	  count += utree_count_nodes_recursive(snode->back, tip_count, inner_count, level+1);
+	  snode = snode->next;
+	}
+	while (snode != node);
 
-  return count;
+    *inner_count += 1;
+	
+	return count + 1;
+  }
 }
 
-static unsigned int utree_count_tips(pll_unode_t * root)
+static unsigned int utree_count_nodes(pll_unode_t * root, unsigned int * tip_count,
+                                      unsigned int * inner_count)
 {
   unsigned int count = 0;
+  
+  if (tip_count)
+    *tip_count = 0; 
+  
+  if (inner_count)
+    *inner_count = 0; 
 
   if (!root->next && !root->back->next)
     return 0;
 
   if (!root->next)
     root = root->back;
-
-  count += utree_count_tips_recursive(root->back);
-  count += utree_count_tips_recursive(root->next->back);
-  count += utree_count_tips_recursive(root->next->next->back);
+    
+  count = utree_count_nodes_recursive(root, tip_count, inner_count, 0);
+  
+  if (tip_count && inner_count)
+    assert(count == *tip_count + *inner_count); 
 
   return count;
 }
 
-/* wraps/encalupsates the unrooted tree graph into a tree structure
-   that contains a list of nodes, number of tips and number of inner
-   nodes. If 0 is passed as tip_count, then an additional recrursion
-   of the tree structure is done to detect the number of tips */
-PLL_EXPORT pll_utree_t * pll_utree_wraptree(pll_unode_t * root,
-                                            unsigned int tip_count)
+static int utree_is_rooted(const pll_unode_t * root)
 {
+  return (root->next && root->next->next == root) ? 1 : 0;
+}
+
+static pll_utree_t * utree_wraptree(pll_unode_t * root,
+                                    unsigned int tip_count,
+                                    unsigned int inner_count,
+                                    int binary)
+{
+  unsigned int node_count;
+  
   pll_utree_t * tree = (pll_utree_t *)malloc(sizeof(pll_utree_t));
   if (!tree)
   {
@@ -2027,19 +2085,44 @@ PLL_EXPORT pll_utree_t * pll_utree_wraptree(pll_unode_t * root,
     pll_errno = PLL_ERROR_PARAM_INVALID;
     return PLL_FAILURE;
   }
+  
+  if (!root->next)
+    root = root->back;
 
-  if (tip_count == 0)
+  if (binary)
   {
-    tip_count = utree_count_tips(root);
-    if (!tip_count)
+    if (tip_count == 0)
     {
-      snprintf(pll_errmsg, 200, "Input tree contains no inner nodes.");
-      pll_errno = PLL_ERROR_PARAM_INVALID;
-      return PLL_FAILURE;
+      node_count = utree_count_nodes(root, &tip_count, &inner_count);
+      if (inner_count != tip_count - 2)
+      {
+        snprintf(pll_errmsg, 200, "Input tree is not strictly bifurcating.");
+        pll_errno = PLL_ERROR_PARAM_INVALID;
+        return PLL_FAILURE;
+      }
+    }
+    else
+    {
+      inner_count = tip_count - 2;
+      node_count = tip_count + inner_count;
     }
   }
+  else
+  {
+    if (tip_count == 0 || inner_count == 0)
+      node_count = utree_count_nodes(root, &tip_count, &inner_count);
+    else
+      node_count = tip_count + inner_count;
+  }
 
-  tree->nodes = (pll_unode_t **)malloc((2*tip_count-2)*sizeof(pll_unode_t *));
+  if (!tip_count)
+  {
+    snprintf(pll_errmsg, 200, "Input tree contains no inner nodes.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
+  tree->nodes = (pll_unode_t **)malloc(node_count*sizeof(pll_unode_t *));
   if (!tree->nodes)
   {
     snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
@@ -2050,19 +2133,64 @@ PLL_EXPORT pll_utree_t * pll_utree_wraptree(pll_unode_t * root,
   unsigned int tip_index = 0;
   unsigned int inner_index = tip_count;
 
-  fill_nodes_recursive(root->back,             tree->nodes, &tip_index, &inner_index);
-  fill_nodes_recursive(root->next->back,       tree->nodes, &tip_index, &inner_index);
-  fill_nodes_recursive(root->next->next->back, tree->nodes, &tip_index, &inner_index);
+  fill_nodes_recursive(root, tree->nodes, node_count, &tip_index, &inner_index, 0);
+ 
+  assert(tip_index == tip_count);
+  assert(inner_index == tip_count + inner_count);
 
-  tree->nodes[inner_index] = root;
   tree->tip_count = tip_count;
-  tree->edge_count = 2*tip_count-3;
-  tree->inner_count = tip_count-2;
+  tree->inner_count = inner_count;
+  tree->edge_count = node_count - 1;
+  tree->binary = (inner_count == tip_count - (utree_is_rooted(root) ? 1 : 2));
+  tree->vroot = root;
 
   return tree;
 }
 
-PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
+/* wraps/encalupsates the unrooted tree graph into a tree structure
+   that contains a list of nodes, number of tips and number of inner
+   nodes. If 0 is passed as tip_count, then an additional recrursion
+   of the tree structure is done to detect the number of tips */
+PLL_EXPORT pll_utree_t * pll_utree_wraptree(pll_unode_t * root,
+                                            unsigned int tip_count)
+{
+  return utree_wraptree(root, tip_count, 0, 1);
+}
+
+PLL_EXPORT pll_utree_t * pll_utree_wraptree_multi(pll_unode_t * root,
+                                                  unsigned int tip_count,
+                                                  unsigned int inner_count)
+{
+  return utree_wraptree(root, tip_count, inner_count, 0);
+}
+
+pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root)
+{
+  /* check for a bifurcation at the root */
+  if (utree_is_rooted(root))
+  {
+    pll_unode_t * left = root->back;
+    pll_unode_t * right =  root->next->back;
+
+    if (root->label)
+      free(root->label);
+    free(root->next);
+    free(root);
+
+    double new_length = left->length + right->length;
+    left->back = right;
+    right->back = left;
+    left->length = right->length = new_length;
+    left->pmatrix_index = right->pmatrix_index =
+        PLL_MIN(left->pmatrix_index, right->pmatrix_index);
+        
+    return left->next ? left : right;
+  }
+  else
+  	return root;
+}
+
+static pll_utree_t * utree_parse_newick(const char * filename, int auto_unroot)
 {
   pll_utree_t * tree;
 
@@ -2098,19 +2226,40 @@ PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
   if (pll_utree_in) fclose(pll_utree_in);
 
   pll_utree_lex_destroy();
+  
+  if (auto_unroot)
+	root = pll_utree_unroot_inplace(root);
+
+  if (utree_is_rooted(root))
+  {
+    pll_utree_graph_destroy(root,NULL);
+    pll_errno = PLL_ERROR_TREE_INVALID;
+    snprintf(pll_errmsg, 200, "Rooted tree parsed but unrooted tree is expected.");
+    return PLL_FAILURE;
+  }
 
   /* initialize clv and scaler indices to the default template */
   pll_utree_reset_template_indices(root, tip_cnt);
 
   /* wrap tree */
-  tree = pll_utree_wraptree(root,tip_cnt);
+  tree = utree_wraptree(root, 0, 0, 0);
 
   return tree;
 }
 
-PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s)
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
 {
-  int rc;
+  return utree_parse_newick(filename, 0);
+}
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_unroot(const char * filename)
+{
+  return utree_parse_newick(filename, 1);
+}
+
+static pll_utree_t * utree_parse_newick_string(const char * s, int auto_unroot)
+{
+  int rc; 
   struct pll_unode_s * root;
   pll_utree_t * tree = NULL;
 
@@ -2130,15 +2279,40 @@ PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s)
 
   pll_utree_lex_destroy();
 
-  if (!rc)
+  if (rc)
   {
-    /* initialize clv and scaler indices */
-    pll_utree_reset_template_indices(root, tip_cnt);
-
-    tree = pll_utree_wraptree(root,tip_cnt);
+    pll_utree_graph_destroy(root,NULL);
+    root = NULL;
+    return PLL_FAILURE;
   }
-  else
-    free(root);
+  
+  if (auto_unroot)
+	root = pll_utree_unroot_inplace(root);
+
+  if (utree_is_rooted(root))
+  {
+    pll_utree_graph_destroy(root,NULL);
+    pll_errno = PLL_ERROR_TREE_INVALID;
+    snprintf(pll_errmsg, 200, "Rooted tree parsed but unrooted tree is expected.");
+    return PLL_FAILURE;
+  }
+	
+  /* initialize clv and scaler indices */
+  pll_utree_reset_template_indices(root, tip_cnt);
+	
+  tree = utree_wraptree(root, 0, 0, 0);
 
   return tree;
 }
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s)
+{
+  return utree_parse_newick_string(s, 0);
+}
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string_unroot(const char * s)
+{
+  return utree_parse_newick_string(s, 1);
+}
+
+

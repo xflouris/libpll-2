@@ -1,6 +1,6 @@
-#line 2 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_utree.c"
+#line 2 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_utree.c"
 
-#line 4 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_utree.c"
+#line 4 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_utree.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -598,7 +598,7 @@ static char * append(size_t * dstlen, const char * src, size_t srclen)
 #define YY_NO_INPUT 1
 
 
-#line 602 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_utree.c"
+#line 602 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_utree.c"
 
 #define INITIAL 0
 #define apos 1
@@ -782,7 +782,7 @@ YY_DECL
     
 #line 80 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_utree.l"
 
-#line 786 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_utree.c"
+#line 786 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_utree.c"
 
 	if ( !(yy_init) )
 		{
@@ -939,27 +939,27 @@ YY_RULE_SETUP
 case 12:
 YY_RULE_SETUP
 #line 101 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_utree.l"
-{ return ':';                                              }
+{ return COLON;                                              }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
 #line 102 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_utree.l"
-{ return ';';                                          }
+{ return SEMICOLON;                                          }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
 #line 103 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_utree.l"
-{ return ')';                                               }
+{ return CPAR;                                               }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
 #line 104 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_utree.l"
-{ return '(';                                               }
+{ return OPAR;                                               }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
 #line 105 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_utree.l"
-{ return ',';                                              }
+{ return COMMA;                                              }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
@@ -1015,7 +1015,7 @@ YY_RULE_SETUP
 #line 122 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_utree.l"
 ECHO;
 	YY_BREAK
-#line 1019 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_utree.c"
+#line 1019 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_utree.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(apos):
 case YY_STATE_EOF(quot):

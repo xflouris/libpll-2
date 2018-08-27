@@ -1,6 +1,6 @@
-#line 2 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_rtree.c"
+#line 2 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
 
-#line 4 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_rtree.c"
+#line 4 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -598,7 +598,7 @@ static char * append(size_t * dstlen, const char * src, size_t srclen)
 #define YY_NO_INPUT 1
 
 
-#line 602 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_rtree.c"
+#line 602 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
 
 #define INITIAL 0
 #define apos 1
@@ -782,7 +782,7 @@ YY_DECL
     
 #line 80 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
 
-#line 786 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_rtree.c"
+#line 786 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
 
 	if ( !(yy_init) )
 		{
@@ -1015,7 +1015,7 @@ YY_RULE_SETUP
 #line 122 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
 ECHO;
 	YY_BREAK
-#line 1019 "/hits/basement/sco/morel/github/raxml-ng/build/libs/pll-modules/libs/libpll/src/lex_rtree.c"
+#line 1019 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(apos):
 case YY_STATE_EOF(quot):
