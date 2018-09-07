@@ -1,6 +1,6 @@
-#line 2 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
+#line 2 "/home/benoit/github/libpll-2/devbuild/src/lex_rtree.c"
 
-#line 4 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
+#line 4 "/home/benoit/github/libpll-2/devbuild/src/lex_rtree.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -27,8 +27,8 @@
 
 #define FLEX_SCANNER
 #define YY_FLEX_MAJOR_VERSION 2
-#define YY_FLEX_MINOR_VERSION 5
-#define YY_FLEX_SUBMINOR_VERSION 37
+#define YY_FLEX_MINOR_VERSION 6
+#define YY_FLEX_SUBMINOR_VERSION 0
 #if YY_FLEX_SUBMINOR_VERSION > 0
 #define FLEX_BETA
 #endif
@@ -161,7 +161,15 @@ typedef unsigned int flex_uint32_t;
 
 /* Size of default input buffer. */
 #ifndef YY_BUF_SIZE
+#ifdef __ia64__
+/* On IA-64, the buffer size is 16k, not 8k.
+ * Moreover, YY_BUF_SIZE is 2*YY_READ_BUF_SIZE in the general case.
+ * Ditto for the __ia64__ case accordingly.
+ */
+#define YY_BUF_SIZE 32768
+#else
 #define YY_BUF_SIZE 16384
+#endif /* __ia64__ */
 #endif
 
 /* The state buf must be large enough to hold one state per character in the main buffer.
@@ -200,6 +208,13 @@ extern FILE *pll_rtree_in, *pll_rtree_out;
                     if ( pll_rtree_text[yyl] == '\n' )\
                         --pll_rtree_lineno;\
             }while(0)
+    #define YY_LINENO_REWIND_TO(dst) \
+            do {\
+                const char *p;\
+                for ( p = yy_cp-1; p >= (dst); --p)\
+                    if ( *p == '\n' )\
+                        --pll_rtree_lineno;\
+            }while(0)
     
 /* Return all but the first "n" matched characters back to the input stream. */
 #define yyless(n) \
@@ -234,7 +249,7 @@ struct yy_buffer_state
 	/* Number of characters read into yy_ch_buf, not including EOB
 	 * characters.
 	 */
-	yy_size_t yy_n_chars;
+	int yy_n_chars;
 
 	/* Whether we "own" the buffer - i.e., we know we created it,
 	 * and can realloc() it to grow it, and should free() it to
@@ -304,7 +319,7 @@ static YY_BUFFER_STATE * yy_buffer_stack = 0; /**< Stack as an array. */
 
 /* yy_hold_char holds the character lost when pll_rtree_text is formed. */
 static char yy_hold_char;
-static yy_size_t yy_n_chars;		/* number of characters read into yy_ch_buf */
+static int yy_n_chars;		/* number of characters read into yy_ch_buf */
 yy_size_t pll_rtree_leng;
 
 /* Points to current character in buffer. */
@@ -365,7 +380,7 @@ void pll_rtree_free (void *  );
 
 /* Begin user sect3 */
 
-#define pll_rtree_wrap() 1
+#define pll_rtree_wrap() (/*CONSTCOND*/1)
 #define YY_SKIP_YYWRAP
 
 typedef unsigned char YY_CHAR;
@@ -379,11 +394,17 @@ extern int pll_rtree_lineno;
 int pll_rtree_lineno = 1;
 
 extern char *pll_rtree_text;
+#ifdef yytext_ptr
+#undef yytext_ptr
+#endif
 #define yytext_ptr pll_rtree_text
 
 static yy_state_type yy_get_previous_state (void );
 static yy_state_type yy_try_NUL_trans (yy_state_type current_state  );
 static int yy_get_next_buffer (void );
+#if defined(__GNUC__) && __GNUC__ >= 3
+__attribute__((__noreturn__))
+#endif
 static void yy_fatal_error (yyconst char msg[]  );
 
 /* Done after the current pattern has been matched and before the
@@ -414,7 +435,7 @@ static yyconst flex_int16_t yy_accept[48] =
         7,    8,    1,   21,   22,   21,    0
     } ;
 
-static yyconst flex_int32_t yy_ec[256] =
+static yyconst YY_CHAR yy_ec[256] =
     {   0,
         1,    1,    1,    1,    1,    1,    1,    1,    2,    3,
         1,    1,    2,    1,    1,    1,    1,    1,    1,    1,
@@ -446,13 +467,13 @@ static yyconst flex_int32_t yy_ec[256] =
         1,    1,    1,    1,    1
     } ;
 
-static yyconst flex_int32_t yy_meta[19] =
+static yyconst YY_CHAR yy_meta[19] =
     {   0,
         1,    2,    2,    3,    3,    2,    2,    1,    2,    1,
         1,    2,    2,    1,    2,    3,    1,    1
     } ;
 
-static yyconst flex_int16_t yy_base[51] =
+static yyconst flex_uint16_t yy_base[51] =
     {   0,
         0,    0,   16,   30,   43,   56,   44,    0,  100,  100,
       100,  100,  100,  100,   12,  100,   32,   63,  100,  100,
@@ -470,7 +491,7 @@ static yyconst flex_int16_t yy_def[51] =
        47,   47,   47,   33,   49,   49,    0,   47,   47,   47
     } ;
 
-static yyconst flex_int16_t yy_nxt[119] =
+static yyconst flex_uint16_t yy_nxt[119] =
     {   0,
         8,    9,   10,   11,   12,   13,   14,   15,   16,   17,
        18,   19,   20,    8,   21,    8,    8,    8,   23,   24,
@@ -524,7 +545,7 @@ int pll_rtree__flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *pll_rtree_text;
-#line 1 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 1 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 /*
     Copyright (C) 2015 Tomas Flouri
 
@@ -545,7 +566,7 @@ char *pll_rtree_text;
     Heidelberg Institute for Theoretical Studies,
     Schloss-Wolfsbrunnenweg 35, D-69118 Heidelberg, Germany
 */
-#line 22 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 22 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 #include "parse_rtree.h"
 #include "pll.h"
 
@@ -598,7 +619,7 @@ static char * append(size_t * dstlen, const char * src, size_t srclen)
 #define YY_NO_INPUT 1
 
 
-#line 602 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
+#line 623 "/home/benoit/github/libpll-2/devbuild/src/lex_rtree.c"
 
 #define INITIAL 0
 #define apos 1
@@ -633,11 +654,11 @@ void pll_rtree_set_extra (YY_EXTRA_TYPE user_defined  );
 
 FILE *pll_rtree_get_in (void );
 
-void pll_rtree_set_in  (FILE * in_str  );
+void pll_rtree_set_in  (FILE * _in_str  );
 
 FILE *pll_rtree_get_out (void );
 
-void pll_rtree_set_out  (FILE * out_str  );
+void pll_rtree_set_out  (FILE * _out_str  );
 
 yy_size_t pll_rtree_get_leng (void );
 
@@ -645,7 +666,7 @@ char *pll_rtree_get_text (void );
 
 int pll_rtree_get_lineno (void );
 
-void pll_rtree_set_lineno (int line_number  );
+void pll_rtree_set_lineno (int _line_number  );
 
 /* Macros after this point can all be overridden by user definitions in
  * section 1.
@@ -657,6 +678,10 @@ extern "C" int pll_rtree_wrap (void );
 #else
 extern int pll_rtree_wrap (void );
 #endif
+#endif
+
+#ifndef YY_NO_UNPUT
+    
 #endif
 
 #ifndef yytext_ptr
@@ -679,7 +704,12 @@ static int input (void );
 
 /* Amount of stuff to slurp up with each read. */
 #ifndef YY_READ_BUF_SIZE
+#ifdef __ia64__
+/* On IA-64, the buffer size is 16k, not 8k */
+#define YY_READ_BUF_SIZE 16384
+#else
 #define YY_READ_BUF_SIZE 8192
+#endif /* __ia64__ */
 #endif
 
 /* Copy whatever the last rule matched to the standard output. */
@@ -766,7 +796,7 @@ extern int pll_rtree_lex (void);
 
 /* Code executed at the end of each rule. */
 #ifndef YY_BREAK
-#define YY_BREAK break;
+#define YY_BREAK /*LINTED*/break;
 #endif
 
 #define YY_RULE_SETUP \
@@ -776,14 +806,10 @@ extern int pll_rtree_lex (void);
  */
 YY_DECL
 {
-	register yy_state_type yy_current_state;
-	register char *yy_cp, *yy_bp;
-	register int yy_act;
+	yy_state_type yy_current_state;
+	char *yy_cp, *yy_bp;
+	int yy_act;
     
-#line 80 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
-
-#line 786 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
-
 	if ( !(yy_init) )
 		{
 		(yy_init) = 1;
@@ -810,7 +836,12 @@ YY_DECL
 		pll_rtree__load_buffer_state( );
 		}
 
-	while ( 1 )		/* loops until end-of-file is reached */
+	{
+#line 80 "/home/benoit/github/libpll-2/src/lex_rtree.l"
+
+#line 843 "/home/benoit/github/libpll-2/devbuild/src/lex_rtree.c"
+
+	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
 		yy_cp = (yy_c_buf_p);
 
@@ -826,7 +857,7 @@ YY_DECL
 yy_match:
 		do
 			{
-			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)];
+			YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)] ;
 			if ( yy_accept[yy_current_state] )
 				{
 				(yy_last_accepting_state) = yy_current_state;
@@ -856,7 +887,7 @@ yy_find_action:
 
 		if ( yy_act != YY_END_OF_BUFFER && yy_rule_can_match_eol[yy_act] )
 			{
-			int yyl;
+			yy_size_t yyl;
 			for ( yyl = 0; yyl < pll_rtree_leng; ++yyl )
 				if ( pll_rtree_text[yyl] == '\n' )
 					   
@@ -877,134 +908,134 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 82 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 82 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { append(&string_length, "\\\"", 2);                         }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 83 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 83 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { append(&string_length, "\'", 1);                           }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 84 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 84 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { BEGIN(INITIAL); return STRING;                             }
 	YY_BREAK
 
 
 case 4:
 YY_RULE_SETUP
-#line 88 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 88 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { append(&string_length, "\\\'", 2);                         }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 89 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 89 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { append(&string_length, "\"", 1);                           }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 90 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 90 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { BEGIN(INITIAL); return STRING;                             }
 	YY_BREAK
 
 
 case 7:
 YY_RULE_SETUP
-#line 94 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 94 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { append(&string_length, "\\n", 2);                          }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 95 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 95 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { append(&string_length, "\\t", 2);                          }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 96 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 96 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { append(&string_length, "\\", 1);                           }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 97 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 97 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { append(&string_length, "\\\\", 2);                         }
 	YY_BREAK
 case 11:
 /* rule 11 can match eol */
 YY_RULE_SETUP
-#line 98 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 98 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { append(&string_length, pll_rtree_text, pll_rtree_leng);    }
 	YY_BREAK
 
 case 12:
 YY_RULE_SETUP
-#line 101 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 101 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { return ':';                                              }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 102 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 102 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { return ';';                                          }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 103 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 103 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { return ')';                                               }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 104 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 104 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { return '(';                                               }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 105 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 105 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { return ',';                                              }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 106 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 106 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { string_length = 0; BEGIN(quot);                            }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 107 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 107 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { string_length = 0; BEGIN(apos);                            }
 	YY_BREAK
 case 19:
 /* rule 19 can match eol */
 YY_RULE_SETUP
-#line 108 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 108 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { pll_rtree_colstart = pll_rtree_colend = 0;                 }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 109 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 109 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { pll_rtree_lval.d = xstrndup(pll_rtree_text,pll_rtree_leng);
                     return NUMBER;                                             }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 111 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 111 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 {
                     pll_rtree_lval.d = xstrndup(pll_rtree_text,pll_rtree_leng); 
                     return NUMBER;                                             }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 114 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 114 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 {
                     pll_rtree_lval.s = xstrndup(pll_rtree_text,pll_rtree_leng);
                     return STRING;                                             }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 117 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 117 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { ;                                                          }
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 118 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 118 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 { snprintf(pll_errmsg, 200, 
                              "Syntax error (%c)\n", pll_rtree_text[0]);
                     pll_errno = PLL_ERROR_NEWICK_SYNTAX;
@@ -1012,10 +1043,10 @@ YY_RULE_SETUP
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 122 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 122 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 ECHO;
 	YY_BREAK
-#line 1019 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/build_dev/src/lex_rtree.c"
+#line 1050 "/home/benoit/github/libpll-2/devbuild/src/lex_rtree.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(apos):
 case YY_STATE_EOF(quot):
@@ -1148,6 +1179,7 @@ case YY_STATE_EOF(quot):
 			"fatal flex scanner internal error--no action found" );
 	} /* end of action switch */
 		} /* end of scanning one token */
+	} /* end of user's declarations */
 } /* end of pll_rtree_lex */
 
 /* yy_get_next_buffer - try to read in a new buffer
@@ -1159,9 +1191,9 @@ case YY_STATE_EOF(quot):
  */
 static int yy_get_next_buffer (void)
 {
-    	register char *dest = YY_CURRENT_BUFFER_LVALUE->yy_ch_buf;
-	register char *source = (yytext_ptr);
-	register int number_to_move, i;
+    	char *dest = YY_CURRENT_BUFFER_LVALUE->yy_ch_buf;
+	char *source = (yytext_ptr);
+	yy_size_t number_to_move, i;
 	int ret_val;
 
 	if ( (yy_c_buf_p) > &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[(yy_n_chars) + 1] )
@@ -1190,7 +1222,7 @@ static int yy_get_next_buffer (void)
 	/* Try to read more data. */
 
 	/* First move last chars to start of buffer. */
-	number_to_move = (int) ((yy_c_buf_p) - (yytext_ptr)) - 1;
+	number_to_move = (yy_size_t) ((yy_c_buf_p) - (yytext_ptr)) - 1;
 
 	for ( i = 0; i < number_to_move; ++i )
 		*(dest++) = *(source++);
@@ -1272,9 +1304,9 @@ static int yy_get_next_buffer (void)
 	else
 		ret_val = EOB_ACT_CONTINUE_SCAN;
 
-	if ((yy_size_t) ((yy_n_chars) + number_to_move) > YY_CURRENT_BUFFER_LVALUE->yy_buf_size) {
+	if ((int) ((yy_n_chars) + number_to_move) > YY_CURRENT_BUFFER_LVALUE->yy_buf_size) {
 		/* Extend the array by 50%, plus the number we really need. */
-		yy_size_t new_size = (yy_n_chars) + number_to_move + ((yy_n_chars) >> 1);
+		int new_size = (yy_n_chars) + number_to_move + ((yy_n_chars) >> 1);
 		YY_CURRENT_BUFFER_LVALUE->yy_ch_buf = (char *) pll_rtree_realloc((void *) YY_CURRENT_BUFFER_LVALUE->yy_ch_buf,new_size  );
 		if ( ! YY_CURRENT_BUFFER_LVALUE->yy_ch_buf )
 			YY_FATAL_ERROR( "out of dynamic memory in yy_get_next_buffer()" );
@@ -1293,14 +1325,14 @@ static int yy_get_next_buffer (void)
 
     static yy_state_type yy_get_previous_state (void)
 {
-	register yy_state_type yy_current_state;
-	register char *yy_cp;
+	yy_state_type yy_current_state;
+	char *yy_cp;
     
 	yy_current_state = (yy_start);
 
 	for ( yy_cp = (yytext_ptr) + YY_MORE_ADJ; yy_cp < (yy_c_buf_p); ++yy_cp )
 		{
-		register YY_CHAR yy_c = (*yy_cp ? yy_ec[YY_SC_TO_UI(*yy_cp)] : 1);
+		YY_CHAR yy_c = (*yy_cp ? yy_ec[YY_SC_TO_UI(*yy_cp)] : 1);
 		if ( yy_accept[yy_current_state] )
 			{
 			(yy_last_accepting_state) = yy_current_state;
@@ -1325,10 +1357,10 @@ static int yy_get_next_buffer (void)
  */
     static yy_state_type yy_try_NUL_trans  (yy_state_type yy_current_state )
 {
-	register int yy_is_jam;
-    	register char *yy_cp = (yy_c_buf_p);
+	int yy_is_jam;
+    	char *yy_cp = (yy_c_buf_p);
 
-	register YY_CHAR yy_c = 1;
+	YY_CHAR yy_c = 1;
 	if ( yy_accept[yy_current_state] )
 		{
 		(yy_last_accepting_state) = yy_current_state;
@@ -1345,6 +1377,10 @@ static int yy_get_next_buffer (void)
 
 		return yy_is_jam ? 0 : yy_current_state;
 }
+
+#ifndef YY_NO_UNPUT
+
+#endif
 
 #ifndef YY_NO_INPUT
 #ifdef __cplusplus
@@ -1500,7 +1536,7 @@ static void pll_rtree__load_buffer_state  (void)
 	if ( ! b )
 		YY_FATAL_ERROR( "out of dynamic memory in pll_rtree__create_buffer()" );
 
-	b->yy_buf_size = size;
+	b->yy_buf_size = (yy_size_t)size;
 
 	/* yy_ch_buf has to be 2 characters longer than the size given because
 	 * we need to put in 2 end-of-buffer characters.
@@ -1655,7 +1691,7 @@ static void pll_rtree_ensure_buffer_stack (void)
 		 * scanner will even need a stack. We use 2 instead of 1 to avoid an
 		 * immediate realloc on the next call.
          */
-		num_to_alloc = 1;
+		num_to_alloc = 1; /* After all that talk, this was set to 1 anyways... */
 		(yy_buffer_stack) = (struct yy_buffer_state**)pll_rtree_alloc
 								(num_to_alloc * sizeof(struct yy_buffer_state*)
 								);
@@ -1672,7 +1708,7 @@ static void pll_rtree_ensure_buffer_stack (void)
 	if ((yy_buffer_stack_top) >= ((yy_buffer_stack_max)) - 1){
 
 		/* Increase the buffer to prepare for a possible push. */
-		int grow_size = 8 /* arbitrary grow size */;
+		yy_size_t grow_size = 8 /* arbitrary grow size */;
 
 		num_to_alloc = (yy_buffer_stack_max) + grow_size;
 		(yy_buffer_stack) = (struct yy_buffer_state**)pll_rtree_realloc
@@ -1749,7 +1785,7 @@ YY_BUFFER_STATE pll_rtree__scan_bytes  (yyconst char * yybytes, yy_size_t  _yyby
 	YY_BUFFER_STATE b;
 	char *buf;
 	yy_size_t n;
-	int i;
+	yy_size_t i;
     
 	/* Get memory for full buffer, including space for trailing EOB's. */
 	n = _yybytes_len + 2;
@@ -1780,7 +1816,7 @@ YY_BUFFER_STATE pll_rtree__scan_bytes  (yyconst char * yybytes, yy_size_t  _yyby
 
 static void yy_fatal_error (yyconst char* msg )
 {
-    	(void) fprintf( stderr, "%s\n", msg );
+			(void) fprintf( stderr, "%s\n", msg );
 	exit( YY_EXIT_FAILURE );
 }
 
@@ -1846,29 +1882,29 @@ char *pll_rtree_get_text  (void)
 }
 
 /** Set the current line number.
- * @param line_number
+ * @param _line_number line number
  * 
  */
-void pll_rtree_set_lineno (int  line_number )
+void pll_rtree_set_lineno (int  _line_number )
 {
     
-    pll_rtree_lineno = line_number;
+    pll_rtree_lineno = _line_number;
 }
 
 /** Set the input stream. This does not discard the current
  * input buffer.
- * @param in_str A readable stream.
+ * @param _in_str A readable stream.
  * 
  * @see pll_rtree__switch_to_buffer
  */
-void pll_rtree_set_in (FILE *  in_str )
+void pll_rtree_set_in (FILE *  _in_str )
 {
-        pll_rtree_in = in_str ;
+        pll_rtree_in = _in_str ;
 }
 
-void pll_rtree_set_out (FILE *  out_str )
+void pll_rtree_set_out (FILE *  _out_str )
 {
-        pll_rtree_out = out_str ;
+        pll_rtree_out = _out_str ;
 }
 
 int pll_rtree_get_debug  (void)
@@ -1876,9 +1912,9 @@ int pll_rtree_get_debug  (void)
         return pll_rtree__flex_debug;
 }
 
-void pll_rtree_set_debug (int  bdebug )
+void pll_rtree_set_debug (int  _bdebug )
 {
-        pll_rtree__flex_debug = bdebug ;
+        pll_rtree__flex_debug = _bdebug ;
 }
 
 static int yy_init_globals (void)
@@ -1941,7 +1977,8 @@ int pll_rtree_lex_destroy  (void)
 #ifndef yytext_ptr
 static void yy_flex_strncpy (char* s1, yyconst char * s2, int n )
 {
-	register int i;
+		
+	int i;
 	for ( i = 0; i < n; ++i )
 		s1[i] = s2[i];
 }
@@ -1950,7 +1987,7 @@ static void yy_flex_strncpy (char* s1, yyconst char * s2, int n )
 #ifdef YY_NEED_STRLEN
 static int yy_flex_strlen (yyconst char * s )
 {
-	register int n;
+	int n;
 	for ( n = 0; s[n]; ++n )
 		;
 
@@ -1960,11 +1997,12 @@ static int yy_flex_strlen (yyconst char * s )
 
 void *pll_rtree_alloc (yy_size_t  size )
 {
-	return (void *) malloc( size );
+			return (void *) malloc( size );
 }
 
 void *pll_rtree_realloc  (void * ptr, yy_size_t  size )
 {
+		
 	/* The cast to (char *) in the following accommodates both
 	 * implementations that use char* generic pointers, and those
 	 * that use void* generic pointers.  It works with the latter
@@ -1977,12 +2015,12 @@ void *pll_rtree_realloc  (void * ptr, yy_size_t  size )
 
 void pll_rtree_free (void * ptr )
 {
-	free( (char *) ptr );	/* see pll_rtree_realloc() for (char *) cast */
+			free( (char *) ptr );	/* see pll_rtree_realloc() for (char *) cast */
 }
 
 #define YYTABLES_NAME "yytables"
 
-#line 122 "/hits/basement/sco/morel/github/raxml-ng/libs/pll-modules/libs/libpll/src/lex_rtree.l"
+#line 122 "/home/benoit/github/libpll-2/src/lex_rtree.l"
 
 
 
