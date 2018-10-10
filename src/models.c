@@ -367,9 +367,23 @@ PLL_EXPORT void pll_set_frequencies(pll_partition_t * partition,
                                     unsigned int freqs_index,
                                     const double * frequencies)
 {
+  unsigned int i;
+  double sum = 0.;
+
   memcpy(partition->frequencies[freqs_index],
          frequencies,
          partition->states*sizeof(double));
+
+  /* make sure frequencies sum up to 1.0 */
+  for (i = 0; i < partition->states; ++i)
+    sum += partition->frequencies[freqs_index][i];
+
+  if (fabs(sum - 1.0) > PLL_MISC_EPSILON)
+  {
+    for (i = 0; i < partition->states; ++i)
+      partition->frequencies[freqs_index][i] /= sum;
+  }
+
   partition->eigen_decomp_valid[freqs_index] = 0;
 }
 
