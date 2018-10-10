@@ -39,7 +39,7 @@ static int modes[N_MODES] =
 
 
 /* odd map with 7 states (a,b,c,d,e,f,g) */
-const unsigned int odd_map[256] =
+const pll_state_t odd_map[256] =
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x3f, 0, 0, 0x3f, 0, 0,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x3f, 0, 0x01, 0x02, 0x04,

@@ -556,7 +556,7 @@ double pll_core_edge_loglikelihood_ti(unsigned int states,
                                       const double * parent_clv,
                                       const unsigned int * parent_scaler,
                                       const unsigned char * tipchars,
-                                      const unsigned int * tipmap,
+                                      const pll_state_t * tipmap,
                                       unsigned int tipmap_size,
                                       const double * pmatrix,
                                       double * const * frequencies,
@@ -579,7 +579,7 @@ double pll_core_edge_loglikelihood_ti(unsigned int states,
   double terma, terma_r, termb;
   double site_lk, inv_site_lk;
 
-  unsigned int cstate;
+  pll_state_t cstate;
 
   unsigned int states_padded = states;
 

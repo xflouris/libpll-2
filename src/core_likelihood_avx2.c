@@ -204,7 +204,7 @@ double pll_core_edge_loglikelihood_ti_20x20_avx2(unsigned int sites,
                                                  const double * parent_clv,
                                                  const unsigned int * parent_scaler,
                                                  const unsigned char * tipchars,
-                                                 const unsigned int * tipmap,
+                                                 const pll_state_t * tipmap,
                                                  unsigned int tipmap_size,
                                                  const double * pmatrix,
                                                  double * const * frequencies,
@@ -285,9 +285,10 @@ double pll_core_edge_loglikelihood_ti_20x20_avx2(unsigned int sites,
   {
     pmat = pmatrix;
 
-    unsigned int state = tipmap[j];
+    // just 20 states -> will fit into 32-bit int
+    unsigned int state = (unsigned int) tipmap[j];
 
-    int ss = __builtin_popcount(state) == 1 ? __builtin_ctz(state) : -1;
+    int ss = PLL_POPCNT32(state) == 1 ? PLL_CTZ32(state) : -1;
 
     for (n = 0; n < rate_cats; ++n)
     {

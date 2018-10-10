@@ -178,6 +178,7 @@ int main(int argc, char * argv[])
   unsigned int rate_cats = 4;
   int i;
   double lnl_test[4] = {0};
+  int retval;
 
   /* check attributes */
   attributes = get_attributes(argc, argv);
@@ -186,13 +187,23 @@ int main(int argc, char * argv[])
   tree = pll_utree_parse_newick(TRE_FILENAME);
 
   taxa_count = tree->tip_count;
+  root = tree->vroot;
+  inner_nodes_count = tree->inner_count;
+  nodes_count = taxa_count + inner_nodes_count;
+  branch_count = tree->edge_count;  
 
   printf("Read %s: %u taxa\n", TRE_FILENAME, taxa_count);
 
-  root = tree->nodes[tree->tip_count+tree->inner_count-1];
-  inner_nodes_count = taxa_count - 2;
-  nodes_count  = taxa_count + inner_nodes_count;
-  branch_count = 2*taxa_count - 3;
+  assert(inner_nodes_count == taxa_count - 2);
+  assert(branch_count == 2*taxa_count - 3);
+  assert(tree->binary);
+
+  retval = pll_utree_check_integrity(tree);
+  if (!retval)
+  {
+    printf("ERROR: pll_utree validation failed: %s\n", pll_errmsg);
+    exit(-1);
+  }
 
   /* build fixed structures */
   travbuffer = (pll_unode_t **)malloc(nodes_count * sizeof(pll_unode_t *));
@@ -211,12 +222,18 @@ int main(int argc, char * argv[])
 
     pll_set_asc_bias_type(partition, 0);
 
-    pll_utree_traverse(root,
-                       PLL_TREE_TRAVERSE_POSTORDER,
-                       cb_full_traversal,
-                       travbuffer,
-                       &traversal_size);
+    retval = pll_utree_traverse(root,
+                                PLL_TREE_TRAVERSE_POSTORDER,
+                                cb_full_traversal,
+                                travbuffer,
+                                &traversal_size);
 
+    if (!retval)
+    {
+      printf("ERROR: pll_utree traversal failed: %s\n", pll_errmsg);
+      exit(-1);
+    }
+    
     pll_utree_create_operations(travbuffer,
                                 traversal_size,
                                 branch_lengths,

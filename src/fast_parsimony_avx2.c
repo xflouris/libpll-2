@@ -91,20 +91,20 @@ unsigned int pll_fastparsimony_edge_score_4x4_avx2(const pll_parsimony_t * parsi
 
 #if 0
     unsigned long long * p = (unsigned long long *)bits;
-    score += __builtin_popcountl(p[0]);
-    //score += __builtin_popcount(((unsigned long long)bits)[0]);
-    score += __builtin_popcountl(p[1]);
-    score += __builtin_popcountl(p[2]);
-    score += __builtin_popcountl(p[3]);
+    score += PLL_POPCNT64(p[0]);
+    //score += PLL_POPCNT32(((unsigned long long)bits)[0]);
+    score += PLL_POPCNT64(p[1]);
+    score += PLL_POPCNT64(p[2]);
+    score += PLL_POPCNT64(p[3]);
 #else
-    score += (unsigned int)__builtin_popcount(bits[0]);
-    score += (unsigned int)__builtin_popcount(bits[1]);
-    score += (unsigned int)__builtin_popcount(bits[2]);
-    score += (unsigned int)__builtin_popcount(bits[3]);
-    score += (unsigned int)__builtin_popcount(bits[4]);
-    score += (unsigned int)__builtin_popcount(bits[5]);
-    score += (unsigned int)__builtin_popcount(bits[6]);
-    score += (unsigned int)__builtin_popcount(bits[7]);
+    score += (unsigned int)PLL_POPCNT32(bits[0]);
+    score += (unsigned int)PLL_POPCNT32(bits[1]);
+    score += (unsigned int)PLL_POPCNT32(bits[2]);
+    score += (unsigned int)PLL_POPCNT32(bits[3]);
+    score += (unsigned int)PLL_POPCNT32(bits[4]);
+    score += (unsigned int)PLL_POPCNT32(bits[5]);
+    score += (unsigned int)PLL_POPCNT32(bits[6]);
+    score += (unsigned int)PLL_POPCNT32(bits[7]);
 #endif
   }
 
@@ -207,20 +207,20 @@ void pll_fastparsimony_update_vector_4x4_avx2(pll_parsimony_t * parsimony,
     _mm256_store_si256((__m256i *)(void *)bits, xmm0);
 #if 0
     unsigned long long * p = (unsigned long long *)bits;
-    score += __builtin_popcountl(p[0]);
-    //score += __builtin_popcount(((unsigned long long)bits)[0]);
-    score += __builtin_popcountl(p[1]);
-    score += __builtin_popcountl(p[2]);
-    score += __builtin_popcountl(p[3]);
+    score += PLL_POPCNT64(p[0]);
+    //score += PLL_POPCNT32(((unsigned long long)bits)[0]);
+    score += PLL_POPCNT64(p[1]);
+    score += PLL_POPCNT64(p[2]);
+    score += PLL_POPCNT64(p[3]);
 #else
-    score += (unsigned int)__builtin_popcount(bits[0]);
-    score += (unsigned int)__builtin_popcount(bits[1]);
-    score += (unsigned int)__builtin_popcount(bits[2]);
-    score += (unsigned int)__builtin_popcount(bits[3]);
-    score += (unsigned int)__builtin_popcount(bits[4]);
-    score += (unsigned int)__builtin_popcount(bits[5]);
-    score += (unsigned int)__builtin_popcount(bits[6]);
-    score += (unsigned int)__builtin_popcount(bits[7]);
+    score += (unsigned int)PLL_POPCNT32(bits[0]);
+    score += (unsigned int)PLL_POPCNT32(bits[1]);
+    score += (unsigned int)PLL_POPCNT32(bits[2]);
+    score += (unsigned int)PLL_POPCNT32(bits[3]);
+    score += (unsigned int)PLL_POPCNT32(bits[4]);
+    score += (unsigned int)PLL_POPCNT32(bits[5]);
+    score += (unsigned int)PLL_POPCNT32(bits[6]);
+    score += (unsigned int)PLL_POPCNT32(bits[7]);
 #endif
   }
 
@@ -302,19 +302,19 @@ void pll_fastparsimony_update_vector_avx2(pll_parsimony_t * parsimony,
     /* seems there is no difference in speed between popcnt32 and popcnt64 */
 
     unsigned long long * p = (unsigned long long *)bits;
-    score += __builtin_popcountl(p[0]);
-    score += __builtin_popcountl(p[1]);
-    score += __builtin_popcountl(p[2]);
-    score += __builtin_popcountl(p[3]);
+    score += PLL_POPCNT64(p[0]);
+    score += PLL_POPCNT64(p[1]);
+    score += PLL_POPCNT64(p[2]);
+    score += PLL_POPCNT64(p[3]);
 #else
-    score += (unsigned int)__builtin_popcount(bits[0]);
-    score += (unsigned int)__builtin_popcount(bits[1]);
-    score += (unsigned int)__builtin_popcount(bits[2]);
-    score += (unsigned int)__builtin_popcount(bits[3]);
-    score += (unsigned int)__builtin_popcount(bits[4]);
-    score += (unsigned int)__builtin_popcount(bits[5]);
-    score += (unsigned int)__builtin_popcount(bits[6]);
-    score += (unsigned int)__builtin_popcount(bits[7]);
+    score += (unsigned int)PLL_POPCNT32(bits[0]);
+    score += (unsigned int)PLL_POPCNT32(bits[1]);
+    score += (unsigned int)PLL_POPCNT32(bits[2]);
+    score += (unsigned int)PLL_POPCNT32(bits[3]);
+    score += (unsigned int)PLL_POPCNT32(bits[4]);
+    score += (unsigned int)PLL_POPCNT32(bits[5]);
+    score += (unsigned int)PLL_POPCNT32(bits[6]);
+    score += (unsigned int)PLL_POPCNT32(bits[7]);
 #endif
   }
 
@@ -376,19 +376,19 @@ unsigned int pll_fastparsimony_edge_score_avx2(const pll_parsimony_t * parsimony
     /* seems there is no difference in speed between popcnt32 and popcnt64 */
 
     unsigned long long * p = (unsigned long long *)bits;
-    score += __builtin_popcountl(p[0]);
-    score += __builtin_popcountl(p[1]);
-    score += __builtin_popcountl(p[2]);
-    score += __builtin_popcountl(p[3]);
+    score += PLL_POPCNT64(p[0]);
+    score += PLL_POPCNT64(p[1]);
+    score += PLL_POPCNT64(p[2]);
+    score += PLL_POPCNT64(p[3]);
 #else
-    score += (unsigned int)__builtin_popcount(bits[0]);
-    score += (unsigned int)__builtin_popcount(bits[1]);
-    score += (unsigned int)__builtin_popcount(bits[2]);
-    score += (unsigned int)__builtin_popcount(bits[3]);
-    score += (unsigned int)__builtin_popcount(bits[4]);
-    score += (unsigned int)__builtin_popcount(bits[5]);
-    score += (unsigned int)__builtin_popcount(bits[6]);
-    score += (unsigned int)__builtin_popcount(bits[7]);
+    score += (unsigned int)PLL_POPCNT32(bits[0]);
+    score += (unsigned int)PLL_POPCNT32(bits[1]);
+    score += (unsigned int)PLL_POPCNT32(bits[2]);
+    score += (unsigned int)PLL_POPCNT32(bits[3]);
+    score += (unsigned int)PLL_POPCNT32(bits[4]);
+    score += (unsigned int)PLL_POPCNT32(bits[5]);
+    score += (unsigned int)PLL_POPCNT32(bits[6]);
+    score += (unsigned int)PLL_POPCNT32(bits[7]);
 #endif
   }
 

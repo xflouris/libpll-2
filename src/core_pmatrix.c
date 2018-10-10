@@ -64,6 +64,20 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
                                              inv_eigenvecs,
                                              count);
     }
+    else if (states == 20)
+    {
+      return pll_core_update_pmatrix_20x20_sse(pmatrix,
+                                               rate_cats,
+                                               rates,
+                                               branch_lengths,
+                                               matrix_indices,
+                                               params_indices,
+                                               prop_invar,
+                                               eigenvals,
+                                               eigenvecs,
+                                               inv_eigenvecs,
+                                               count);
+    }
     /* this line is never called, but should we disable the else case above,
        then states_padded must be set to this value */
     states_padded = (states+1) & 0xFFFFFFFE;
@@ -198,26 +212,6 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
            expd[j] = expm1(evals[j] * rates[n] * branch_lengths[i]);
         }
 
-//        /* check if all values of expd are approximately one */
-//        for (k=0, j=0; j < states; ++j)
-//          if ((expd[j] > PLL_ONE_MIN) && (expd[j] < PLL_ONE_MAX))
-//            ++k;
-//
-//        /* if yes, it means we are multiplying the inverse eigenvectors matrix
-//           by the eigenvectors matrix, and essentially the resulting pmatrix is
-//           the identity matrix. This is done to prevent having numerical issues
-//           (negative entries in the pmatrix) which can occur due to the
-//           different floating point representations of one in expd */
-//        if (k == states && 0)
-//        {
-//          /* set identity matrix */
-//          for (j = 0; j < states; ++j)
-//            for (k = 0; k < states; ++k)
-//              pmat[j*states_padded + k] = (j == k) ? 1 : 0;
-//
-//          continue;
-//        }
-
         for (j = 0; j < states; ++j)
           for (k = 0; k < states; ++k)
             temp[j*states+k] = inv_evecs[j*states_padded+k] * expd[k];
@@ -226,7 +220,6 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
         {
           for (k = 0; k < states; ++k)
           {
-//            pmat[j*states_padded+k] = 0;
             pmat[j*states_padded+k] = (j==k) ? 1.0 : 0;
             for (m = 0; m < states; ++m)
             {

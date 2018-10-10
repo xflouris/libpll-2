@@ -26,7 +26,7 @@
 #include "pll.h"
 #endif
 
-extern const unsigned int odd5_map[256];
+extern const pll_state_t odd5_map[256];
 
 unsigned int get_attributes(int argc, char **argv);
 void skip_test();

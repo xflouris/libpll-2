@@ -24,7 +24,7 @@
 __thread int pll_errno;
 __thread char pll_errmsg[200] = {0};
 
-pll_hardware_t pll_hardware = {0,0,0,0,0,0,0,0,0,0,0,0};
+__thread pll_hardware_t pll_hardware = {0,0,0,0,0,0,0,0,0,0,0,0};
 
 static void dealloc_partition_data(pll_partition_t * partition);
 
@@ -124,6 +124,7 @@ static void dealloc_partition_data(pll_partition_t * partition)
     free(repeats->toclean_buffer);
     free(repeats->id_site_buffer);
     free(repeats->bclv_buffer);
+    free(repeats->charmap);
     free(repeats);
   }
 
@@ -153,13 +154,14 @@ PLL_EXPORT void pll_aligned_free(void * ptr)
 #endif
 }
 
-static int update_charmap(pll_partition_t * partition, const unsigned int * map)
+static int update_charmap(pll_partition_t * partition, const pll_state_t * map)
 {
-  unsigned int i,j,k = 0;
+  unsigned int i,j;
+  pll_state_t k = 0;
   unsigned int new_states_count = 0;
-  unsigned int mapcopy[PLL_ASCII_SIZE];
+  pll_state_t mapcopy[PLL_ASCII_SIZE];
 
-  memcpy(mapcopy, map, PLL_ASCII_SIZE * sizeof(unsigned int));
+  memcpy(mapcopy, map, PLL_ASCII_SIZE * sizeof(pll_state_t));
 
   /* find maximum value in charmap table */
   k = 0;
@@ -289,11 +291,11 @@ static int update_charmap(pll_partition_t * partition, const unsigned int * map)
    the precomputated CLV for a charmapped pair i and j, at index:
 
    (i << ceil(log(maxstate)) + j) << log(states) << log(rates) */
-static int create_charmap(pll_partition_t * partition, const unsigned int * usermap)
+static int create_charmap(pll_partition_t * partition, const pll_state_t * usermap)
 {
   unsigned int i,j,m = 0;
   unsigned char k = 0;
-  unsigned int map[PLL_ASCII_SIZE];
+  pll_state_t map[PLL_ASCII_SIZE];
 
   /* If ascertainment bias correction attribute is set, CLVs will be allocated
      with additional sites for each state */
@@ -301,7 +303,7 @@ static int create_charmap(pll_partition_t * partition, const unsigned int * user
                    partition->sites + partition->states : partition->sites;
 
   //memcpy(map, partition->map, PLL_ASCII_SIZE * sizeof(unsigned int));
-  memcpy(map, usermap, PLL_ASCII_SIZE * sizeof(unsigned int));
+  memcpy(map, usermap, PLL_ASCII_SIZE * sizeof(pll_state_t));
 
   if (!(partition->charmap = (unsigned char *)calloc(PLL_ASCII_SIZE,
                                                      sizeof(unsigned char))))
@@ -312,8 +314,8 @@ static int create_charmap(pll_partition_t * partition, const unsigned int * user
     return PLL_FAILURE;
   }
 
-  if (!(partition->tipmap = (unsigned int *)calloc(PLL_ASCII_SIZE,
-                                                   sizeof(unsigned int))))
+  if (!(partition->tipmap = (pll_state_t *)calloc(PLL_ASCII_SIZE,
+                                                   sizeof(pll_state_t))))
   {
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200,
@@ -430,7 +432,7 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
   unsigned int sites_alloc;
 
   /* make sure that multiple ARCH were not specified */
-  if (__builtin_popcount(attributes & PLL_ATTRIB_ARCH_MASK) > 1)
+  if (PLL_POPCNT32(attributes & PLL_ATTRIB_ARCH_MASK) > 1)
   {
     pll_errno = PLL_ERROR_PARAM_INVALID;
     snprintf(pll_errmsg, 200, "Multiple architecture flags specified.");
@@ -869,10 +871,10 @@ PLL_EXPORT void pll_partition_destroy(pll_partition_t * partition)
 
 static int set_tipchars_4x4(pll_partition_t * partition,
                             unsigned int tip_index,
-                            const unsigned int * map,
+                            const pll_state_t * map,
                             const char * sequence)
 {
-  unsigned int c;
+  pll_state_t c;
   unsigned int i;
 
   /* iterate through sites */
@@ -906,10 +908,10 @@ static int set_tipchars_4x4(pll_partition_t * partition,
 
 static int set_tipchars(pll_partition_t * partition,
                         unsigned int tip_index,
-                        const unsigned int * map,
+                        const pll_state_t * map,
                         const char * sequence)
 {
-  unsigned int c;
+  pll_state_t c;
   unsigned int i;
   unsigned char * tipchars = partition->tipchars[tip_index];
 
@@ -949,10 +951,10 @@ static int set_tipchars(pll_partition_t * partition,
 
 static int set_tipclv(pll_partition_t * partition,
                      unsigned int tip_index,
-                     const unsigned int * map,
+                     const pll_state_t * map,
                      const char * sequence)
 {
-  unsigned int c;
+  pll_state_t c;
   unsigned int i,j;
   double * tipclv = partition->clv[tip_index];
 
@@ -1016,7 +1018,7 @@ static int set_tipclv(pll_partition_t * partition,
 
 PLL_EXPORT int pll_set_tip_states(pll_partition_t * partition,
                                   unsigned int tip_index,
-                                  const unsigned int * map,
+                                  const pll_state_t * map,
                                   const char * sequence)
 {
   int rc;

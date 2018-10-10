@@ -86,7 +86,7 @@ PLL_EXPORT void pll_core_update_partial_tt(unsigned int states,
                                            unsigned int * parent_scaler,
                                            const unsigned char * left_tipchars,
                                            const unsigned char * right_tipchars,
-                                           const unsigned int * tipmap,
+                                           const pll_state_t * tipmap,
                                            unsigned int tipmap_size,
                                            const double * lookup,
                                            unsigned int attrib)
@@ -361,7 +361,7 @@ PLL_EXPORT void pll_core_update_partial_ti(unsigned int states,
                                            const double * left_matrix,
                                            const double * right_matrix,
                                            const unsigned int * right_scaler,
-                                           const unsigned int * tipmap,
+                                           const pll_state_t * tipmap,
                                            unsigned int tipmap_size,
                                            unsigned int attrib)
 {
@@ -475,7 +475,7 @@ PLL_EXPORT void pll_core_update_partial_ti(unsigned int states,
       {
         double terma = 0;
         double termb = 0;
-        unsigned int lstate = tipmap[(unsigned int)left_tipchars[n]];
+        pll_state_t lstate = tipmap[(unsigned int)left_tipchars[n]];
         for (j = 0; j < states; ++j)
         {
           if (lstate & 1)
@@ -1075,7 +1075,7 @@ PLL_EXPORT void pll_core_create_lookup(unsigned int states,
                                        double * lookup,
                                        const double * left_matrix,
                                        const double * right_matrix,
-                                       const unsigned int * tipmap,
+                                       const pll_state_t * tipmap,
                                        unsigned int tipmap_size,
                                        unsigned int attrib)
 {
@@ -1183,8 +1183,8 @@ PLL_EXPORT void pll_core_create_lookup(unsigned int states,
           termj = 0;
           termk = 0;
 
-          unsigned int jstate = tipmap[j];
-          unsigned int kstate = tipmap[k];
+          pll_state_t jstate = tipmap[j];
+          pll_state_t kstate = tipmap[k];
 
           /* decompose basecall into the encoded residues and set the appropriate
              positions in the tip vector */

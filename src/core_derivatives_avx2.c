@@ -1024,7 +1024,7 @@ PLL_EXPORT int pll_core_update_sumtable_ti_20x20_avx2(unsigned int sites,
                                                 double * const * eigenvecs,
                                                 double * const * inv_eigenvecs,
                                                 double * const * freqs,
-                                                const unsigned int * tipmap,
+                                                const pll_state_t * tipmap,
                                                 unsigned int tipmap_size,
                                                 double *sumtable,
                                                 unsigned int attrib)
@@ -1096,9 +1096,9 @@ PLL_EXPORT int pll_core_update_sumtable_ti_20x20_avx2(unsigned int sites,
   double * t_precomp = precomp_left;
   for (n = 0; n < maxstates; ++n)
   {
-    unsigned int state = tipmap ? tipmap[n] : n;
+    unsigned int state = tipmap ? (unsigned int) tipmap[n] : n;
 
-    int ss = __builtin_popcount(state) == 1 ? __builtin_ctz(state) : -1;
+    int ss = PLL_POPCNT32(state) == 1 ? PLL_CTZ32(state) : -1;
 
     for (i = 0; i < rate_cats; ++i)
     {
@@ -1248,7 +1248,7 @@ PLL_EXPORT int pll_core_update_sumtable_ti_avx2(unsigned int states,
                                                 double * const * eigenvecs,
                                                 double * const * inv_eigenvecs,
                                                 double * const * freqs,
-                                                const unsigned int * tipmap,
+                                                const pll_state_t * tipmap,
                                                 unsigned int tipmap_size,
                                                 double *sumtable,
                                                 unsigned int attrib)
@@ -1291,7 +1291,7 @@ PLL_EXPORT int pll_core_update_sumtable_ti_avx2(unsigned int states,
   unsigned int maxstates = tipmap_size;
 
   unsigned int i, j, k, n;
-  unsigned int tipstate;
+  pll_state_t tipstate;
 
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
@@ -1352,9 +1352,9 @@ PLL_EXPORT int pll_core_update_sumtable_ti_avx2(unsigned int states,
   double * t_precomp = precomp_left;
   for (n = 0; n < maxstates; ++n)
   {
-    unsigned int state = tipmap ? tipmap[n] : n;
+    pll_state_t state = tipmap ? tipmap[n] : n;
 
-    int ss = __builtin_popcount(state) == 1 ? __builtin_ctz(state) : -1;
+    int ss = PLL_STATE_POPCNT(state) == 1 ? PLL_STATE_CTZ(state) : -1;
 
     for (i = 0; i < rate_cats; ++i)
     {

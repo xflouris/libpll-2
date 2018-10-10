@@ -196,7 +196,7 @@ static int check_informative(const pll_partition_t * partition,
 static int fill_parsimony_vectors(const pll_partition_t * partition,
                                   pll_parsimony_t * parsimony)
 {
-  unsigned int c;
+  pll_state_t c;
   unsigned int i,j,k;
   unsigned int bitcount = 0;
   unsigned int bitvectors;
@@ -447,7 +447,7 @@ PLL_EXPORT unsigned int pll_fastparsimony_edge_score_4x4(const pll_parsimony_t *
 
     xmm0 = ~xmm6 & xmm1;
 
-    score += (unsigned int)__builtin_popcount(xmm0);
+    score += (unsigned int)PLL_POPCNT32(xmm0);
   }
   unsigned int score1 = parsimony->node_cost[node1_score_index];
   unsigned int score2 = parsimony->node_cost[node2_score_index];
@@ -513,7 +513,7 @@ PLL_EXPORT void pll_fastparsimony_update_vector_4x4(pll_parsimony_t * parsimony,
     parent[2][i] = xmm4 | (~xmm8 & xmm5);
     parent[3][i] = xmm6 | (~xmm8 & xmm7);
 
-    score += (unsigned int)__builtin_popcount(~xmm8 & xmm9);
+    score += (unsigned int)PLL_POPCNT32(~xmm8 & xmm9);
   }
   unsigned int score1 = parsimony->node_cost[op->child1_score_index];
   unsigned int score2 = parsimony->node_cost[op->child2_score_index];
@@ -527,7 +527,7 @@ PLL_EXPORT pll_parsimony_t * pll_fastparsimony_init(const pll_partition_t * part
   /* TODO: Currently only upto 20 states are supported with non pattern-tip
      compression */
   if (partition->states > 20 && 
-      (partition->attributes & PLL_ATTRIB_PATTERN_TIP) == 0)
+      ((partition->attributes & PLL_ATTRIB_PATTERN_TIP) == 0))
   {
     pll_errno = PLL_ERROR_STEPWISE_UNSUPPORTED;
     snprintf(pll_errmsg,
@@ -601,7 +601,7 @@ PLL_EXPORT void pll_fastparsimony_update_vector(pll_parsimony_t * parsimony,
 
     }
 
-    score += (unsigned int)__builtin_popcount(~orvand & vones);
+    score += (unsigned int)PLL_POPCNT32(~orvand & vones);
   }
   unsigned int score1 = parsimony->node_cost[op->child1_score_index];
   unsigned int score2 = parsimony->node_cost[op->child2_score_index];
@@ -639,7 +639,7 @@ static unsigned int fastparsimony_edge_score(const pll_parsimony_t * parsimony,
       node2 += vector_count;
     }
 
-    score += (unsigned int )__builtin_popcount(~orvand & vones);
+    score += (unsigned int )PLL_POPCNT32(~orvand & vones);
   }
   unsigned int score1 = parsimony->node_cost[node1_score_index];
   unsigned int score2 = parsimony->node_cost[node2_score_index];

@@ -28,7 +28,7 @@ PLL_EXPORT void pll_core_create_lookup_avx(unsigned int states,
                                            double * ttlookup,
                                            const double * left_matrix,
                                            const double * right_matrix,
-                                           const unsigned int * tipmap,
+                                           const pll_state_t * tipmap,
                                            unsigned int tipmap_size)
 {
   if (states == 4)
@@ -89,8 +89,8 @@ PLL_EXPORT void pll_core_create_lookup_avx(unsigned int states,
           termj = 0;
           termk = 0;
 
-          unsigned int jstate = tipmap[j];
-          unsigned int kstate = tipmap[k];
+          pll_state_t jstate = tipmap[j];
+          pll_state_t kstate = tipmap[k];
 
           /* decompose basecall into the encoded residues and set the appropriate
              positions in the tip vector */
@@ -125,7 +125,7 @@ PLL_EXPORT void pll_core_create_lookup_20x20_avx(unsigned int rate_cats,
                                                double * ttlookup,
                                                const double * left_matrix,
                                                const double * right_matrix,
-                                               const unsigned int * tipmap,
+                                               const pll_state_t * tipmap,
                                                unsigned int tipmap_size)
 {
   unsigned int i,j,k,n,m;
@@ -140,11 +140,25 @@ PLL_EXPORT void pll_core_create_lookup_20x20_avx(unsigned int rate_cats,
   double terml = 0;
   double termr = 0;
 
-  double * lookupl = pll_aligned_alloc(span_padded*maxstates*sizeof(double),
-                                       PLL_ALIGNMENT_AVX);
+  double * lookupl = NULL;
+  double * lookupr = NULL;
 
-  double * lookupr = pll_aligned_alloc(span_padded*maxstates*sizeof(double),
-                                       PLL_ALIGNMENT_AVX);
+  lookupl = pll_aligned_alloc(span_padded*maxstates*sizeof(double),
+                              PLL_ALIGNMENT_AVX);
+
+  lookupr = pll_aligned_alloc(span_padded*maxstates*sizeof(double),
+                              PLL_ALIGNMENT_AVX);
+
+  if (!lookupl || !lookupr)
+  {
+    if (lookupl)
+      pll_aligned_free(lookupl);
+    else if (lookupr)
+      pll_aligned_free(lookupr);
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg, 200, "Cannot allocate space for precomputation.");
+    return;
+  }
 
   const double * lmat;
   const double * rmat;
@@ -157,9 +171,10 @@ PLL_EXPORT void pll_core_create_lookup_20x20_avx(unsigned int rate_cats,
     lmat = left_matrix;
     rmat = right_matrix;
 
-    unsigned int state = tipmap[j];
+    // just 20 states -> will fit into 32-bit int
+    unsigned int state = (unsigned int) tipmap[j];
 
-    int ss = __builtin_popcount(state) == 1 ? __builtin_ctz(state) : -1;
+    int ss = PLL_POPCNT32(state) == 1 ? PLL_CTZ32(state) : -1;
 
     for (n = 0; n < rate_cats; ++n)
     {
@@ -245,15 +260,37 @@ PLL_EXPORT void pll_core_create_lookup_4x4_avx(unsigned int rate_cats,
   unsigned int j,k,n;
   unsigned int maxstates = 16;
   unsigned int states = 4;
+  unsigned int span = states*rate_cats;
 
   __m256d ymm0,ymm1,ymm2,ymm3,ymm4,ymm5,ymm6,ymm7;
   __m256d xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7;
-  __m256i jmask,kmask;
+  __m256i jmask;
 
   const double * jmat;
   const double * kmat;
 
-  lookup += maxstates*states*rate_cats;
+  double * lookupl = NULL;
+  double * lookupr = NULL;
+
+  lookupl = pll_aligned_alloc(span*maxstates*sizeof(double),
+                              PLL_ALIGNMENT_AVX);
+
+  lookupr = pll_aligned_alloc(span*maxstates*sizeof(double),
+                              PLL_ALIGNMENT_AVX);
+
+  if (!lookupl || !lookupr)
+  {
+    if (lookupl)
+      pll_aligned_free(lookupl);
+    else if (lookupr)
+      pll_aligned_free(lookupr);
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg, 200, "Cannot allocate space for precomputation.");
+    return;
+  }
+
+  double * ll = lookupl;
+  double * lr = lookupr;
 
   for (j = 1; j < maxstates; ++j)
   {
@@ -263,82 +300,103 @@ PLL_EXPORT void pll_core_create_lookup_4x4_avx(unsigned int rate_cats,
                ((j >> 1) & 1) ? ~0 : 0,
                (j & 1) ? ~0 : 0);
     
+    jmat = left_matrix;
+    kmat = right_matrix;
+
+    for (n = 0; n < rate_cats; ++n)
+    {
+      xmm0 = _mm256_maskload_pd(jmat,jmask);
+      ymm0 = _mm256_maskload_pd(kmat,jmask);
+
+      jmat += states;
+      kmat += states;
+
+      xmm1 = _mm256_maskload_pd(jmat,jmask);
+      ymm1 = _mm256_maskload_pd(kmat,jmask);
+
+      jmat += states;
+      kmat += states;
+
+      xmm2 = _mm256_maskload_pd(jmat,jmask);
+      ymm2 = _mm256_maskload_pd(kmat,jmask);
+
+      jmat += states;
+      kmat += states;
+
+      xmm3 = _mm256_maskload_pd(jmat,jmask);
+      ymm3 = _mm256_maskload_pd(kmat,jmask);
+
+      jmat += states;
+      kmat += states;
+
+      /* compute x */
+      xmm4 = _mm256_unpackhi_pd(xmm0,xmm1);
+      xmm5 = _mm256_unpacklo_pd(xmm0,xmm1);
+
+      xmm6 = _mm256_unpackhi_pd(xmm2,xmm3);
+      xmm7 = _mm256_unpacklo_pd(xmm2,xmm3);
+
+      xmm0 = _mm256_add_pd(xmm4,xmm5);
+      xmm1 = _mm256_add_pd(xmm6,xmm7);
+
+      xmm2 = _mm256_permute2f128_pd(xmm0,xmm1, _MM_SHUFFLE(0,2,0,1));
+      xmm3 = _mm256_blend_pd(xmm0,xmm1,12);
+      xmm4 = _mm256_add_pd(xmm2,xmm3);
+
+      /* compute y */
+      ymm4 = _mm256_unpackhi_pd(ymm0,ymm1);
+      ymm5 = _mm256_unpacklo_pd(ymm0,ymm1);
+
+      ymm6 = _mm256_unpackhi_pd(ymm2,ymm3);
+      ymm7 = _mm256_unpacklo_pd(ymm2,ymm3);
+
+      ymm0 = _mm256_add_pd(ymm4,ymm5);
+      ymm1 = _mm256_add_pd(ymm6,ymm7);
+
+      ymm2 = _mm256_permute2f128_pd(ymm0,ymm1, _MM_SHUFFLE(0,2,0,1));
+      ymm3 = _mm256_blend_pd(ymm0,ymm1,12);
+      ymm4 = _mm256_add_pd(ymm2,ymm3);
+
+      _mm256_store_pd(ll, xmm4);
+      _mm256_store_pd(lr, ymm4);
+
+      ll += 4;
+      lr += 4;
+    }
+  }
+
+  lookup += maxstates*states*rate_cats;
+  double *l = lookupl;
+
+  for (j = 1; j < maxstates; ++j)
+  {
     lookup += states*rate_cats;
 
+    lr = lookupr;
     for (k = 1; k < maxstates; ++k)
     {
-      jmat = left_matrix;
-      kmat = right_matrix;
-
-      kmask = _mm256_set_epi64x(
-                 ((k >> 3) & 1) ? ~0 : 0,
-                 ((k >> 2) & 1) ? ~0 : 0,
-                 ((k >> 1) & 1) ? ~0 : 0,
-                 (k & 1) ? ~0 : 0);
-
+      ll = l;
       for (n = 0; n < rate_cats; ++n)
       {
-        xmm0 = _mm256_maskload_pd(jmat,jmask);
-        ymm0 = _mm256_maskload_pd(kmat,kmask);
-
-        jmat += states;
-        kmat += states;
-
-        xmm1 = _mm256_maskload_pd(jmat,jmask);
-        ymm1 = _mm256_maskload_pd(kmat,kmask);
-
-        jmat += states;
-        kmat += states;
-
-        xmm2 = _mm256_maskload_pd(jmat,jmask);
-        ymm2 = _mm256_maskload_pd(kmat,kmask);
-
-        jmat += states;
-        kmat += states;
-
-        xmm3 = _mm256_maskload_pd(jmat,jmask);
-        ymm3 = _mm256_maskload_pd(kmat,kmask);
-
-        jmat += states;
-        kmat += states;
-
-        /* compute x */
-        xmm4 = _mm256_unpackhi_pd(xmm0,xmm1);
-        xmm5 = _mm256_unpacklo_pd(xmm0,xmm1);
-
-        xmm6 = _mm256_unpackhi_pd(xmm2,xmm3);
-        xmm7 = _mm256_unpacklo_pd(xmm2,xmm3);
-
-        xmm0 = _mm256_add_pd(xmm4,xmm5);
-        xmm1 = _mm256_add_pd(xmm6,xmm7);
-
-        xmm2 = _mm256_permute2f128_pd(xmm0,xmm1, _MM_SHUFFLE(0,2,0,1));
-        xmm3 = _mm256_blend_pd(xmm0,xmm1,12);
-        xmm4 = _mm256_add_pd(xmm2,xmm3);
-
-        /* compute y */
-        ymm4 = _mm256_unpackhi_pd(ymm0,ymm1);
-        ymm5 = _mm256_unpacklo_pd(ymm0,ymm1);
-
-        ymm6 = _mm256_unpackhi_pd(ymm2,ymm3);
-        ymm7 = _mm256_unpacklo_pd(ymm2,ymm3);
-
-        ymm0 = _mm256_add_pd(ymm4,ymm5);
-        ymm1 = _mm256_add_pd(ymm6,ymm7);
-
-        ymm2 = _mm256_permute2f128_pd(ymm0,ymm1, _MM_SHUFFLE(0,2,0,1));
-        ymm3 = _mm256_blend_pd(ymm0,ymm1,12);
-        ymm4 = _mm256_add_pd(ymm2,ymm3);
+        xmm1 = _mm256_load_pd(ll);
+        ymm1 = _mm256_load_pd(lr);
 
         /* compute x*y */
-        xmm0 = _mm256_mul_pd(xmm4,ymm4);
+        xmm0 = _mm256_mul_pd(xmm1,ymm1);
 
         _mm256_store_pd(lookup, xmm0);
 
         lookup += states;
+        lr += 4;
+        ll += 4;
       }
     }
+
+    l += states*rate_cats;
   }
+
+  pll_aligned_free(lookupl);
+  pll_aligned_free(lookupr);
 }
 
 PLL_EXPORT void pll_core_update_partial_ii_4x4_avx(unsigned int sites,
@@ -980,7 +1038,7 @@ PLL_EXPORT void pll_core_update_partial_ti_avx(unsigned int states,
                                                const double * left_matrix,
                                                const double * right_matrix,
                                                const unsigned int * right_scaler,
-                                               const unsigned int * tipmap,
+                                               const pll_state_t * tipmap,
                                                unsigned int tipmap_size,
                                                unsigned int attrib)
 {
@@ -992,7 +1050,7 @@ PLL_EXPORT void pll_core_update_partial_ti_avx(unsigned int states,
   unsigned int states_padded = (states+3) & 0xFFFFFFFC;
   unsigned int span_padded = states_padded * rate_cats;
 
-  unsigned int lstate;
+  pll_state_t lstate;
 
   /* dedicated functions for 4x4 matrices (DNA) */
   if (states == 4)
@@ -1456,7 +1514,7 @@ PLL_EXPORT void pll_core_update_partial_ti_20x20_avx(unsigned int sites,
                                                      const double * left_matrix,
                                                      const double * right_matrix,
                                                      const unsigned int * right_scaler,
-                                                     const unsigned int * tipmap,
+                                                     const pll_state_t * tipmap,
                                                      unsigned int tipmap_size,
                                                      unsigned int attrib)
 {
@@ -1494,9 +1552,9 @@ PLL_EXPORT void pll_core_update_partial_ti_20x20_avx(unsigned int sites,
   {
     lmat = left_matrix;
 
-    unsigned int state = tipmap[j];
+    unsigned int state = (unsigned int) tipmap[j];
 
-    int ss = __builtin_popcount(state) == 1 ? __builtin_ctz(state) : -1;
+    int ss = PLL_POPCNT32(state) == 1 ? PLL_CTZ32(state) : -1;
 
     for (n = 0; n < rate_cats; ++n)
     {

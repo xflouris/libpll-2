@@ -89,10 +89,10 @@ unsigned int pll_fastparsimony_edge_score_4x4_sse(const pll_parsimony_t * parsim
 
     _mm_store_si128((__m128i *)(void *)bits, xmm0);
 
-    score += (unsigned int)__builtin_popcount(bits[0]);
-    score += (unsigned int)__builtin_popcount(bits[1]);
-    score += (unsigned int)__builtin_popcount(bits[2]);
-    score += (unsigned int)__builtin_popcount(bits[3]);
+    score += (unsigned int)PLL_POPCNT32(bits[0]);
+    score += (unsigned int)PLL_POPCNT32(bits[1]);
+    score += (unsigned int)PLL_POPCNT32(bits[2]);
+    score += (unsigned int)PLL_POPCNT32(bits[3]);
   }
 
   unsigned int score1 = parsimony->node_cost[node1_score_index];
@@ -192,10 +192,10 @@ void pll_fastparsimony_update_vector_4x4_sse(pll_parsimony_t * parsimony,
 
     _mm_store_si128((__m128i *)(void *)bits, xmm0);
 
-    score += (unsigned int)__builtin_popcount(bits[0]);
-    score += (unsigned int)__builtin_popcount(bits[1]);
-    score += (unsigned int)__builtin_popcount(bits[2]);
-    score += (unsigned int)__builtin_popcount(bits[3]);
+    score += (unsigned int)PLL_POPCNT32(bits[0]);
+    score += (unsigned int)PLL_POPCNT32(bits[1]);
+    score += (unsigned int)PLL_POPCNT32(bits[2]);
+    score += (unsigned int)PLL_POPCNT32(bits[3]);
   }
 
   unsigned int score1 = parsimony->node_cost[op->child1_score_index];
@@ -272,10 +272,10 @@ void pll_fastparsimony_update_vector_sse(pll_parsimony_t * parsimony,
 
     _mm_store_si128((__m128i *)(void *)bits, xmm0);
 
-    score += (unsigned int)__builtin_popcount(bits[0]);
-    score += (unsigned int)__builtin_popcount(bits[1]);
-    score += (unsigned int)__builtin_popcount(bits[2]);
-    score += (unsigned int)__builtin_popcount(bits[3]);
+    score += (unsigned int)PLL_POPCNT32(bits[0]);
+    score += (unsigned int)PLL_POPCNT32(bits[1]);
+    score += (unsigned int)PLL_POPCNT32(bits[2]);
+    score += (unsigned int)PLL_POPCNT32(bits[3]);
   }
 
   unsigned int score1 = parsimony->node_cost[op->child1_score_index];
@@ -332,10 +332,10 @@ unsigned int pll_fastparsimony_edge_score_sse(const pll_parsimony_t * parsimony,
     
     _mm_store_si128((__m128i *)(void *)bits, xmm0);
 
-    score += (unsigned int)__builtin_popcount(bits[0]);
-    score += (unsigned int)__builtin_popcount(bits[1]);
-    score += (unsigned int)__builtin_popcount(bits[2]);
-    score += (unsigned int)__builtin_popcount(bits[3]);
+    score += (unsigned int)PLL_POPCNT32(bits[0]);
+    score += (unsigned int)PLL_POPCNT32(bits[1]);
+    score += (unsigned int)PLL_POPCNT32(bits[2]);
+    score += (unsigned int)PLL_POPCNT32(bits[3]);
   }
 
   unsigned int score1 = parsimony->node_cost[node1_score_index];

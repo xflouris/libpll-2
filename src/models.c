@@ -458,8 +458,8 @@ PLL_EXPORT unsigned int pll_count_invariant_sites(pll_partition_t * partition,
   unsigned int tips = partition->tips;
   unsigned int sites = partition->sites;
   unsigned int states = partition->states;
-  unsigned int gap_state = 0;
-  unsigned int cur_state;
+  pll_state_t gap_state = 0;
+  pll_state_t cur_state;
   int * invariant = partition->invariant;
   double * tipclv;
 
@@ -507,11 +507,11 @@ PLL_EXPORT unsigned int pll_count_invariant_sites(pll_partition_t * partition,
             break;
           }
         }
-        if (__builtin_popcount(cur_state) == 1)
+        if (PLL_STATE_POPCNT(cur_state) == 1)
         {
           invariant_count += partition->pattern_weights[j];
           if (state_inv_count)
-            state_inv_count[__builtin_ctz(cur_state)]++;
+            state_inv_count[PLL_STATE_CTZ(cur_state)]++;
         }
       }
     }
@@ -528,14 +528,14 @@ PLL_EXPORT unsigned int pll_count_invariant_sites(pll_partition_t * partition,
       {
         unsigned int clv_shift = j*span_padded;
         tipclv = partition->clv[0] + clv_shift;
-        unsigned int state = gap_state;
+        pll_state_t state = gap_state;
         for (i = 0; i < tips; ++i)
         {
           tipclv = partition->clv[i] + clv_shift;
           cur_state = 0;
           for (k = 0; k < states; ++k)
           {
-            cur_state |= ((unsigned int)tipclv[k] << k);
+            cur_state |= ((pll_state_t)tipclv[k] << k);
           }
           state &= cur_state;
           if (!state)
@@ -543,11 +543,11 @@ PLL_EXPORT unsigned int pll_count_invariant_sites(pll_partition_t * partition,
             break;
           }
         }
-        if (__builtin_popcount(state) == 1)
+        if (PLL_STATE_POPCNT(state) == 1)
         {
           invariant_count += partition->pattern_weights[j];
           if (state_inv_count)
-            state_inv_count[__builtin_ctz(state)]++;
+            state_inv_count[PLL_STATE_CTZ(state)]++;
         }
       }
     }
@@ -558,14 +558,14 @@ PLL_EXPORT unsigned int pll_count_invariant_sites(pll_partition_t * partition,
 PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
 {
   unsigned int i,j,k;
-  unsigned int state;
+  pll_state_t state;
   unsigned int states = partition->states;
   unsigned int states_padded = partition->states_padded;
   unsigned int sites = partition->sites;
   unsigned int tips = partition->tips;
   unsigned int rate_cats = partition->rate_cats;
-  unsigned int gap_state = 0;
-  int * invariant;
+  pll_state_t gap_state = 0;
+  pll_state_t * invariant;
   double * tipclv;
 
   /* gap state has always all bits set to one */
@@ -579,18 +579,22 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
      sites, or -1 for variant sites */
   if (!partition->invariant)
   {
-    if (!(partition->invariant = (int *)malloc(sites * sizeof(int))))
-    {
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf(pll_errmsg, 200,
-          "Cannot allocate charmap for invariant sites array.");
-      return PLL_FAILURE;
-    }
+    partition->invariant = (int *)malloc(sites * sizeof(int));
   }
-  invariant = partition->invariant;
 
-  /* initialize all elements to zero */
-  memset(partition->invariant, gap_state, sites*sizeof(int));
+  invariant = (pll_state_t *)malloc(sites * sizeof(pll_state_t));
+
+  if (!invariant || !partition->invariant)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg, 200,
+        "Cannot allocate charmap for invariant sites array.");
+    return PLL_FAILURE;
+  }
+
+  /* initialize all elements to the gap state */
+  for (i = 0; i < partition->sites; ++i)
+    invariant[i] = gap_state;
 
   /* depending on the attribute flag, fill each element of the invariant array
      with the bitwise AND of gap and all states in the corresponding site */
@@ -602,7 +606,7 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
         for (j = 0; j < sites; ++j)
         {
           state = (unsigned int)(partition->tipchars[i][j]);
-            invariant[j] &= state;
+          invariant[j] &= state;
         }
     }
     else
@@ -611,7 +615,7 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
         for (j = 0; j < sites; ++j)
         {
           state = partition->tipmap[(int)(partition->tipchars[i][j])];
-            invariant[j] &= state;
+          invariant[j] &= state;
         }
     }
   }
@@ -632,7 +636,7 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
         state = 0;
         for (k = 0; k < states; ++k)
         {
-          state |= ((unsigned int)tipclv[k] << k);
+          state |= ((pll_state_t)tipclv[k] << k);
         }
         invariant[j] &= state;
       }
@@ -643,10 +647,13 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
      index in invariant to the frequency index of the basecall, otherwise -1 */
   for (i = 0; i < partition->sites; ++i)
   {
-    if (partition->invariant[i] == 0 || __builtin_popcount((unsigned int)(partition->invariant[i])) > 1)
+    if (invariant[i] == 0 || PLL_STATE_POPCNT(invariant[i]) > 1)
       partition->invariant[i] = -1;
     else
-      partition->invariant[i] = __builtin_ctz((unsigned int)(partition->invariant[i]));
+      partition->invariant[i] = PLL_STATE_CTZ(invariant[i]);
   }
+
+  free(invariant);
+
   return PLL_SUCCESS;
 }
