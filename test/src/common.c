@@ -99,6 +99,7 @@ pll_common_args_t* get_common_args(int argc, char **argv) {
   common_args->n_sites = 1000;
   common_args->n_states = 20;
   common_args->pinvar = 0.0;
+  common_args->n_benchmark_repeat = 1;
 
   for (int i=1; i<argc; ++i)
   {
@@ -162,6 +163,19 @@ pll_common_args_t* get_common_args(int argc, char **argv) {
       common_args->n_itr = (unsigned int) strtol(value, NULL, 10);
       if(common_args->n_itr == 0) {
         printf("Number of iterations must not be 0: %s\n", argv[i]);
+        exit(1);
+      }
+    }
+    else if (strstr (argv[i], "-n-benchmark-repeats=") != NULL)
+    {
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->n_benchmark_repeat = (unsigned int) strtol(value, NULL, 10);
+      if(common_args->n_benchmark_repeat == 0) {
+        printf("Number of repeated executions must not be 0: %s\n", argv[i]);
         exit(1);
       }
     }

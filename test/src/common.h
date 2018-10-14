@@ -33,6 +33,7 @@ typedef struct pll_common_args {
     unsigned int print_seq;
     unsigned int n_itr;
     unsigned int n_pmatrix_itr;
+    unsigned int n_benchmark_repeat;
     double *alpha_values;
     double pinvar;
 } pll_common_args_t;
