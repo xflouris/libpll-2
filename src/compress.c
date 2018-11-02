@@ -121,15 +121,15 @@ static pll_state_t findmax(const pll_state_t * map)
 static int encode(char ** sequence, const unsigned char * map, int count, int len)
 {
   int i,j;
-  char * p;
-  char c;
+  unsigned char * p;
+  unsigned char c;
 
   /* reset error */
   pll_errno = 0;
 
   for (i = 0; i < count; ++i)
   {
-    p = sequence[i];
+    p = (unsigned char*)sequence[i];
     j = len;
     while (j--)
     {
