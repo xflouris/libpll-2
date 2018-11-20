@@ -11,7 +11,7 @@ def run_benchmark(output_dir, n_sites):
 
     command = ['./obj/partials-micro-benchmark',
                '-n-benchmark-repeats=10',
-               '-n-itr=10',
+               '-n-itr=10000',
                '-n-sites=%d' % n_sites]
     print("Executing benchmark for -n-sites=%d" % n_sites)
 
