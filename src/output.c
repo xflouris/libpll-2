@@ -60,12 +60,8 @@ PLL_EXPORT void pll_show_clv(const pll_partition_t * partition,
 {
   unsigned int s,i,j,k;
 
-  double * clv = partition->clv[clv_index];
   unsigned int * scaler = (scaler_index == PLL_SCALE_BUFFER_NONE) ?
                           NULL : partition->scale_buffer[scaler_index];
-  unsigned int states = partition->states;
-  unsigned int states_padded = partition->states_padded;
-  unsigned int rates = partition->rate_cats;
   double prob;
   unsigned int *site_id = 0;
   if (pll_repeats_enabled(partition) && partition->repeats->pernode_ids[clv_index]) {
@@ -81,19 +77,19 @@ PLL_EXPORT void pll_show_clv(const pll_partition_t * partition,
   {
     i = site_id ? site_id[s] : s;
     printf("{");
-    for (j = 0; j < rates; ++j)
+    for (j = 0; j < partition->rate_cats; ++j)
     {
       printf("(");
-      for (k = 0; k < states-1; ++k)
+      for (k = 0; k < partition->states-1; ++k)
       {
-        prob = clv[i*rates*states_padded + j*states_padded + k];
+        prob = CLV_VAL(partition, clv_index, i, j, k);
         if (scaler) unscale(&prob, scaler[i]);
         printf("%.*f,", float_precision, prob);
       }
-      prob = clv[i*rates*states_padded + j*states_padded + k];
+      prob = CLV_VAL(partition, clv_index, i, j, k);
       if (scaler) unscale(&prob, scaler[i]);
       printf("%.*f)", float_precision, prob);
-      if (j < rates - 1) printf(",");
+      if (j < partition->rate_cats - 1) printf(",");
     }
     printf("} ");
   }

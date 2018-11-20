@@ -5,6 +5,7 @@ AC_PREREQ([2.63])
 AC_INIT([libpll], [0.3.2], [Tomas.Flouri@h-its.org])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_LANG([C])
+AC_PROG_CC([gcc icc])
 AC_CONFIG_SRCDIR([src/pll.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -50,12 +51,57 @@ AC_FUNC_ALLOCA
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([asprintf memcpy memset posix_memalign])
 
+have_avx512f=no
 have_avx2=no
 have_avx=no
 have_sse3=no
 have_ps2pdf=no
 
+# Detection for ICC/GCC intrinsic flags
+my_save_cflags="$CFLAGS"
+CFLAGS=-mavx2
+AC_MSG_CHECKING([whether CC supports -mavx2])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+    [AC_MSG_RESULT([yes])]
+    [AC_SUBST(AM_AVX2_FLAGS, [-mavx2])],
+    [AC_MSG_RESULT([no])]
+)
+CFLAGS=-march=core-avx2
+AC_MSG_CHECKING([whether CC supports -march=core-avx2])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+    [AC_MSG_RESULT([yes])]
+    [AC_SUBST(AM_AVX2_FLAGS, [-march=core-avx2])],
+    [AC_MSG_RESULT([no])]
+)
+CFLAGS=-mavx512f
+AC_MSG_CHECKING([whether CC supports -mavx512f])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+    [AC_MSG_RESULT([yes])]
+    [AC_SUBST(AM_AVX512F_FLAGS, [-mavx512f])],
+    [AC_MSG_RESULT([no])]
+)
+CFLAGS=-xCOMMON-AVX512
+AC_MSG_CHECKING([whether CC supports -xCOMMON-AVX512])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+    [AC_MSG_RESULT([yes])]
+    [AC_SUBST(AM_AVX512F_FLAGS, [-xCOMMON-AVX512])],
+    [AC_MSG_RESULT([no])]
+)
+
+CFLAGS="$my_save_cflags"
+
+# SIMD management
+AC_ARG_ENABLE([simd_counting],
+    AS_HELP_STRING([--enable-simd-counting], [Enable debug instructions for SIMD counting (not for productive use)])
+)
+
+AS_IF([test "x$enable_simd_counting" = "xyes"],
+    CFLAGS+=" -DSIMD_COUNTING_MODE"
+)
+
+
 # Compile-time detection of processor features - now disabled
+#TODO: No detection for AVX512F yet
 #AX_EXT
 #
 #if test "x${ax_cv_have_fma3_ext}" = "xyes"; then
@@ -114,6 +160,13 @@ AS_IF([test "x$enable_avx2" != "xno"], [
   AC_DEFINE([HAVE_AVX2], [1], [Define to 1 to support Advanced Vector Extensions 2])
 ])
 
+AC_ARG_ENABLE(avx512f, AS_HELP_STRING([--disable-avx512f], [Build without AVX512F support]))
+AS_IF([test "x$enable_avx512f" != "xno"], [
+  have_avx512f=yes
+  AC_DEFINE([HAVE_AVX512F], [1], [Define to 1 to support Advanced Vector Extensions 512 Foundation])
+])
+
+AM_CONDITIONAL(HAVE_AVX512F, test "x${have_avx512f}" = "xyes")
 AM_CONDITIONAL(HAVE_AVX2, test "x${have_avx2}" = "xyes")
 AM_CONDITIONAL(HAVE_AVX, test "x${have_avx}" = "xyes")
 AM_CONDITIONAL(HAVE_SSE3, test "x${have_sse3}" = "xyes")
@@ -129,10 +182,12 @@ AC_OUTPUT
 AC_MSG_RESULT([
   $PACKAGE $VERSION
 
-    Target:    $host_os $host_cpu
-    Compiler:  ${CC}
-    CFLAGS:    ${CFLAGS} ${CPPFLAGS}
-    LIBS:      ${LIBS} ${LDFLAGS}
+    Target:        $host_os $host_cpu
+    Compiler:      ${CC}
+    CFLAGS:        ${CFLAGS} ${CPPFLAGS}
+    LIBS:          ${LIBS} ${LDFLAGS}
+    AVX2 Flags:    ${AM_AVX2_FLAGS}
+    AVX512F Flags: ${AM_AVX512F_FLAGS}
 
   Continue with 'make' command
 ])

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <search.h>
 #include <stdarg.h>
+#include <time.h>
 
 const pll_state_t odd5_map[256] =
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -18,46 +19,232 @@ const pll_state_t odd5_map[256] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
+static unsigned int get_attribute(char *arg)
+{
+  if (!strcmp (arg, "tv"))
+  {
+    /* tipvector */
+    return PLL_ATTRIB_PATTERN_TIP;
+  }
+  else if (!strcmp (arg, "sr"))
+  {
+    /* site repeats */
+    return PLL_ATTRIB_SITE_REPEATS;
+  }
+  else if (!strcmp (arg, "sml"))
+  {
+    /* SIMD memory layout */
+    return PLL_ATTRIB_SIMD_MEM_LAYOUT;
+  }
+  else if (!strcmp (arg, "avx"))
+  {
+    /* avx vectorization */
+    return PLL_ATTRIB_ARCH_AVX;
+  }
+  else if (!strcmp (arg, "sse"))
+  {
+    /* sse3 vectorization */
+    return PLL_ATTRIB_ARCH_SSE;
+  }
+  else if (!strcmp (arg, "avx2"))
+  {
+    /* avx2 vectorization */
+    return PLL_ATTRIB_ARCH_AVX2;
+  }
+  else if (!strcmp (arg, "avx512f"))
+  {
+    /* avx512f vectorization */
+    return PLL_ATTRIB_ARCH_AVX512F;
+  }
+  else
+  {
+    printf("Unrecognised attribute: %s\n", arg);
+    exit(1);
+  }
+}
 
 unsigned int get_attributes(int argc, char **argv)
 {
-  int i;
   unsigned int attributes = PLL_ATTRIB_ARCH_CPU;
 
-  for (i=1; i<argc; ++i)
+  for (int i=1; i<argc; ++i)
   {
-    if (!strcmp (argv[i], "tv"))
+    attributes |= get_attribute(argv[i]);
+  }
+  return attributes;
+}
+
+static unsigned int count_values(const char* str) {
+  unsigned int count = 0;
+  char* values_copy = xstrdup(str);
+  char* token = strtok(values_copy, ",");
+  while (token != NULL) {
+    count++;
+    token = strtok(NULL, ",");
+  }
+  return count;
+}
+
+pll_common_args_t* get_common_args(int argc, char **argv) {
+  pll_common_args_t* common_args = xmalloc(sizeof(pll_common_args_t));
+  common_args->attributes = PLL_ATTRIB_ARCH_CPU;
+  common_args->alpha_values = xmalloc(sizeof(double));
+  common_args->n_alpha_values = 1;
+  common_args->alpha_values[0] = 0.1;
+  common_args->n_pmatrix_itr = 1;
+  common_args->n_categories = 4;
+  common_args->n_itr = 1;
+  common_args->seed = (unsigned int) time(NULL);
+  common_args->print_seq = 0;
+  common_args->n_sites = 1000;
+  common_args->n_states = 20;
+  common_args->pinvar = 0.0;
+  common_args->n_benchmark_repeat = 1;
+
+  for (int i=1; i<argc; ++i)
+  {
+    if (strstr (argv[i], "-alpha=") != NULL)
     {
-      /* tipvector */
-      attributes |= PLL_ATTRIB_PATTERN_TIP;
-    } 
-    else if (!strcmp (argv[i], "sr"))
-    {
-      /* avx vectorization */
-      attributes |= PLL_ATTRIB_SITE_REPEATS;
+      char* values = strstr (argv[i], "=") + 1;
+      if(*values == '\0' || *values == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+
+      common_args->n_alpha_values = count_values(values);
+      common_args->alpha_values = xmalloc(sizeof(double)*common_args->n_alpha_values);
+
+      unsigned int idx = 0;
+      char* values_copy = xstrdup(values);
+      char* token = strtok(values_copy, ",");
+      while (token != NULL) {
+        common_args->alpha_values[idx] = strtod(token, NULL);
+        if(common_args->alpha_values[idx] <= 0) {
+          printf("alpha value must not be smaller 0: %s\n", token);
+          exit(1);
+        }
+        idx++;
+        token = strtok(NULL, ",");
+      }
     }
-    else if (!strcmp (argv[i], "avx"))
+    else if (strstr (argv[i], "-n-states=") != NULL)
     {
-      /* avx vectorization */
-      attributes |= PLL_ATTRIB_ARCH_AVX;
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->n_states = (unsigned int) strtol(value, NULL, 10);
+      if(common_args->n_states != 4 && common_args->n_states != 20) {
+        printf("Only specific number of states are allowed (4 / DNA or 20 / AA): %s\n", argv[i]);
+        exit(1);
+      }
     }
-    else if (!strcmp (argv[i], "sse"))
+    else if (strstr (argv[i], "-n-categories=") != NULL)
     {
-      /* sse3 vectorization */
-      attributes |= PLL_ATTRIB_ARCH_SSE;
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->n_categories = (unsigned int) strtol(value, NULL, 10);
+      if(common_args->n_categories == 0) {
+        printf("Number of categories must not be 0: %s\n", argv[i]);
+        exit(1);
+      }
     }
-    else if (!strcmp (argv[i], "avx2"))
+    else if (strstr (argv[i], "-n-itr=") != NULL)
     {
-      /* avx2 vectorization */
-      attributes |= PLL_ATTRIB_ARCH_AVX2;
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->n_itr = (unsigned int) strtol(value, NULL, 10);
+      if(common_args->n_itr == 0) {
+        printf("Number of iterations must not be 0: %s\n", argv[i]);
+        exit(1);
+      }
+    }
+    else if (strstr (argv[i], "-n-benchmark-repeats=") != NULL)
+    {
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->n_benchmark_repeat = (unsigned int) strtol(value, NULL, 10);
+      if(common_args->n_benchmark_repeat == 0) {
+        printf("Number of repeated executions must not be 0: %s\n", argv[i]);
+        exit(1);
+      }
+    }
+    else if (strstr (argv[i], "-seed=") != NULL)
+    {
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->seed = (unsigned int) strtol(value, NULL, 10);
+    }
+    else if (strstr (argv[i], "-n-sites=") != NULL)
+    {
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->n_sites = (unsigned int) strtol(value, NULL, 10);
+      if(common_args->n_sites == 0) {
+        printf("Number of sites must not be 0: %s\n", argv[i]);
+        exit(1);
+      }
+    }
+    else if (strstr (argv[i], "-print-seq") != NULL)
+    {
+      common_args->print_seq = 1;
+    }
+    else if (strstr (argv[i], "-n-pmatrix-itr=") != NULL)
+    {
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->n_pmatrix_itr = (unsigned int) strtol(value, NULL, 10);
+      if(common_args->n_pmatrix_itr == 0) {
+        printf("Number of sites must not be 0: %s\n", argv[i]);
+        exit(1);
+      }
+    }
+    else if (strstr (argv[i], "-p-invar=") != NULL)
+    {
+      char* value = strstr (argv[i], "=") + 1;
+      if(*value == '\0' || *value == ',') {
+        printf("Unable to read value from: %s\n", argv[i]);
+        exit(1);
+      }
+      common_args->pinvar = strtod(value, NULL);
     }
     else
     {
-      printf("Unrecognised attribute: %s\n", argv[i]);
-      exit(1);
+      common_args->attributes |= get_attribute(argv[i]);
     }
   }
-    return attributes;
+
+  return common_args;
+}
+
+void destroy_common_args(pll_common_args_t** args) {
+  if(args == NULL) {
+    return;
+  }
+  if((*args)->alpha_values != NULL) {
+    free((*args)->alpha_values);
+  }
+  free(*args);
+  *args = NULL;
 }
 
 void skip_test ()
@@ -224,17 +411,17 @@ void fatal(const char * format, ...)
 }
 
 void * xmalloc(size_t size)
-{ 
+{
   void * t;
   t = malloc(size);
   if (!t)
     fatal("Unable to allocate enough memory.");
-  
+
   return t;
-} 
-  
+}
+
 char * xstrdup(const char * s)
-{ 
+{
   size_t len = strlen(s);
   char * p = (char *)xmalloc(len+1);
   return strcpy(p,s);

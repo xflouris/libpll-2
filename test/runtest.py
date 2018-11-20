@@ -42,7 +42,8 @@ import time
 #####################
 do_memtest       =  1                 # Evaluate memory leaks
 num_replicates   = 20                 # Number of samples for the speed test
-all_args         = [18,16,20,24,0,1,2,3,4,5,8,9]
+#all_args         = [0, 1, 2, 3, 4, 5, 8, 9, 16, 17, 32, 34, 36, 40, 48]
+all_args         = [16, 80]
                                       # 0: No vector / No tip pattern
                                       # 1: No vector / Tip pattern
                                       # 2: AVX / No tip pattern
@@ -51,10 +52,14 @@ all_args         = [18,16,20,24,0,1,2,3,4,5,8,9]
                                       # 5: SSE / Tip pattern
                                       # 8: AVX2 / No tip pattern
                                       # 9: AVX2 / Tip pattern
-                                      #16: no vector / repeats
-                                      #18: AVX / repeats
-                                      #20: SSE / repeats
-                                      #24: AVX2 / repeats
+                                      # 16: AVX512F / No tip pattern
+                                      # 17: AVX512F / Tip pattern
+                                      # 32: no vector / repeats
+                                      # 34: AVX / repeats
+                                      # 36: SSE / repeats
+                                      # 40: AVX2 / repeats
+                                      # 48: AVX512F / repeats
+
 #####################
 
 colors={"default":"",
@@ -169,10 +174,18 @@ def runSpeedTest(files):
           attrib += " avx2"
           attribstr += " AVX2"
           typestr   += "F"
-      if (args & 16):
+      elif (args & 16):
+          attrib += " avx512f"
+          attribstr += " AVX512F"
+          typestr   += "G"
+      elif (args & 32):
           attrib    += " sr"
           attribstr += " Site repeats"
           typestr   += "R"
+      if (args & 64):
+          attrib    += " sml"
+          attribstr += " SIMD memory layout"
+          typestr   += "M"
       else:
           attribstr += " CPU"
           typestr   += "C"
@@ -301,10 +314,18 @@ def runValidation(files):
           attrib    += " avx2"
           attribstr += " AVX2"
           typestr   += "F"
-      if (args & 16):
+      elif (args & 16):
+          attrib += " avx512f"
+          attribstr += " AVX512F"
+          typestr   += "G"
+      elif (args & 32):
           attrib    += " sr"
           attribstr += "Site repeats"
           typestr   += "R"
+      if (args & 64):
+          attrib    += " sml"
+          attribstr += " SIMD memory layout"
+          typestr   += "M"
       else:
         attribstr += " CPU"
         typestr   += "C"
@@ -420,6 +441,9 @@ if __name__ == "__main__":
     files=sys.argv[2:]
 
   files.sort()
+
+  #TODO only for testing
+  files = ['partials-aa', 'derivatives-aa']
 
   num_tests = len(files)
 

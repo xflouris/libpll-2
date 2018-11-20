@@ -21,14 +21,29 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-#ifndef PLL_H_
-#define PLL_H_
 #include "pll.h"
-#endif
+
+typedef struct pll_common_args {
+    unsigned int attributes;
+    unsigned int n_states;
+    unsigned int n_sites;
+    unsigned int n_categories;
+    unsigned int n_alpha_values;
+    unsigned int seed;
+    unsigned int print_seq;
+    unsigned int n_itr;
+    unsigned int n_pmatrix_itr;
+    unsigned int n_benchmark_repeat;
+    double *alpha_values;
+    double pinvar;
+} pll_common_args_t;
 
 extern const pll_state_t odd5_map[256];
 
 unsigned int get_attributes(int argc, char **argv);
+pll_common_args_t* get_common_args(int argc, char **argv);
+void destroy_common_args(pll_common_args_t** args);
+
 void skip_test();
 
 pll_partition_t * parse_msa(const char * filename,

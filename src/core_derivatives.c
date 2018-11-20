@@ -92,6 +92,20 @@ PLL_EXPORT int pll_core_update_sumtable_repeats(unsigned int states,
     }
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F &&  PLL_STAT(avx512f_present))
+  {
+    core_update_sumtable = pll_core_update_sumtable_repeats_generic_avx512f;
+    if (states == 4)
+    {
+      // avx is good enough
+      if (use_bclv)
+        core_update_sumtable = pll_core_update_sumtable_repeatsbclv_4x4_avx;
+      else
+        core_update_sumtable = pll_core_update_sumtable_repeats_4x4_avx;
+    }
+  }
+#endif
 
   return core_update_sumtable(states,
                               sites,
@@ -395,6 +409,38 @@ PLL_EXPORT int pll_core_update_sumtable_ii(unsigned int states,
                                            attrib);
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    if (attrib & PLL_ATTRIB_SIMD_MEM_LAYOUT)
+    {
+      return pll_core_update_sumtable_ii_avx512f_sml(states,
+                                                     sites,
+                                                     rate_cats,
+                                                     parent_clv,
+                                                     child_clv,
+                                                     parent_scaler,
+                                                     child_scaler,
+                                                     eigenvecs,
+                                                     inv_eigenvecs,
+                                                     freqs,
+                                                     sumtable,
+                                                     attrib);
+    }
+    return pll_core_update_sumtable_ii_avx512f(states,
+                                               sites,
+                                               rate_cats,
+                                               parent_clv,
+                                               child_clv,
+                                               parent_scaler,
+                                               child_scaler,
+                                               eigenvecs,
+                                               inv_eigenvecs,
+                                               freqs,
+                                               sumtable,
+                                               attrib);
+  }
+#endif
 
   unsigned int min_scaler;
   unsigned int * rate_scalings = NULL;
@@ -548,6 +594,24 @@ PLL_EXPORT int pll_core_update_sumtable_ti(unsigned int states,
                                            tipmap_size,
                                            sumtable,
                                            attrib);
+  }
+#endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    return pll_core_update_sumtable_ti_avx512f(states,
+                                               sites,
+                                               rate_cats,
+                                               parent_clv,
+                                               left_tipchars,
+                                               parent_scaler,
+                                               eigenvecs,
+                                               inv_eigenvecs,
+                                               freqs,
+                                               tipmap,
+                                               tipmap_size,
+                                               sumtable,
+                                               attrib);
   }
 #endif
 
@@ -778,7 +842,45 @@ PLL_EXPORT int pll_core_likelihood_derivatives(unsigned int states,
     states_padded = (states+1) & 0xFFFFFFFE;
   }
 #endif
-
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    states_padded = (states+7) & (0xFFFFFFFF - 7);
+    if(attrib & PLL_ATTRIB_SIMD_MEM_LAYOUT)
+    {
+      pll_core_likelihood_derivatives_avx512f_sml(states,
+                                                  states_padded,
+                                                  rate_cats,
+                                                  ef_sites,
+                                                  pattern_weights,
+                                                  rate_weights,
+                                                  invariant,
+                                                  prop_invar,
+                                                  freqs,
+                                                  sumtable,
+                                                  diagptable,
+                                                  d_f,
+                                                  dd_f);
+    }
+    else
+    {
+      pll_core_likelihood_derivatives_avx512f(states,
+                                              states_padded,
+                                              rate_cats,
+                                              ef_sites,
+                                              pattern_weights,
+                                              rate_weights,
+                                              invariant,
+                                              prop_invar,
+                                              freqs,
+                                              sumtable,
+                                              diagptable,
+                                              d_f,
+                                              dd_f);
+    }
+  }
+  else
+#endif
 #ifdef HAVE_AVX2
   if (attrib & PLL_ATTRIB_ARCH_AVX2 && PLL_STAT(avx2_present))
   {

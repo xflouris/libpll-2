@@ -120,7 +120,7 @@ PLL_EXPORT void pll_core_update_partial_tt(unsigned int states,
 
     return;
   }
-  
+
   #endif
   #ifdef HAVE_AVX
   if (attrib & PLL_ATTRIB_ARCH_AVX && PLL_STAT(avx_present))
@@ -173,6 +173,32 @@ PLL_EXPORT void pll_core_update_partial_tt(unsigned int states,
                                      tipmap_size,
                                      attrib);
 
+    return;
+  }
+  #endif
+  #ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    if (states == 4)
+      pll_core_update_partial_tt_4x4_avx(sites,
+                                         rate_cats,
+                                         parent_clv,
+                                         parent_scaler,
+                                         left_tipchars,
+                                         right_tipchars,
+                                         lookup,
+                                         attrib);
+    else
+      pll_core_update_partial_tt_avx(states,
+                                     sites,
+                                     rate_cats,
+                                     parent_clv,
+                                     parent_scaler,
+                                     left_tipchars,
+                                     right_tipchars,
+                                     lookup,
+                                     tipmap_size,
+                                     attrib);
     return;
   }
   #endif
@@ -255,6 +281,22 @@ PLL_EXPORT void pll_core_update_partial_ti_4x4(unsigned int sites,
   #endif
   #ifdef HAVE_AVX2
   if (attrib & PLL_ATTRIB_ARCH_AVX2 && PLL_STAT(avx2_present))
+  {
+    pll_core_update_partial_ti_4x4_avx(sites,
+                                       rate_cats,
+                                       parent_clv,
+                                       parent_scaler,
+                                       left_tipchars,
+                                       right_clv,
+                                       left_matrix,
+                                       right_matrix,
+                                       right_scaler,
+                                       attrib);
+    return;
+  }
+  #endif
+  #ifdef HAVE_AVX512
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
   {
     pll_core_update_partial_ti_4x4_avx(sites,
                                        rate_cats,
@@ -443,6 +485,25 @@ PLL_EXPORT void pll_core_update_partial_ti(unsigned int states,
     return;
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    pll_core_update_partial_ti_avx512f(states,
+                                       sites,
+                                       rate_cats,
+                                       parent_clv,
+                                       parent_scaler,
+                                       left_tipchars,
+                                       right_clv,
+                                       left_matrix,
+                                       right_matrix,
+                                       right_scaler,
+                                       tipmap,
+                                       tipmap_size,
+                                       attrib);
+    return;
+  }
+#endif
 
   if (states == 4)
   {
@@ -547,23 +608,23 @@ PLL_EXPORT void pll_core_update_partial_repeats(unsigned int states,
 
   unsigned int use_bclv = (bclv_buffer && (left_sites < ((parent_sites * 2) / 3) + 1));
 
-  if (use_bclv) 
+  if (use_bclv)
     core_update_partials = pll_core_update_partial_repeatsbclv_generic;
-  else  
+  else
     core_update_partials = pll_core_update_partial_repeats_generic;
-#ifdef HAVE_AVX 
+#ifdef HAVE_AVX
   if (attrib & PLL_ATTRIB_ARCH_AVX &&  PLL_STAT(avx_present))
-  { 
-    if (states == 4) 
+  {
+    if (states == 4)
     {
       if (use_bclv)
         core_update_partials = pll_core_update_partial_repeatsbclv_4x4_avx;
-      else  
+      else
         core_update_partials = pll_core_update_partial_repeats_4x4_avx;
     } else {
       if (use_bclv)
         core_update_partials = pll_core_update_partial_repeatsbclv_generic_avx;
-      else  
+      else
         core_update_partials = pll_core_update_partial_repeats_generic_avx;
     }
   }
@@ -575,16 +636,30 @@ PLL_EXPORT void pll_core_update_partial_repeats(unsigned int states,
   }
 
 #endif
-#ifdef HAVE_AVX2 
+#ifdef HAVE_AVX2
   if (attrib & PLL_ATTRIB_ARCH_AVX2 &&  PLL_STAT(avx2_present))
-  { 
+  {
     core_update_partials = pll_core_update_partial_repeats_generic_avx2;
-    if (states == 4) 
+    if (states == 4)
     {
       // for DNA, avx is faster than avx2
       if (use_bclv)
         core_update_partials = pll_core_update_partial_repeatsbclv_4x4_avx;
-      else  
+      else
+        core_update_partials = pll_core_update_partial_repeats_4x4_avx;
+    }
+  }
+#endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F &&  PLL_STAT(avx512f_present))
+  {
+    core_update_partials = pll_core_update_partial_repeats_generic_avx512f;
+    if (states == 4)
+    {
+      // for DNA, avx is faster than avx512f
+      if (use_bclv)
+        core_update_partials = pll_core_update_partial_repeatsbclv_4x4_avx;
+      else
         core_update_partials = pll_core_update_partial_repeats_4x4_avx;
     }
   }
@@ -687,6 +762,39 @@ PLL_EXPORT void pll_core_update_partial_ii(unsigned int states,
     return;
   }
 #endif
+#ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
+  {
+    if(attrib & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+      pll_core_update_partial_ii_avx512f_sml(states,
+                                             sites,
+                                             rate_cats,
+                                             parent_clv,
+                                             parent_scaler,
+                                             left_clv,
+                                             right_clv,
+                                             left_matrix,
+                                             right_matrix,
+                                             left_scaler,
+                                             right_scaler,
+                                             attrib);
+      return;
+    }
+    pll_core_update_partial_ii_avx512f(states,
+                                       sites,
+                                       rate_cats,
+                                       parent_clv,
+                                       parent_scaler,
+                                       left_clv,
+                                       right_clv,
+                                       left_matrix,
+                                       right_matrix,
+                                       left_scaler,
+                                       right_scaler,
+                                       attrib);
+    return;
+  }
+#endif
 
   /* init scaling-related stuff */
   if (parent_scaler)
@@ -712,8 +820,11 @@ PLL_EXPORT void pll_core_update_partial_ii(unsigned int states,
     rmat = right_matrix;
     site_scale = init_mask;
 
+    //printf("Site: %d\n", n);
+
     for (k = 0; k < rate_cats; ++k)
     {
+      //printf("   Rate-Cat: %d\n", k);
       unsigned int rate_scale = 1;
       for (i = 0; i < states; ++i)
       {
@@ -725,6 +836,8 @@ PLL_EXPORT void pll_core_update_partial_ii(unsigned int states,
           termb += rmat[j] * right_clv[j];
         }
         parent_clv[i] = terma*termb;
+
+        //printf("      parent_clv[%d]: % .3e\n", i, parent_clv[i]);
 
         rate_scale &= (parent_clv[i] < PLL_SCALE_THRESHOLD);
 
@@ -800,13 +913,13 @@ PLL_EXPORT void pll_core_update_partial_repeats_generic(unsigned int states,
     /* determine the scaling mode and init the vars accordingly */
     scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
     init_mask = (scale_mode == 1) ? 1 : 0;
-    
+
     /* add up the scale vectors of the two children if available */
-    if (scale_mode == 2) 
-      pll_fill_parent_scaler_repeats_per_rate(parent_sites, rate_cats, parent_scaler, parent_id_site, 
+    if (scale_mode == 2)
+      pll_fill_parent_scaler_repeats_per_rate(parent_sites, rate_cats, parent_scaler, parent_id_site,
         left_scaler, left_site_id, right_scaler, right_site_id);
     else
-      pll_fill_parent_scaler_repeats(parent_sites, parent_scaler, parent_id_site, 
+      pll_fill_parent_scaler_repeats(parent_sites, parent_scaler, parent_id_site,
         left_scaler, left_site_id, right_scaler, right_site_id);
   }
   else
@@ -915,13 +1028,13 @@ PLL_EXPORT void pll_core_update_partial_repeatsbclv_generic(unsigned int states,
     /* determine the scaling mode and init the vars accordingly */
     scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
     init_mask = (scale_mode == 1) ? 1 : 0;
-    
+
     /* add up the scale vectors of the two children if available */
-    if (scale_mode == 2) 
-      pll_fill_parent_scaler_repeats_per_rate(parent_sites, rate_cats, parent_scaler, parent_id_site, 
+    if (scale_mode == 2)
+      pll_fill_parent_scaler_repeats_per_rate(parent_sites, rate_cats, parent_scaler, parent_id_site,
         left_scaler, left_site_id, right_scaler, right_site_id);
     else
-      pll_fill_parent_scaler_repeats(parent_sites, parent_scaler, parent_id_site, 
+      pll_fill_parent_scaler_repeats(parent_sites, parent_scaler, parent_id_site,
         left_scaler, left_site_id, right_scaler, right_site_id);
   }
   else
@@ -1120,6 +1233,25 @@ PLL_EXPORT void pll_core_create_lookup(unsigned int states,
   #endif
   #ifdef HAVE_AVX2
   if (attrib & PLL_ATTRIB_ARCH_AVX2 && PLL_STAT(avx2_present))
+  {
+    if (states == 4)
+      pll_core_create_lookup_4x4_avx(rate_cats,
+                                     lookup,
+                                     left_matrix,
+                                     right_matrix);
+    else
+      pll_core_create_lookup_avx(states,
+                                 rate_cats,
+                                 lookup,
+                                 left_matrix,
+                                 right_matrix,
+                                 tipmap,
+                                 tipmap_size);
+    return;
+  }
+  #endif
+  #ifdef HAVE_AVX512F
+  if (attrib & PLL_ATTRIB_ARCH_AVX512F && PLL_STAT(avx512f_present))
   {
     if (states == 4)
       pll_core_create_lookup_4x4_avx(rate_cats,

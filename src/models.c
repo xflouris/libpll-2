@@ -593,10 +593,10 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
      sites, or -1 for variant sites */
   if (!partition->invariant)
   {
-    partition->invariant = (int *)malloc(sites * sizeof(int));
+    partition->invariant = pll_aligned_alloc(partition->sites_padded*sizeof(int), partition->alignment);
   }
 
-  invariant = (pll_state_t *)malloc(sites * sizeof(pll_state_t));
+  invariant = (pll_state_t *)malloc(partition->sites * sizeof(pll_state_t));
 
   if (!invariant || !partition->invariant)
   {
@@ -635,33 +635,63 @@ PLL_EXPORT int pll_update_invariant_sites(pll_partition_t * partition)
   }
   else
   {
-    unsigned int span_padded = rate_cats * states_padded;
-    for (i = 0; i < tips; ++i)
-    {
-      const unsigned int * site_id = NULL;
-      if (partition->repeats && partition->repeats->pernode_ids[i]) 
+    if(partition->attributes & PLL_ATTRIB_SIMD_MEM_LAYOUT) {
+      pll_state_t* v_state = (pll_state_t *)malloc(ELEM_PER_REGISTER(partition) * sizeof(pll_state_t));
+      for (i = 0; i < tips; ++i)
       {
-        site_id = partition->repeats->pernode_site_id[i];
-      }
-      for (j = 0; j < sites; ++j)
-      {
-        unsigned int site = site_id ? site_id[j] : j;
-        tipclv = partition->clv[i] + span_padded * site;
-        state = 0;
-        for (k = 0; k < states; ++k)
+        tipclv = partition->clv[i];
+        for (j = 0; j < sites; j+= ELEM_PER_REGISTER(partition))
         {
-          state |= ((pll_state_t)tipclv[k] << k);
+          for (unsigned int n = 0; n < ELEM_PER_REGISTER(partition); n++)
+          {
+            v_state[n] = 0;
+          }
+          for (k = 0; k < states; ++k)
+          {
+            for (unsigned int n = 0; n < ELEM_PER_REGISTER(partition); n++)
+            {
+              v_state[n] |= ((pll_state_t) tipclv[n] << k);
+            }
+            tipclv += ELEM_PER_REGISTER(partition);
+          }
+          for (unsigned int n = 0; n < ELEM_PER_REGISTER(partition) && j+n < partition->sites; n++) {
+            invariant[j + n] &= v_state[n];
+          }
+          tipclv += (rate_cats-1)*states*ELEM_PER_REGISTER(partition);
         }
-        invariant[j] &= state;
+      }
+      free(v_state);
+    }
+    else
+    {
+      unsigned int span_padded = rate_cats * states_padded;
+      for (i = 0; i < tips; ++i)
+      {
+        const unsigned int * site_id = NULL;
+        if (partition->repeats && partition->repeats->pernode_ids[i])
+        {
+          site_id = partition->repeats->pernode_site_id[i];
+        }
+        for (j = 0; j < sites; ++j)
+        {
+          unsigned int site = site_id ? site_id[j] : j;
+          tipclv = partition->clv[i] + span_padded * site;
+          state = 0;
+          for (k = 0; k < states; ++k)
+          {
+            state |= ((pll_state_t)tipclv[k] << k);
+          }
+          invariant[j] &= state;
+        }
       }
     }
   }
 
   /* if all basecalls at current site are the same and not degenerate set the
      index in invariant to the frequency index of the basecall, otherwise -1 */
-  for (i = 0; i < partition->sites; ++i)
+  for (i = 0; i < partition->sites_padded; ++i)
   {
-    if (invariant[i] == 0 || PLL_STATE_POPCNT(invariant[i]) > 1)
+    if (i >= partition->sites || invariant[i] == 0 || PLL_STATE_POPCNT(invariant[i]) > 1)
       partition->invariant[i] = -1;
     else
       partition->invariant[i] = PLL_STATE_CTZ(invariant[i]);
