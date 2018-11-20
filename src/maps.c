@@ -966,18 +966,33 @@ const double pll_aa_rates_lg4x[4][190] =
 
 /*
  * WARNING:
- *    In PhyML/PAML the last frequency is 0.064718 instead of 064717.
- *    It makes the frequencies summing to 1.000001 instead of 1.
+ *    For some models (e.g. DAYHOFF, LG and WAG) frequencies do not
+ *    sum up to one because of rounding errors.
+ *    The discrepancy is typically very small (+-.000001)
  *
- *    This happens also with other frequencies. For example, last freq
- *    in LG is different in PhyML and in RAxML (.069147 vs .069146)
+ *    In RAxML/ExaML and earlier libpll versions, this problem has been solved
+ *    by adjusting the last frequency (e.g. for LG: .069146 -> .069147)
+ *    However, this lead to (small) differences in likelihood scores with
+ *    tools such as PhyML which use the original published frequencies.
+ *
+ *    Therefore, from now on we will set the original frequencies here,
+ *    and re-normalize them later on in pll_set_frequencies() function.
+ *    (cf. https://github.com/amkozlov/raxml-ng/issues/46)
+ *
+ * IMPORTANT:
+ *    The new solution could lead to slight likelihood score differences compared
+ *    to earlier libpll and RAxML/ExaML/RAxML-NG versions. Furthermore, if frequencies
+ *    are set directly (i.e. without calling pll_set_frequencies()), it is user's
+ *    responsibility to perform normalization as needed.
+ *
+ *    (Alexey Kozlov  10.10.2018)
  */
 const double pll_aa_freqs_dayhoff[20] =
  {
     0.087127, 0.040904, 0.040432, 0.046872, 0.033474,
     0.038255, 0.049530, 0.088612, 0.033618, 0.036886,
     0.085357, 0.080482, 0.014753, 0.039772, 0.050680,
-    0.069577, 0.058542, 0.010494, 0.029916, 0.064717
+    0.069577, 0.058542, 0.010494, 0.029916, 0.064718
  };
 
 const double pll_aa_freqs_lg[20] =
@@ -985,7 +1000,7 @@ const double pll_aa_freqs_lg[20] =
     0.079066, 0.055941, 0.041977, 0.053052, 0.012937,
     0.040767, 0.071586, 0.057337, 0.022355, 0.062157,
     0.099081, 0.064600, 0.022951, 0.042302, 0.044040,
-    0.061197, 0.053287, 0.012066, 0.034155, 0.069146
+    0.061197, 0.053287, 0.012066, 0.034155, 0.069147
  };
 
 const double pll_aa_freqs_dcmut[20] =
@@ -993,7 +1008,7 @@ const double pll_aa_freqs_dcmut[20] =
    0.087127, 0.040904, 0.040432, 0.046872, 0.033474,
    0.038255, 0.049530, 0.088612, 0.033619, 0.036886,
    0.085357, 0.080481, 0.014753, 0.039772, 0.050680,
-   0.069577, 0.058542, 0.010494, 0.029916, 0.064717
+   0.069577, 0.058542, 0.010494, 0.029916, 0.064718
  };
 
 const double pll_aa_freqs_jtt[20] =
@@ -1001,7 +1016,7 @@ const double pll_aa_freqs_jtt[20] =
    0.076748, 0.051691, 0.042645, 0.051544, 0.019803,
    0.040752, 0.061830, 0.073152, 0.022944, 0.053761,
    0.091904, 0.058676, 0.023826, 0.040126, 0.050901,
-   0.068765, 0.058565, 0.014261, 0.032102, 0.066004
+   0.068765, 0.058565, 0.014261, 0.032102, 0.066005
  };
 
 const double pll_aa_freqs_mtrev[20] =
@@ -1017,7 +1032,7 @@ const double pll_aa_freqs_wag[20] =
    0.0866279, 0.043972,  0.0390894, 0.0570451, 0.0193078,
    0.0367281, 0.0580589, 0.0832518, 0.0244313, 0.048466,
    0.086209,  0.0620286, 0.0195027, 0.0384319, 0.0457631,
-   0.0695179, 0.0610127, 0.0143859, 0.0352742, 0.0708957
+   0.0695179, 0.0610127, 0.0143859, 0.0352742, 0.0708956
  };
 
 const double pll_aa_freqs_rtrev[20] =
@@ -1065,7 +1080,7 @@ const double pll_aa_freqs_mtart[20] =
   0.054116, 0.018227, 0.039903, 0.020160, 0.009709,
   0.018781, 0.024289, 0.068183, 0.024518, 0.092638,
   0.148658, 0.021718, 0.061453, 0.088668, 0.041826,
-  0.091030, 0.049194, 0.029786, 0.039443, 0.057700
+  0.091030, 0.049194, 0.029786, 0.039443, 0.057701
 };
 
 const double pll_aa_freqs_mtzoa[20] =
@@ -1097,7 +1112,7 @@ const double pll_aa_freqs_hivw[20] =
    0.0377494, 0.057321,  0.0891129, 0.0342034, 0.0240105,
    0.0437824, 0.0618606, 0.0838496, 0.0156076, 0.0983641,
    0.0577867, 0.0641682, 0.0158419, 0.0422741, 0.0458601,
-   0.0550846, 0.0813774, 0.019597,  0.0205847, 0.0515638
+   0.0550846, 0.0813774, 0.019597,  0.0205847, 0.0515639
  };
 
 const double pll_aa_freqs_jttdcmut[20] =
@@ -1110,10 +1125,10 @@ const double pll_aa_freqs_jttdcmut[20] =
 
 const double pll_aa_freqs_flu[20] =
  {
-   0.0471, 0.0509, 0.0742, 0.0479, 0.0250,
-   0.0333, 0.0546, 0.0764, 0.0200, 0.0671,
-   0.0715, 0.0568, 0.0181, 0.0305, 0.0507,
-   0.0884, 0.0743, 0.0185, 0.0315, 0.0632
+   0.0470718, 0.0509102, 0.0742143, 0.0478596, 0.0250216,
+   0.0333036, 0.0545874, 0.0763734, 0.0199642, 0.0671336,
+   0.0714981, 0.0567845, 0.0181507, 0.0304961, 0.0506561,
+   0.0884091, 0.0743386, 0.0185237, 0.0314741, 0.0632292
  };
 
 const double pll_aa_freqs_stmtrev[20] =
