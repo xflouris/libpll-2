@@ -102,9 +102,9 @@ PLL_EXPORT unsigned int pll_default_enable_repeats(pll_partition_t *partition,
     unsigned int right_clv)
 {
   pll_repeats_t * repeats = partition->repeats;
-  unsigned int min_size = repeats->pernode_ids[left_clv] 
-                          * repeats->pernode_ids[right_clv];
-  return !(!min_size || (repeats->lookup_buffer_size <= min_size)
+  unsigned long long min_size = (unsigned long long)repeats->pernode_ids[left_clv] 
+                          * (unsigned long long)repeats->pernode_ids[right_clv];
+  return !(!min_size || ((unsigned long long)repeats->lookup_buffer_size <= min_size)
       || (repeats->pernode_ids[left_clv] > (partition->sites / 2))
       || (repeats->pernode_ids[right_clv] > (partition->sites / 2)));
 }

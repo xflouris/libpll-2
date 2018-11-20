@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2015 Tomas Flouri
+    Copyright (C) 2015-2018 Tomas Flouri, Alexey Kozlov
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -35,6 +35,8 @@ static void print_node_info(const pll_unode_t * node, int options)
     printf (" %d", node->scaler_index);
   if (options & PLL_UTREE_SHOW_PMATRIX_INDEX)
     printf (" %d", node->pmatrix_index);
+  if (options & PLL_UTREE_SHOW_DATA)
+    printf (" %p", node->data);
   printf("\n");
 }
 
@@ -95,28 +97,36 @@ static void print_tree_recurse(pll_unode_t * node,
 
   if (node->next)
   {
-    active_node_order[indent_level] = 1;
-    print_tree_recurse(node->next->back,
-                       indent_level+1,
-                       active_node_order,
-                       options);
-    active_node_order[indent_level] = 2;
-    print_tree_recurse(node->next->next->back,
-                       indent_level+1,
-                       active_node_order,
-                       options);
+    pll_unode_t * snode = node->next;
+    do {
+      active_node_order[indent_level] = snode->next == node ? 2 : 1;
+      print_tree_recurse(snode->back,
+                         indent_level+1,
+                         active_node_order,
+                         options);
+      snode = snode->next;
+    }
+    while (snode != node);
   }
 
 }
 
 static unsigned int tree_indent_level(const pll_unode_t * node, unsigned int indent)
 {
-  if (!node->next) return indent+1;
+  if (!node->next)
+    return indent+1;
 
-  unsigned int a = tree_indent_level(node->next->back,       indent+1);
-  unsigned int b = tree_indent_level(node->next->next->back, indent+1);
+  unsigned int ind = 0;
+  pll_unode_t * snode = node->next;
+  do
+  {
+    unsigned int sind = tree_indent_level(snode->back, indent+1);
+    ind = PLL_MAX(ind, sind);
+    snode = snode->next;
+  }
+  while (snode && snode != node);
 
-  return (a > b ? a : b);
+  return ind;
 }
 
 PLL_EXPORT void pll_utree_show_ascii(const pll_unode_t * root, int options)
@@ -139,18 +149,22 @@ PLL_EXPORT void pll_utree_show_ascii(const pll_unode_t * root, int options)
   active_node_order[0] = 1;
   active_node_order[1] = 1;
 
-  print_tree_recurse(root->back,       1, active_node_order, options);
-  print_tree_recurse(root->next->back, 1, active_node_order, options);
-  active_node_order[0] = 2;
-  print_tree_recurse(root->next->next->back, 1, active_node_order, options);
+  const pll_unode_t * node = root;
+  do {
+    active_node_order[0] = node->next == root ? 2 : 1;
+    print_tree_recurse(node->back, 1, active_node_order, options);
+    node = node->next;
+  }
+  while (node != root);
   free(active_node_order);
 }
 
 static char * newick_utree_recurse(const pll_unode_t * root,
-                                   char * (*cb_serialize)(const pll_unode_t *))
+                                    char * (*cb_serialize)(const pll_unode_t *),
+                                    int level)
 {
   char * newick;
-  int size_alloced;
+  int size_alloced = 0;
   assert(root != NULL);
   if (!root->next)
   {
@@ -166,44 +180,62 @@ static char * newick_utree_recurse(const pll_unode_t * root,
   }
   else
   {
-    char * subtree1 = newick_utree_recurse(root->next->back,cb_serialize);
-    if (subtree1 == NULL)
+    const pll_unode_t * start = root->next;
+    const pll_unode_t * snode = start;
+    char * cur_newick;
+    do
     {
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-      return NULL;
-    }
-    char * subtree2 = newick_utree_recurse(root->next->next->back,cb_serialize);
-    if (subtree2 == NULL)
-    {
-      free(subtree1);
-      pll_errno = PLL_ERROR_MEM_ALLOC;
-      snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-      return NULL;
-    }
+      char * subtree = newick_utree_recurse(snode->back, cb_serialize, level+1);
+      if (subtree == NULL)
+      {
+        pll_errno = PLL_ERROR_MEM_ALLOC;
+        snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
+        return NULL;
+      }
 
-    if (cb_serialize)
+      if (snode == start)
+      {
+        cur_newick = subtree;
+      }
+      else
+      {
+        char * temp = cur_newick;
+        size_alloced = asprintf(&cur_newick,
+                                "%s,%s",
+                                temp,
+                                subtree);
+        free(temp);
+        free(subtree);
+      }
+      snode = snode->next;
+    }
+    while(snode != root);
+
+    if (level > 0)
     {
-      char * temp = cb_serialize(root);
-      size_alloced = asprintf(&newick,
-                              "(%s,%s)%s",
-                              subtree1,
-                              subtree2,
-                              temp);
-      free(temp);
+      if (cb_serialize)
+      {
+        char * temp = cb_serialize(root);
+        size_alloced = asprintf(&newick,
+                                "(%s)%s",
+                                cur_newick,
+                                temp);
+        free(temp);
+      }
+      else
+      {
+        size_alloced = asprintf(&newick,
+                                "(%s)%s:%f",
+                                cur_newick,
+                                root->label ? root->label : "",
+                                root->length);
+      }
+      free(cur_newick);
     }
     else
-    {
-      size_alloced = asprintf(&newick,
-                              "(%s,%s)%s:%f",
-                              subtree1,
-                              subtree2,
-                              root->label ? root->label : "",
-                              root->length);
-    }
-    free(subtree1);
-    free(subtree2);
+      newick = cur_newick;
   }
+
   if (size_alloced < 0)
   {
     pll_errno = PLL_ERROR_MEM_ALLOC;
@@ -220,79 +252,51 @@ char * utree_export_newick(const pll_unode_t * root,
                            char * (*cb_serialize)(const pll_unode_t *))
 {
   char * newick;
+  char * subtree1;
+  char * subtree2;
   int size_alloced;
+
   if (!root) return NULL;
 
-  if (!root->next) root=root->back;
-
-  char * subtree1 = newick_utree_recurse(root->back,cb_serialize);
-  if (subtree1 == NULL)
-  {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-    return NULL;
-  }
-  char * subtree2 = newick_utree_recurse(root->next->back,cb_serialize);
-  if (subtree2 == NULL)
-  {
-    free(subtree1);
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-    return NULL;
-  }
-  char * subtree3 = newick_utree_recurse(root->next->next->back,cb_serialize);
-  if (subtree3 == NULL)
-  {
-    free(subtree1);
-    free(subtree2);
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
-    return NULL;
-  }
+  if (!root->next) root = root->back;
 
   if (export_rooted)
   {
     assert(!cb_serialize);
+
+    subtree1 = newick_utree_recurse(root->back, cb_serialize, 1);
+    subtree2 = newick_utree_recurse(root, cb_serialize, 0);
+
     size_alloced = asprintf(&newick,
-                            "(%s,(%s,%s):%f)%s:0.0;",
+                            "(%s,(%s)%s:%f):0.0;",
                             subtree1,
                             subtree2,
-                            subtree3,
-                            root_brlen,
-                            root->label ? root->label : "");
+                            root->label ? root->label : "",
+                            root_brlen);
   }
   else
   {
-    if (cb_serialize)
-    {
-      char * temp = cb_serialize(root);
-      size_alloced = asprintf(&newick,
-                              "(%s,%s,%s)%s",
-                              subtree1,
-                              subtree2,
-                              subtree3,
-                              temp);
-      free(temp);
-    }
-    else
-    {
-      size_alloced = asprintf(&newick,
-                              "(%s,%s,%s)%s:0.0;",
-                              subtree1,
-                              subtree2,
-                              subtree3,
-                              root->label ? root->label : "");
-    }
+    subtree1 = newick_utree_recurse(root->back, cb_serialize, 1);
+    subtree2 = newick_utree_recurse(root, cb_serialize, 0);
+
+    size_alloced = asprintf(&newick,
+                            "(%s,%s)%s:0.0;",
+                            subtree1,
+                            subtree2,
+                            root->label ? root->label : "");
   }
+
   free(subtree1);
   free(subtree2);
-  free(subtree3);
+
   if (size_alloced < 0)
   {
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg, 200, "memory allocation during newick export failed");
     return NULL;
   }
+
+//  printf("newick: %s\n", newick);
 
   return (newick);
 }
@@ -321,7 +325,8 @@ PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,
   unsigned int i;
 
   *ops_count = 0;
-  *matrix_count = 0;
+  if (matrix_count)
+    *matrix_count = 0;
 
   for (i = 0; i < trav_buffer_size; ++i)
   {
@@ -333,9 +338,12 @@ PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,
     in the list) */
     if (node != trav_buffer[trav_buffer_size - 1]->back)
     {
-      *branches++ = node->length;
-      *pmatrix_indices++ = node->pmatrix_index;
-      *matrix_count = *matrix_count + 1;
+      if (branches)
+        *branches++ = node->length;
+      if (pmatrix_indices)
+        *pmatrix_indices++ = node->pmatrix_index;
+      if (matrix_count)
+        *matrix_count = *matrix_count + 1;
     }
 
     if (node->next)
@@ -357,75 +365,62 @@ PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,
 }
 
 PLL_EXPORT int pll_utree_every(pll_utree_t * tree,
-                               int (*cb)(pll_unode_t *))
+                               int (*cb)(const pll_utree_t *,
+                                         const pll_unode_t *))
 {
   unsigned int i;
   int rc = 1;
 
   for (i = 0; i < tree->tip_count + tree->inner_count; ++i)
-    rc &= cb(tree->nodes[i]);
+    rc &= cb(tree, tree->nodes[i]);
 
   return (rc ? PLL_SUCCESS : PLL_FAILURE);
 }
 
 PLL_EXPORT int pll_utree_every_const(const pll_utree_t * tree,
-                                     int (*cb)(const pll_unode_t *))
+                                     int (*cb)(const pll_utree_t *,
+                                               const pll_unode_t *))
 {
   unsigned int i;
   int rc = 1;
 
   for (i = 0; i < tree->tip_count + tree->inner_count; ++i)
-    rc &= cb(tree->nodes[i]);
+    rc &= cb(tree, tree->nodes[i]);
 
   return (rc ? PLL_SUCCESS : PLL_FAILURE);
 }
 
-static void utree_traverse_preorder(pll_unode_t * node,
-                                    int (*cbtrav)(pll_unode_t *),
-                                    unsigned int * index,
-                                    pll_unode_t ** outbuffer)
-{
-  if (!node->next)
-  {
-    if (cbtrav(node))
-    {
-      outbuffer[*index] = node;
-      *index = *index + 1;
-    }
-    return;
-  }
-  if (!cbtrav(node))
-    return;
-
-  outbuffer[*index] = node;
-  *index = *index + 1;
-
-  utree_traverse_preorder(node->next->back, cbtrav, index, outbuffer);
-  utree_traverse_preorder(node->next->next->back, cbtrav, index, outbuffer);
-}
-
-static void utree_traverse_postorder(pll_unode_t * node,
+static void utree_traverse_recursive(pll_unode_t * node,
+                                     int traversal,
                                      int (*cbtrav)(pll_unode_t *),
                                      unsigned int * index,
                                      pll_unode_t ** outbuffer)
 {
-  if (!node->next)
-  {
-    if (cbtrav(node))
-    {
-      outbuffer[*index] = node;
-      *index = *index + 1;
-    }
-    return;
-  }
   if (!cbtrav(node))
     return;
 
-  utree_traverse_postorder(node->next->back, cbtrav, index, outbuffer);
-  utree_traverse_postorder(node->next->next->back, cbtrav, index, outbuffer);
+  if (traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    outbuffer[*index] = node;
+    *index = *index + 1;
+  }
 
-  outbuffer[*index] = node;
-  *index = *index + 1;
+  if (node->next)
+  {
+    pll_unode_t * snode = node->next;
+    do
+    {
+      utree_traverse_recursive(snode->back, traversal, cbtrav, index, outbuffer);
+      snode = snode->next;
+    }
+    while (snode && snode != node);
+  }
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER)
+  {
+    outbuffer[*index] = node;
+    *index = *index + 1;
+  }
 }
 
 PLL_EXPORT int pll_utree_traverse(pll_unode_t * root,
@@ -437,7 +432,8 @@ PLL_EXPORT int pll_utree_traverse(pll_unode_t * root,
   *trav_size = 0;
   if (!root->next) return PLL_FAILURE;
 
-  if (traversal == PLL_TREE_TRAVERSE_POSTORDER)
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER ||
+      traversal == PLL_TREE_TRAVERSE_PREORDER)
   {
 
     /* we will traverse an unrooted tree in the following way
@@ -451,13 +447,8 @@ PLL_EXPORT int pll_utree_traverse(pll_unode_t * root,
        at each node the callback function is called to decide whether we
        are going to traversing the subtree rooted at the specific node */
 
-    utree_traverse_postorder(root->back, cbtrav, trav_size, outbuffer);
-    utree_traverse_postorder(root, cbtrav, trav_size, outbuffer);
-  }
-  else if (traversal == PLL_TREE_TRAVERSE_PREORDER)
-  {
-    utree_traverse_preorder(root->back, cbtrav, trav_size, outbuffer);
-    utree_traverse_preorder(root, cbtrav, trav_size, outbuffer);
+    utree_traverse_recursive(root->back, traversal, cbtrav, trav_size, outbuffer);
+    utree_traverse_recursive(root, traversal, cbtrav, trav_size, outbuffer);
   }
   else
   {
@@ -469,106 +460,90 @@ PLL_EXPORT int pll_utree_traverse(pll_unode_t * root,
   return PLL_SUCCESS;
 }
 
-#if 0
-static void utree_query_tipnodes_recursive(pll_utree_t * node,
-                                           pll_utree_t ** node_list,
-                                           unsigned int * index)
-{
-  if (!node->next)
-  {
-    node_list[*index] = node;
-    *index = *index + 1;
-    return;
-  }
-
-  utree_query_tipnodes_recursive(node->next->back, node_list, index);
-  utree_query_tipnodes_recursive(node->next->next->back, node_list, index);
-}
-
-PLL_EXPORT unsigned int pll_utree_query_tipnodes(pll_utree_t * root,
-                                                 pll_utree_t ** node_list)
-{
-  unsigned int index = 0;
-
-  if (!root) return 0;
-
-  if (!root->next) root = root->back;
-
-  utree_query_tipnodes_recursive(root->back, node_list, &index);
-
-  utree_query_tipnodes_recursive(root->next->back, node_list, &index);
-  utree_query_tipnodes_recursive(root->next->next->back, node_list, &index);
-
-  return index;
-}
-
-static void utree_query_innernodes_recursive(pll_utree_t * node,
-                                             pll_utree_t ** node_list,
-                                             unsigned int * index)
-{
-  if (!node->next) return;
-
-  /* postorder traversal */
-
-  utree_query_innernodes_recursive(node->next->back, node_list, index);
-  utree_query_innernodes_recursive(node->next->next->back, node_list, index);
-
-  node_list[*index] = node;
-  *index = *index + 1;
-  return;
-}
-
-PLL_EXPORT unsigned int pll_utree_query_innernodes(pll_utree_t * root,
-                                                   pll_utree_t ** node_list)
-{
-  unsigned int index = 0;
-
-  if (!root) return 0;
-  if (!root->next) root = root->back;
-
-  utree_query_innernodes_recursive(root->back, node_list, &index);
-
-  utree_query_innernodes_recursive(root->next->back, node_list, &index);
-  utree_query_innernodes_recursive(root->next->next->back, node_list, &index);
-
-  node_list[index++] = root;
-
-  return index;
-}
-#endif
-
 /* a callback function for checking tree integrity */
-static int cb_check_integrity(const pll_unode_t * node)
+static int cb_check_integrity_mult(const pll_utree_t * tree,
+                                   const pll_unode_t * node)
 {
   unsigned int clv_index = node->clv_index;
   int scaler_index = node->scaler_index;
   unsigned int pmatrix_index = node->pmatrix_index;
   char * label = node->label;
   double length = node->length;
+  unsigned int subnodes = 1;
 
   /* edge attributes */
-  if (node->back->length != length
-      || node->back->pmatrix_index != pmatrix_index)
-    return 0;
+  if (node->back->length != length)
+  {
+    snprintf(pll_errmsg, 200, "Inconsistent branch lengths: %lf != %lf",
+             length, node->back->length);
+    return PLL_FAILURE;
+  }
+
+  if (node->back->pmatrix_index != pmatrix_index)
+  {
+    snprintf(pll_errmsg, 200, "Inconsistent pmatrix indices: %u != %u",
+             pmatrix_index, node->back->pmatrix_index);
+    return PLL_FAILURE;
+  }
+
   if (node->next)
   {
     /* node attributes */
-    if (node->next->clv_index != clv_index ||
-        node->next->next->clv_index != clv_index)
-      return 0;
-    if (node->next->scaler_index != scaler_index ||
-            node->next->next->scaler_index != scaler_index)
-          return 0;
-    if (node->next->label != label ||
-            node->next->next->label != label)
-          return 0;
+    pll_unode_t * snode = node->next;
+    do
+    {
+      subnodes++;
+
+      if (tree->binary && subnodes > 3)
+      {
+        snprintf(pll_errmsg, 200, "Multifurcation found in a binary tree "
+            "at node with clv_index = %u", snode->clv_index);
+        return PLL_FAILURE;
+      }
+
+      if (subnodes > tree->tip_count)
+      {
+        snprintf(pll_errmsg, 200, "Multifurcation exceeding the tree size found "
+            "at node with clv_index = %u", snode->clv_index);
+        return PLL_FAILURE;
+      }
+
+      if (snode->clv_index != clv_index)
+      {
+        snprintf(pll_errmsg, 200, "Inconsistent CLV indices: %u != %u",
+                 clv_index, snode->clv_index);
+        return PLL_FAILURE;
+      }
+      if (snode->scaler_index != scaler_index)
+      {
+        snprintf(pll_errmsg, 200, "Inconsistent scaler indices: %u != %u",
+                 scaler_index, snode->scaler_index);
+        return PLL_FAILURE;
+      }
+      if (snode->label != label)
+      {
+        snprintf(pll_errmsg, 200, "Inconsistent node labels: '%s' != '%s'",
+                 label, snode->label);
+        return PLL_FAILURE;
+      }
+      if (!snode->next)
+      {
+        snprintf(pll_errmsg, 200, "Open roundabout (node->next is NULL) "
+            "at node with clv_index = %u", snode->clv_index);
+        return PLL_FAILURE;
+      }
+      snode = snode->next;
+    }
+    while (snode != node);
   }
+
   return 1;
 }
 
+
 PLL_EXPORT int pll_utree_check_integrity(const pll_utree_t * tree)
 {
-  return pll_utree_every_const(tree, cb_check_integrity);
+  return pll_utree_every_const(tree, cb_check_integrity_mult);
 }
 
 /* TODO: Memory allocation checks were not implemented in this function!!! */
@@ -585,29 +560,43 @@ static pll_unode_t * clone_node(const pll_unode_t * node)
 
   if (node->next)
   {
-    new_node->next = (pll_unode_t *)malloc(sizeof(pll_unode_t));
-    memcpy(new_node->next, node->next, sizeof(pll_unode_t));
+    pll_unode_t * snode = node->next;
+    pll_unode_t * new_snode = new_node;
+    do
+    {
+      new_snode->next = (pll_unode_t *)malloc(sizeof(pll_unode_t));
+      memcpy(new_snode->next, snode, sizeof(pll_unode_t));
+      new_snode->next->label = new_node->label;
+      snode = snode->next;
+      new_snode = new_snode->next;
+    }
+    while (snode != node);
 
-    new_node->next->next = (pll_unode_t *)malloc(sizeof(pll_unode_t));
-    memcpy(new_node->next->next, node->next->next, sizeof(pll_unode_t));
-
-    new_node->next->next->next = new_node;
-    new_node->next->label = new_node->next->next->label = new_node->label;
+    new_snode->next = new_node;
   }
+
   return new_node;
 }
 
 static void utree_recurse_clone(pll_unode_t * new_root, const pll_unode_t * root)
 {
-  if (root->back)
+  const pll_unode_t * node = root->back;
+  if (node)
   {
-    new_root->back = clone_node(root->back);
+    new_root->back = clone_node(node);
     new_root->back->back = new_root;
 
-    if (root->back->next)
+    if (node->next)
     {
-      utree_recurse_clone(new_root->back->next,       root->back->next);
-      utree_recurse_clone(new_root->back->next->next, root->back->next->next);
+      pll_unode_t * snode = node->next;
+      pll_unode_t * new_snode = new_root->back->next;
+      do
+      {
+        utree_recurse_clone(new_snode, snode);
+        snode = snode->next;
+        new_snode = new_snode->next;
+      }
+      while (snode && snode != node);
     }
   }
 }
@@ -616,26 +605,30 @@ PLL_EXPORT pll_unode_t * pll_utree_graph_clone(const pll_unode_t * root)
 {
   pll_unode_t * new_root = clone_node(root);
 
-  utree_recurse_clone(new_root, root);
-  if (root->next)
+  const pll_unode_t * snode = root;
+  pll_unode_t * new_snode = new_root;
+  do
   {
-    utree_recurse_clone(new_root->next, root->next);
-    utree_recurse_clone(new_root->next->next, root->next->next);
+    utree_recurse_clone(new_snode, snode);
+    snode = snode->next;
+    new_snode = new_snode->next;
   }
+  while (snode && snode != root);
 
   return new_root;
 }
 
 PLL_EXPORT pll_utree_t * pll_utree_clone(const pll_utree_t * tree)
 {
-  unsigned int root_index = tree->inner_count + tree->tip_count - 1;
-
-  /* choose the last inner node as the starting point of the clone. It does not
+   /* choose the last inner node as the starting point of the clone. It does not
      really matter which node to choose, but since the newick parser places the
      root node at the end of the list, we use the same notation here */
-  pll_unode_t * root = pll_utree_graph_clone(tree->nodes[root_index]);
+  pll_unode_t * root = pll_utree_graph_clone(tree->vroot);
 
-  return pll_utree_wraptree(root, tree->tip_count);
+  if (tree->binary)
+    return pll_utree_wraptree(root, tree->tip_count);
+  else
+    return pll_utree_wraptree_multi(root, tree->tip_count, tree->inner_count);
 }
 
 static pll_unode_t * rtree_unroot(pll_rnode_t * root, pll_unode_t * back)

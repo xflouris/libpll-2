@@ -455,21 +455,18 @@ double pll_core_edge_loglikelihood_ti_4x4_avx(unsigned int sites,
         terma_r *= scale_minlh[rate_scalings[i]-1];
       }
 
-      if (terma_r > 0.)
+      /* account for invariant sites */
+      prop_invar = invar_proportion ? invar_proportion[freqs_indices[i]] : 0;
+      if (prop_invar > 0)
       {
-        /* account for invariant sites */
-        prop_invar = invar_proportion ? invar_proportion[freqs_indices[i]] : 0;
-        if (prop_invar > 0)
-        {
-          inv_site_lk = (invar_indices[n] == -1) ?
-                            0 : freqs[invar_indices[n]];
-          terma += rate_weights[i] * (terma_r * (1 - prop_invar) +
-                   inv_site_lk * prop_invar);
-        }
-        else
-        {
-          terma += terma_r * rate_weights[i];
-        }
+        inv_site_lk = (invar_indices[n] == -1) ?
+                          0 : freqs[invar_indices[n]];
+        terma += rate_weights[i] * (terma_r * (1 - prop_invar) +
+                 inv_site_lk * prop_invar);
+      }
+      else
+      {
+        terma += terma_r * rate_weights[i];
       }
 
       clvp += states_padded;
@@ -1543,21 +1540,18 @@ double pll_core_edge_loglikelihood_ii_4x4_avx(unsigned int sites,
         terma_r *= scale_minlh[rate_scalings[i]-1];
       }
 
-      if (terma_r > 0.)
+      /* account for invariant sites */
+      prop_invar = invar_proportion ? invar_proportion[freqs_indices[i]] : 0;
+      if (prop_invar > 0)
       {
-        /* account for invariant sites */
-        prop_invar = invar_proportion ? invar_proportion[freqs_indices[i]] : 0;
-        if (prop_invar > 0)
-        {
-          inv_site_lk = (invar_indices[n] == -1) ?
-                            0 : freqs[invar_indices[n]];
-          terma += rate_weights[i] * (terma_r * (1 - prop_invar) +
-                   inv_site_lk * prop_invar);
-        }
-        else
-        {
-          terma += terma_r * rate_weights[i];
-        }
+        inv_site_lk = (invar_indices[n] == -1) ?
+                          0 : freqs[invar_indices[n]];
+        terma += rate_weights[i] * (terma_r * (1 - prop_invar) +
+                 inv_site_lk * prop_invar);
+      }
+      else
+      {
+        terma += terma_r * rate_weights[i];
       }
 
       clvp += states_padded;
@@ -1741,21 +1735,18 @@ double pll_core_edge_loglikelihood_repeats_4x4_avx(unsigned int states,
         terma_r *= scale_minlh[rate_scalings[i]-1];
       }
 
-      if (terma_r > 0.)
+      /* account for invariant sites */
+      prop_invar = invar_proportion ? invar_proportion[freqs_indices[i]] : 0;
+      if (prop_invar > 0)
       {
-        /* account for invariant sites */
-        prop_invar = invar_proportion ? invar_proportion[freqs_indices[i]] : 0;
-        if (prop_invar > 0)
-        {
-          inv_site_lk = (invar_indices[n] == -1) ?
-                            0 : freqs[invar_indices[n]];
-          terma += rate_weights[i] * (terma_r * (1 - prop_invar) +
-                   inv_site_lk * prop_invar);
-        }
-        else
-        {
-          terma += terma_r * rate_weights[i];
-        }
+        inv_site_lk = (invar_indices[n] == -1) ?
+                          0 : freqs[invar_indices[n]];
+        terma += rate_weights[i] * (terma_r * (1 - prop_invar) +
+                 inv_site_lk * prop_invar);
+      }
+      else
+      {
+        terma += terma_r * rate_weights[i];
       }
 
       clvp += states_padded;
@@ -1949,21 +1940,18 @@ double pll_core_edge_loglikelihood_repeatsbclv_4x4_avx(unsigned int states,
         terma_r *= scale_minlh[rate_scalings[i]-1];
       }
 
-      if (terma_r > 0.)
+      /* account for invariant sites */
+      prop_invar = invar_proportion ? invar_proportion[freqs_indices[i]] : 0;
+      if (prop_invar > 0)
       {
-        /* account for invariant sites */
-        prop_invar = invar_proportion ? invar_proportion[freqs_indices[i]] : 0;
-        if (prop_invar > 0)
-        {
-          inv_site_lk = (invar_indices[n] == -1) ?
-                            0 : freqs[invar_indices[n]];
-          terma += rate_weights[i] * (terma_r * (1 - prop_invar) +
-                   inv_site_lk * prop_invar);
-        }
-        else
-        {
-          terma += terma_r * rate_weights[i];
-        }
+        inv_site_lk = (invar_indices[n] == -1) ?
+                          0 : freqs[invar_indices[n]];
+        terma += rate_weights[i] * (terma_r * (1 - prop_invar) +
+                 inv_site_lk * prop_invar);
+      }
+      else
+      {
+        terma += terma_r * rate_weights[i];
       }
 
       clvp += states_padded;

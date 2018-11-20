@@ -87,7 +87,7 @@
    dominant factor.  With deg equal to seven, the period is actually much
    longer than the 7*(2**7 - 1) predicted by this formula.  */
 
-
+#define RAND_STATE_SIZE 128
 
 /* For each of the currently supported random number generators, we have a
    break value on the amount of state information (you need at least this many
@@ -391,3 +391,35 @@ pll_random_r (struct pll_random_data *buf, int32_t *result)
            "The buf or result argument to random_r() was NULL.");
   return -1;
 }
+
+PLL_EXPORT pll_random_state * pll_random_create(unsigned int seed)
+{
+  pll_random_state *rstate = (pll_random_state *)
+      calloc(1, sizeof(pll_random_state));
+  rstate->state_buf = (char *)calloc(RAND_STATE_SIZE, sizeof(char));
+
+  pll_initstate_r(seed, rstate->state_buf, RAND_STATE_SIZE, &rstate->rdata);
+  pll_srandom_r(seed, &rstate->rdata);
+
+  return rstate;
+}
+
+/* return a random integer r, 0 <= r < maxval */
+PLL_EXPORT int pll_random_getint(pll_random_state * rstate, int maxval)
+{
+  int32_t r;
+  pll_random_r(&rstate->rdata, &r);
+  return r % maxval;
+}
+
+PLL_EXPORT void pll_random_destroy(pll_random_state * rstate)
+{
+  if (rstate)
+  {
+    if (rstate->state_buf)
+      free(rstate->state_buf);
+    free(rstate);
+  }
+}
+
+

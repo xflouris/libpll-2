@@ -92,6 +92,7 @@ int main(int argc, char * argv[])
   pll_unode_t ** travbuffer;
   pll_unode_t ** inner_nodes_list;
   unsigned int params_indices[N_RATE_CATS] = {0,0,0,0};
+  int retval;
 
   /* parse the unrooted binary tree in newick format, and store the number
      of tip nodes in tip_nodes_count */
@@ -119,6 +120,12 @@ int main(int argc, char * argv[])
      newick) to 0.000001 */
   set_missing_branch_length(tree, 0.000001);
 
+  retval = pll_utree_check_integrity(tree);
+  if (!retval)
+  {
+    printf("ERROR: pll_utree validation failed: %s\n", pll_errmsg);
+    exit(-1);
+  }
 
   /* compute and show node count information */
   inner_nodes_count = tip_nodes_count - 2;
