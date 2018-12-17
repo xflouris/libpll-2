@@ -543,6 +543,7 @@ PLL_EXPORT extern const pll_state_t pll_map_nt[256];
 PLL_EXPORT extern const pll_state_t pll_map_aa[256];
 PLL_EXPORT extern const unsigned int pll_map_fasta[256];
 PLL_EXPORT extern const unsigned int pll_map_phylip[256];
+PLL_EXPORT extern const unsigned int pll_map_generic[256];
 
 PLL_EXPORT extern const double pll_aa_rates_dayhoff[190];
 PLL_EXPORT extern const double pll_aa_rates_lg[190];
