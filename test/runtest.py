@@ -389,7 +389,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Run the libpll tests')
   parser.add_argument('--lib', help='path to the shared libpll library',
           default=None)
-  parser.add_argument('--files', help='directory to the tests', default=None)
+  parser.add_argument('--files', help='directory to the tests', nargs='*', default=None)
   args = parser.parse_args()
   if args.lib:
       if not 'LD_LIBRARY_PATH' in os.environ:
