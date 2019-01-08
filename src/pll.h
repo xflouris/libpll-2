@@ -564,6 +564,7 @@ PLL_EXPORT extern const double pll_aa_rates_hivw[190];
 PLL_EXPORT extern const double pll_aa_rates_jttdcmut[190];
 PLL_EXPORT extern const double pll_aa_rates_flu[190];
 PLL_EXPORT extern const double pll_aa_rates_stmtrev[190];
+PLL_EXPORT extern const double pll_aa_rates_den[190];
 PLL_EXPORT extern const double pll_aa_rates_lg4m[4][190];
 PLL_EXPORT extern const double pll_aa_rates_lg4x[4][190];
 
@@ -586,6 +587,7 @@ PLL_EXPORT extern const double pll_aa_freqs_hivw[20];
 PLL_EXPORT extern const double pll_aa_freqs_jttdcmut[20];
 PLL_EXPORT extern const double pll_aa_freqs_flu[20];
 PLL_EXPORT extern const double pll_aa_freqs_stmtrev[20];
+PLL_EXPORT extern const double pll_aa_freqs_den[20];
 PLL_EXPORT extern const double pll_aa_freqs_lg4m[4][20];
 PLL_EXPORT extern const double pll_aa_freqs_lg4x[4][20];
 
