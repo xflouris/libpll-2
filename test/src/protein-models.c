@@ -23,7 +23,7 @@
 #define N_RATE_CATS 4
 #define ALPHA 1
 
-#define N_PROT_MODELS 19
+#define N_PROT_MODELS 20
 #define N_STATES 20
 
 #define FLOAT_PRECISION 5
@@ -39,7 +39,7 @@
       pll_aa_rates_mtzoa,    pll_aa_rates_pmb,
       pll_aa_rates_hivb,     pll_aa_rates_hivw,
       pll_aa_rates_jttdcmut, pll_aa_rates_flu,
-      pll_aa_rates_stmtrev
+      pll_aa_rates_stmtrev,  pll_aa_rates_den
       };
 
   static const double * prot_freqs[N_PROT_MODELS] =
@@ -53,7 +53,7 @@
       pll_aa_freqs_mtzoa,    pll_aa_freqs_pmb,
       pll_aa_freqs_hivb,     pll_aa_freqs_hivw,
       pll_aa_freqs_jttdcmut, pll_aa_freqs_flu,
-      pll_aa_freqs_stmtrev
+      pll_aa_freqs_stmtrev,  pll_aa_freqs_den
       };
 
   static char * prot_model_names[N_PROT_MODELS] =
@@ -67,7 +67,7 @@
           "MtZoa", "PMB",
           "HIVb", "HIVw",
           "JTT-DCMut", "FLU",
-          "StmtREV"
+          "StmtREV", "DEN"
       };
 
 int main(int argc, char * argv[])
