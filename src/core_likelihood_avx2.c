@@ -908,8 +908,6 @@ double pll_core_edge_loglikelihood_repeats_generic_avx2(unsigned int states,
       site_lk = log(terma + terminv);
     }
 
-    assert(site_lk < 0. && isfinite(site_lk));
-
     site_lk *= pattern_weights[n];
 
     /* store per-site log-likelihood */
