@@ -42,6 +42,7 @@ set(LIBPLL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/compress.c
   ${FLEX_lex_utree_t_OUTPUTS}
   ${BISON_parse_rtree_t_OUTPUTS}
   ${FLEX_lex_rtree_t_OUTPUTS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/clv_reuse.c
   ${CMAKE_CURRENT_SOURCE_DIR}/core_derivatives.c
   ${CMAKE_CURRENT_SOURCE_DIR}/core_likelihood.c
   ${CMAKE_CURRENT_SOURCE_DIR}/core_partials.c
