@@ -180,7 +180,7 @@ static void mytred2(double **a, const unsigned int n, double *d, double *e)
 /* TODO: Add code for SSE/AVX. Perhaps allocate qmatrix in one chunk to avoid the
 complex checking when to dealloc */
 static double ** create_ratematrix(double * params,
-                                   double * frequencies,
+                                   double * freqs,
                                    unsigned int states)
 {
   unsigned int i,j,k,success;
@@ -196,8 +196,10 @@ static double ** create_ratematrix(double * params,
   memcpy(params_normalized,params,params_count*sizeof(double));
 
   if (params_normalized[params_count - 1] > 0.0)
+  {
     for (i = 0; i < params_count; ++i)
       params_normalized[i] /= params_normalized[params_count - 1];
+  }
 
   /* allocate qmatrix */
   qmatrix = (double **)malloc(states*sizeof(double *));
@@ -229,29 +231,69 @@ static double ** create_ratematrix(double * params,
   {
     for (j = i+1; j < states; ++j)
     {
-      double factor = params_normalized[k++];
-      qmatrix[i][j] = qmatrix[j][i] = factor * sqrt(frequencies[i] * frequencies[j]);
-      qmatrix[i][i] -= factor * frequencies[j];
-      qmatrix[j][j] -= factor * frequencies[i];
+      double factor = (freqs[i] <= PLL_EIGEN_MINFREQ ||
+                       freqs[j] <= PLL_EIGEN_MINFREQ) ? 0 : params_normalized[k];
+      k++;
+      qmatrix[i][j] = qmatrix[j][i] = factor * sqrt(freqs[i] * freqs[j]);
+      qmatrix[i][i] -= factor * freqs[j];
+      qmatrix[j][j] -= factor * freqs[i];
     }
   }
 
 
   double mean = 0;
-  for (i = 0; i < states; ++i) mean += frequencies[i] * (-qmatrix[i][i]);
   for (i = 0; i < states; ++i)
+    mean += freqs[i] * (-qmatrix[i][i]);
+  for (i = 0; i < states; ++i)
+  {
     for (j = 0; j < states; ++j)
       qmatrix[i][j] /= mean;
+  }
 
   free(params_normalized);
 
   return qmatrix;
 }
 
+static unsigned int eliminate_zero_states(double **mat, double *forg,
+                                          unsigned int states, double *new_forg)
+{
+  unsigned int i, j, inew, jnew;
+  unsigned int new_states = 0;
+  for (i = 0; i < states; i++)
+  {
+    if (forg[i] > PLL_EIGEN_MINFREQ)
+      new_forg[new_states++] = forg[i];
+  }
+
+  assert(new_states <= states);
+
+  if (new_states < states)
+  {
+    for (i = 0, inew = 0; i < states; i++)
+    {
+      if (forg[i] > PLL_EIGEN_MINFREQ)
+      {
+        for (j = 0, jnew = 0; j < states; j++)
+        {
+          if (forg[j] > PLL_EIGEN_MINFREQ)
+          {
+            mat[inew][jnew] = mat[i][j];
+            jnew++;
+          }
+        }
+        inew++;
+      }
+    }
+  }
+
+  return new_states;
+}
+
 PLL_EXPORT int pll_update_eigen(pll_partition_t * partition,
                                 unsigned int params_index)
 {
-  unsigned int i,j,k;
+  unsigned int i,j;
   double *e, *d;
   double ** a;
 
@@ -263,6 +305,10 @@ PLL_EXPORT int pll_update_eigen(pll_partition_t * partition,
 
   unsigned int states = partition->states;
   unsigned int states_padded = partition->states_padded;
+
+  unsigned int inew, jnew;
+  unsigned int new_states;
+  double * new_freqs = NULL;
 
   a = create_ratematrix(subst_params,
                         freqs,
@@ -276,10 +322,12 @@ PLL_EXPORT int pll_update_eigen(pll_partition_t * partition,
 
   d = (double *)malloc(states*sizeof(double));
   e = (double *)malloc(states*sizeof(double));
-  if (!d || !e)
+  new_freqs = (double *)malloc(states*sizeof(double));
+  if (!d || !e || !new_freqs)
   {
     if (d) free(d);
     if (e) free(e);
+    if (new_freqs) free(new_freqs);
     for(i = 0; i < states; ++i) free(a[i]);
     free(a);
     pll_errno = PLL_ERROR_MEM_ALLOC;
@@ -287,42 +335,73 @@ PLL_EXPORT int pll_update_eigen(pll_partition_t * partition,
     return PLL_FAILURE;
   }
 
-  mytred2(a, states, d, e);
-  mytqli(d, e, states, a);
+  /* Here we use a technical trick to reduce rate matrix if some states
+   * have (near) zero frequencies. Code adapted from IQTree, see:
+   * https://github.com/Cibiv/IQ-TREE/commit/f222d317af46cf6abf8bcdb70d4db22475e9a7d2 */
+  new_states = eliminate_zero_states(a, freqs, states, new_freqs);
 
-  /* store eigen vectors */
-  for (i = 0; i < states; ++i)
-    memcpy(eigenvecs + i*states_padded, a[i], states*sizeof(double));
+  mytred2(a, new_states, d, e);
+  mytqli(d, e, new_states, a);
 
-  /* store eigen values */
-  memcpy(eigenvals, d, states*sizeof(double));
+  for (i = 0, inew = 0; i < states; i++)
+    eigenvals[i] = (freqs[i] > PLL_EIGEN_MINFREQ) ? d[inew++] : 0;
 
-  /* store inverse eigen vectors */
-  for (k = 0, i = 0; i < states; ++i)
+  assert(inew == new_states);
+
+  /* pre-compute square roots of frequencies */
+  for (i = 0; i < new_states; i++)
+    new_freqs[i] = sqrt(new_freqs[i]);
+
+  if (new_states < states)
   {
-    for (j = i; j < states_padded*states; j += states_padded)
-      inv_eigenvecs[k++] = eigenvecs[j];
+    /* initialize eigenvecs and inv_eigenvecs with diagonal matrix */
+    memset(eigenvecs, 0, states_padded*states*sizeof(double));
+    memset(inv_eigenvecs, 0, states_padded*states*sizeof(double));
 
-    /* account for padding */
-    k += states_padded - states;
+    for (i = 0; i < states; i++)
+    {
+      eigenvecs[i*states_padded+i] = 1.;
+      inv_eigenvecs[i*states_padded+i] = 1.;
+    }
+
+    for (i = 0, inew = 0; i < states; i++)
+    {
+      if (freqs[i] > PLL_EIGEN_MINFREQ)
+      {
+        for (j = 0, jnew = 0; j < states; j++)
+        {
+          if (freqs[j] > PLL_EIGEN_MINFREQ)
+          {
+            /* multiply the eigen vectors from the right with sqrt(pi) */
+            eigenvecs[i*states_padded+j] = a[inew][jnew] * new_freqs[jnew];
+            /* multiply the inverse eigen vectors from the left with sqrt(pi)^-1 */
+            inv_eigenvecs[i*states_padded+j] = a[jnew][inew] / new_freqs[inew];
+            jnew++;
+          }
+        }
+        inew++;
+      }
+    }
   }
-
-  assert(k == states_padded*states);
-
-  /* multiply the inverse eigen vectors from the left with sqrt(pi)^-1 */
-  for (i = 0; i < states; ++i)
-    for (j = 0; j < states; ++j)
-      inv_eigenvecs[i*states_padded+ j] /= sqrt(freqs[i]);
-
-  /* multiply the eigen vectors from the right with sqrt(pi) */
-  for (i = 0; i < states; ++i)
-    for (j = 0; j < states; ++j)
-      eigenvecs[i*states_padded+j] *= sqrt(freqs[j]);
+  else
+  {
+    for (i = 0; i < states; i++)
+    {
+      for (j = 0; j < states; j++)
+      {
+        /* multiply the eigen vectors from the right with sqrt(pi) */
+        eigenvecs[i*states_padded+j] = a[i][j] * new_freqs[j];
+        /* multiply the inverse eigen vectors from the left with sqrt(pi)^-1 */
+        inv_eigenvecs[i*states_padded+j] = a[j][i] / new_freqs[i];
+      }
+    }
+  }
 
   partition->eigen_decomp_valid[params_index] = 1;
 
   free(d);
   free(e);
+  free(new_freqs);
   for (i = 0; i < states; ++i)
     free(a[i]);
   free(a);

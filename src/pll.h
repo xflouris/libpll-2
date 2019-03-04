@@ -100,6 +100,7 @@
 #define PLL_ONE_EPSILON 1e-15
 #define PLL_ONE_MIN (1-PLL_ONE_EPSILON)
 #define PLL_ONE_MAX (1+PLL_ONE_EPSILON)
+#define PLL_EIGEN_MINFREQ 1e-6
 
 /* attribute flags */
 
