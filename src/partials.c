@@ -110,7 +110,7 @@ static void case_tipinner(pll_partition_t * partition,
     else
       right_scaler = partition->scale_buffer[op->child1_scaler_index];
   }
-  
+
 
   pll_core_update_partial_ti(partition->states,
                              sites,
@@ -253,7 +253,7 @@ PLL_EXPORT void pll_update_partials_rep(pll_partition_t * partition,
   for (i = 0; i < count; ++i)
   {
     op = &(operations[i]);
-    if (pll_repeats_enabled(partition) && update_repeats) 
+    if (pll_repeats_enabled(partition) && update_repeats)
       pll_update_repeats(partition, op);
 
     if (pll_repeats_enabled(partition)
@@ -290,3 +290,230 @@ PLL_EXPORT void pll_update_partials_rep(pll_partition_t * partition,
   }
 }
 
+static void case_tiptip_range(pll_partition_t * partition,
+                          const pll_operation_t * op,
+                          unsigned int block_start,
+                          unsigned int block_size
+                          )
+{
+  const double *left_matrix = partition->pmatrix[op->child1_matrix_index];
+  const double *right_matrix = partition->pmatrix[op->child2_matrix_index];
+  // TODO: Update to include rate categories
+  double *parent_clv = partition->clv[op->parent_clv_index] + block_start;
+  unsigned int *parent_scaler;
+  unsigned int sites = block_start + block_size <= partition->sites
+                           ? block_size
+                           : partition->sites - block_start;
+
+  assert(partition->sites - block_start >= 0);
+
+  /* ascertaiment bias correction */
+  if (partition->asc_bias_alloc)
+    sites += partition->states;
+
+  /* get parent scaler */
+  if (op->parent_scaler_index == PLL_SCALE_BUFFER_NONE)
+    parent_scaler = NULL;
+  else
+    parent_scaler = partition->scale_buffer[op->parent_scaler_index] + block_start;
+
+  /* precompute lookup table */
+  pll_core_create_lookup(partition->states,
+                         partition->rate_cats,
+                         partition->ttlookup,
+                         left_matrix,
+                         right_matrix,
+                         partition->tipmap,
+                         partition->maxstates,
+                         partition->attributes);
+
+  /* and update CLV at inner node */
+  pll_core_update_partial_tt(partition->states,
+                             sites,
+                             partition->rate_cats,
+                             parent_clv,
+                             parent_scaler,
+                             partition->tipchars[op->child1_clv_index + block_start],
+                             partition->tipchars[op->child2_clv_index + block_start],
+                             partition->tipmap,
+                             partition->maxstates,
+                             partition->ttlookup,
+                             partition->attributes);
+}
+
+static void case_tipinner_range(pll_partition_t * partition,
+                          const pll_operation_t * op,
+                          unsigned int block_start,
+                          unsigned int block_size
+                          )
+{
+  double * parent_clv = partition->clv[op->parent_clv_index] + block_start;
+  unsigned int tip_clv_index;
+  unsigned int inner_clv_index;
+  unsigned int tip_matrix_index;
+  unsigned int inner_matrix_index;
+  unsigned int * right_scaler;
+  unsigned int * parent_scaler;
+  unsigned int sites = block_start + block_size <= partition->sites
+                           ? block_size
+                           : partition->sites - block_start;
+
+  /* ascertaiment bias correction */
+  if (partition->asc_bias_alloc)
+    sites += partition->states;
+
+  /* get parent scaler */
+  if (op->parent_scaler_index == PLL_SCALE_BUFFER_NONE)
+    parent_scaler = NULL;
+  else
+    parent_scaler = partition->scale_buffer[op->parent_scaler_index];
+
+  /* find which of the two child nodes is the tip */
+  if (op->child1_clv_index < partition->tips)
+  {
+    tip_clv_index = op->child1_clv_index + block_start;
+    tip_matrix_index = op->child1_matrix_index;
+    inner_clv_index = op->child2_clv_index + block_start;
+    inner_matrix_index = op->child2_matrix_index;
+    if (op->child2_scaler_index == PLL_SCALE_BUFFER_NONE)
+      right_scaler = NULL;
+    else
+      right_scaler = partition->scale_buffer[op->child2_scaler_index];
+  }
+  else
+  {
+    tip_clv_index = op->child2_clv_index + block_start;
+    tip_matrix_index = op->child2_matrix_index;
+    inner_clv_index = op->child1_clv_index + block_start;
+    inner_matrix_index = op->child1_matrix_index;
+    if (op->child1_scaler_index == PLL_SCALE_BUFFER_NONE)
+      right_scaler = NULL;
+    else
+      right_scaler = partition->scale_buffer[op->child1_scaler_index] + block_start;
+  }
+
+
+  pll_core_update_partial_ti(partition->states,
+                             sites,
+                             partition->rate_cats,
+                             parent_clv,
+                             parent_scaler,
+                             partition->tipchars[tip_clv_index],
+                             partition->clv[inner_clv_index],
+                             partition->pmatrix[tip_matrix_index],
+                             partition->pmatrix[inner_matrix_index],
+                             right_scaler,
+                             partition->tipmap,
+                             partition->maxstates,
+                             partition->attributes);
+}
+
+static void case_innerinner_range(pll_partition_t * partition,
+                          const pll_operation_t * op,
+                          unsigned int block_start,
+                          unsigned int block_size
+                          )
+{
+  const double * left_matrix = partition->pmatrix[op->child1_matrix_index];
+  const double * right_matrix = partition->pmatrix[op->child2_matrix_index];
+  double * parent_clv = partition->clv[op->parent_clv_index] + block_start;
+  double * left_clv = partition->clv[op->child1_clv_index] + block_start;
+  double * right_clv = partition->clv[op->child2_clv_index] + block_start;
+  unsigned int * parent_scaler;
+  unsigned int * left_scaler;
+  unsigned int * right_scaler;
+  unsigned int sites = block_start + block_size <= partition->sites
+                           ? block_size
+                           : partition->sites - block_start;
+
+  /* ascertaiment bias correction */
+  if (partition->asc_bias_alloc)
+    sites += partition->states;
+
+  /* get parent scaler */
+  if (op->parent_scaler_index == PLL_SCALE_BUFFER_NONE)
+    parent_scaler = NULL;
+  else
+    parent_scaler = partition->scale_buffer[op->parent_scaler_index] + block_start;
+
+  if (op->child1_scaler_index != PLL_SCALE_BUFFER_NONE)
+    left_scaler = partition->scale_buffer[op->child1_scaler_index] + block_start;
+  else
+    left_scaler = NULL;
+
+  /* if child2 has a scaler add its values to the parent scaler */
+  if (op->child2_scaler_index != PLL_SCALE_BUFFER_NONE)
+    right_scaler = partition->scale_buffer[op->child2_scaler_index] + block_start;
+  else
+    right_scaler = NULL;
+
+  pll_core_update_partial_ii(partition->states,
+                             sites,
+                             partition->rate_cats,
+                             parent_clv,
+                             parent_scaler,
+                             left_clv,
+                             right_clv,
+                             left_matrix,
+                             right_matrix,
+                             left_scaler,
+                             right_scaler,
+                             partition->attributes);
+}
+
+PLL_EXPORT void pll_update_partials_blocked(pll_partition_t * partition,
+                                    const pll_operation_t * operations,
+                                    unsigned int count,
+                                    unsigned int block_size)
+{
+  pll_update_partials_blocked_rep(partition, operations, count, block_size, 0);
+}
+
+
+PLL_EXPORT void pll_update_partials_blocked_rep(pll_partition_t * partition,
+                                    const pll_operation_t * operations,
+                                    unsigned int count,
+                                    unsigned int block_size,
+                                    unsigned int update_repeats)
+{
+  unsigned int i, block_start;
+  const pll_operation_t * op;
+
+  for (block_start = 0; block_start < partition->sites; block_start+= block_size)
+  {
+    for (i = 0; i < count; ++i)
+    {
+      op = &(operations[i]);
+      if (pll_repeats_enabled(partition) && update_repeats){
+        snprintf(pll_errmsg, 200, "Not implemented");
+        return;
+      }
+
+      else if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
+      {
+        if ((op->child1_clv_index < partition->tips) &&
+            (op->child2_clv_index < partition->tips))
+        {
+          /* tip-tip case */
+          case_tiptip_range(partition,op,block_start,block_size);
+        }
+        else if ((operations[i].child1_clv_index < partition->tips) ||
+                 (operations[i].child2_clv_index < partition->tips))
+        {
+          /* tip-inner */
+          case_tipinner_range(partition,op, block_start, block_size);
+        }
+        else
+        {
+          /* inner-inner */
+          case_innerinner_range(partition,op, block_start, block_size);
+        }
+      }
+      else
+      {
+        /* inner-inner */
+        case_innerinner_range(partition,op, block_start, block_size);
+      }
+    }
+  }
+}

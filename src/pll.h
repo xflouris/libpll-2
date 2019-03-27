@@ -785,6 +785,15 @@ PLL_EXPORT void pll_update_partials_rep(pll_partition_t *partition,
                                         const pll_operation_t *operations,
                                         unsigned int count,
                                         unsigned int update_repeats);
+PLL_EXPORT void pll_update_partials_blocked(pll_partition_t * partition,
+                                    const pll_operation_t * operations,
+                                    unsigned int count,
+                                    unsigned int block_size);
+PLL_EXPORT void pll_update_partials_blocked_rep(pll_partition_t * partition,
+                                    const pll_operation_t * operations,
+                                    unsigned int count,
+                                    unsigned int block_size,
+                                    unsigned int update_repeats);
 
 /* functions in derivatives.c */
 
