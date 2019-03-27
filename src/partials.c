@@ -296,7 +296,7 @@ static void case_tiptip_range(pll_partition_t * partition,
                           unsigned int block_size
                           )
 {
-  const unsigned int clv_offset = block_start + partition->states * partition->rate_cats;
+  const unsigned int clv_offset = block_start * partition->states * partition->rate_cats;
   const double *left_matrix = partition->pmatrix[op->child1_matrix_index];
   const double *right_matrix = partition->pmatrix[op->child2_matrix_index];
   // TODO: Update to include rate categories
@@ -348,7 +348,7 @@ static void case_tipinner_range(pll_partition_t * partition,
                           unsigned int block_size
                           )
 {
-  const unsigned int clv_offset = block_start + partition->states * partition->rate_cats;
+  const unsigned int clv_offset = block_start * partition->states * partition->rate_cats;
   double * parent_clv = partition->clv[op->parent_clv_index] + clv_offset;
   unsigned int tip_clv_index;
   unsigned int inner_clv_index;
@@ -373,20 +373,20 @@ static void case_tipinner_range(pll_partition_t * partition,
   /* find which of the two child nodes is the tip */
   if (op->child1_clv_index < partition->tips)
   {
-    tip_clv_index = op->child1_clv_index + block_start;
+    tip_clv_index = op->child1_clv_index;
     tip_matrix_index = op->child1_matrix_index;
-    inner_clv_index = op->child2_clv_index + block_start;
+    inner_clv_index = op->child2_clv_index;
     inner_matrix_index = op->child2_matrix_index;
     if (op->child2_scaler_index == PLL_SCALE_BUFFER_NONE)
       right_scaler = NULL;
     else
-      right_scaler = partition->scale_buffer[op->child2_scaler_index];
+      right_scaler = partition->scale_buffer[op->child2_scaler_index] + block_start;
   }
   else
   {
-    tip_clv_index = op->child2_clv_index + block_start;
+    tip_clv_index = op->child2_clv_index;
     tip_matrix_index = op->child2_matrix_index;
-    inner_clv_index = op->child1_clv_index + block_start;
+    inner_clv_index = op->child1_clv_index;
     inner_matrix_index = op->child1_matrix_index;
     if (op->child1_scaler_index == PLL_SCALE_BUFFER_NONE)
       right_scaler = NULL;
@@ -400,8 +400,8 @@ static void case_tipinner_range(pll_partition_t * partition,
                              partition->rate_cats,
                              parent_clv,
                              parent_scaler,
-                             partition->tipchars[tip_clv_index],
-                             partition->clv[inner_clv_index],
+                             partition->tipchars[tip_clv_index] + block_start,
+                             partition->clv[inner_clv_index] + clv_offset,
                              partition->pmatrix[tip_matrix_index],
                              partition->pmatrix[inner_matrix_index],
                              right_scaler,
