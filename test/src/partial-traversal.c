@@ -351,12 +351,22 @@ int main(int argc, char * argv[])
 
     /* use the operations array to compute all ops_count inner CLVs. Operations
        will be carried out sequentially starting from operation 0 towrds ops_count-1 */
-    pll_update_partials(partition, operations, ops_count);
+    pll_update_partials_blocked(partition, operations, ops_count, sites/2);
+    //pll_update_partials(partition, operations, ops_count);
+    //
+
+    /*
+    for (unsigned int op_idx = 0; op_idx < ops_count; ++op_idx) {
+      pll_show_clv(partition, operations[op_idx].parent_clv_index,
+                   operations[op_idx].parent_scaler_index, 6);
+    }
+    */
 
     /* compute the likelihood on an edge of the unrooted tree by specifying
        the CLV indices at the two end-point of the branch, the probability matrix
        index for the concrete branch length, and the index of the model of whose
        frequency vector is to be used */
+    //double* persite = (double*) calloc(sites, sizeof(double));
     double logl = pll_compute_edge_loglikelihood(partition,
                                                  node->clv_index,
                                                  node->scaler_index,
@@ -365,6 +375,13 @@ int main(int argc, char * argv[])
                                                  node->pmatrix_index,
                                                  params_indices,
                                                  NULL);
+    /*
+    for(unsigned int pl = 0; pl < sites; ++pl){
+      printf("%f ", persite[pl]);
+    }
+    printf("\n");
+    free(persite);
+    */
 
     if (cmplogl >= -1)
       cmplogl = logl;
