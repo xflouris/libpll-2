@@ -296,7 +296,7 @@ static void case_tiptip_range(pll_partition_t * partition,
                           unsigned int block_size
                           )
 {
-  const unsigned int clv_offset = block_start + partition->sites * partition->rate_cats;
+  const unsigned int clv_offset = block_start + partition->states * partition->rate_cats;
   const double *left_matrix = partition->pmatrix[op->child1_matrix_index];
   const double *right_matrix = partition->pmatrix[op->child2_matrix_index];
   // TODO: Update to include rate categories
@@ -348,7 +348,7 @@ static void case_tipinner_range(pll_partition_t * partition,
                           unsigned int block_size
                           )
 {
-  const unsigned int clv_offset = block_start + partition->sites * partition->rate_cats;
+  const unsigned int clv_offset = block_start + partition->states * partition->rate_cats;
   double * parent_clv = partition->clv[op->parent_clv_index] + clv_offset;
   unsigned int tip_clv_index;
   unsigned int inner_clv_index;
@@ -419,7 +419,7 @@ static void case_innerinner_range(pll_partition_t * partition,
   const double *left_matrix = partition->pmatrix[op->child1_matrix_index];
   const double *right_matrix = partition->pmatrix[op->child2_matrix_index];
   const unsigned int clv_offset =
-      block_start * partition->sites * partition->rate_cats;
+      block_start * partition->states * partition->rate_cats;
   double *parent_clv = partition->clv[op->parent_clv_index] + clv_offset;
   double *left_clv = partition->clv[op->child1_clv_index] + clv_offset;
   double *right_clv = partition->clv[op->child2_clv_index] + clv_offset;

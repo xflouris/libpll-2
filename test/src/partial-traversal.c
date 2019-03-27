@@ -351,7 +351,7 @@ int main(int argc, char * argv[])
 
     /* use the operations array to compute all ops_count inner CLVs. Operations
        will be carried out sequentially starting from operation 0 towrds ops_count-1 */
-    pll_update_partials_blocked(partition, operations, ops_count, sites);
+    pll_update_partials_blocked(partition, operations, ops_count, sites/2);
     //pll_update_partials(partition, operations, ops_count);
     //
 
