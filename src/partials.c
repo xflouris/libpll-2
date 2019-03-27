@@ -296,10 +296,11 @@ static void case_tiptip_range(pll_partition_t * partition,
                           unsigned int block_size
                           )
 {
+  const unsigned int clv_offset = block_start + partition->sites * partition->rate_cats;
   const double *left_matrix = partition->pmatrix[op->child1_matrix_index];
   const double *right_matrix = partition->pmatrix[op->child2_matrix_index];
   // TODO: Update to include rate categories
-  double *parent_clv = partition->clv[op->parent_clv_index] + block_start;
+  double *parent_clv = partition->clv[op->parent_clv_index] + clv_offset;
   unsigned int *parent_scaler;
   unsigned int sites = block_start + block_size <= partition->sites
                            ? block_size
@@ -333,8 +334,8 @@ static void case_tiptip_range(pll_partition_t * partition,
                              partition->rate_cats,
                              parent_clv,
                              parent_scaler,
-                             partition->tipchars[op->child1_clv_index + block_start],
-                             partition->tipchars[op->child2_clv_index + block_start],
+                             partition->tipchars[op->child1_clv_index] + block_start,
+                             partition->tipchars[op->child2_clv_index] + block_start,
                              partition->tipmap,
                              partition->maxstates,
                              partition->ttlookup,
@@ -347,7 +348,8 @@ static void case_tipinner_range(pll_partition_t * partition,
                           unsigned int block_size
                           )
 {
-  double * parent_clv = partition->clv[op->parent_clv_index] + block_start;
+  const unsigned int clv_offset = block_start + partition->sites * partition->rate_cats;
+  double * parent_clv = partition->clv[op->parent_clv_index] + clv_offset;
   unsigned int tip_clv_index;
   unsigned int inner_clv_index;
   unsigned int tip_matrix_index;
@@ -414,14 +416,16 @@ static void case_innerinner_range(pll_partition_t * partition,
                           unsigned int block_size
                           )
 {
-  const double * left_matrix = partition->pmatrix[op->child1_matrix_index];
-  const double * right_matrix = partition->pmatrix[op->child2_matrix_index];
-  double * parent_clv = partition->clv[op->parent_clv_index] + block_start;
-  double * left_clv = partition->clv[op->child1_clv_index] + block_start;
-  double * right_clv = partition->clv[op->child2_clv_index] + block_start;
-  unsigned int * parent_scaler;
-  unsigned int * left_scaler;
-  unsigned int * right_scaler;
+  const double *left_matrix = partition->pmatrix[op->child1_matrix_index];
+  const double *right_matrix = partition->pmatrix[op->child2_matrix_index];
+  const unsigned int clv_offset =
+      block_start * partition->sites * partition->rate_cats;
+  double *parent_clv = partition->clv[op->parent_clv_index] + clv_offset;
+  double *left_clv = partition->clv[op->child1_clv_index] + clv_offset;
+  double *right_clv = partition->clv[op->child2_clv_index] + clv_offset;
+  unsigned int *parent_scaler;
+  unsigned int *left_scaler;
+  unsigned int *right_scaler;
   unsigned int sites = block_start + block_size <= partition->sites
                            ? block_size
                            : partition->sites - block_start;
@@ -479,7 +483,7 @@ PLL_EXPORT void pll_update_partials_blocked_rep(pll_partition_t * partition,
   unsigned int i, block_start;
   const pll_operation_t * op;
 
-  for (block_start = 0; block_start < partition->sites; block_start+= block_size)
+  for (block_start = 0; block_start < partition->sites; block_start += block_size)
   {
     for (i = 0; i < count; ++i)
     {
