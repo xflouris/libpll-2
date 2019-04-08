@@ -4,6 +4,10 @@ include(CheckIncludeFile)
 
 set (LIBPLL_BASE_FLAGS "-Wall -Wsign-compare -D_GNU_SOURCE -O3 -fPIC ")
 
+if(PLLMOD_DEBUG)
+  set(LIBPLL_BASE_FLAGS "${LIBPLL_BASE_FLAGS} -DDEBUG")
+endif()
+
 set (SSE_FLAGS "-msse3")
 set (AVX_FLAGS "-mavx")
 set (AVX2_FLAGS "-mfma -mavx2")

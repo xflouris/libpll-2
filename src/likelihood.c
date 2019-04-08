@@ -634,3 +634,188 @@ PLL_EXPORT double pll_compute_edge_loglikelihood(pll_partition_t * partition,
 
   return logl;
 }
+
+
+PLL_EXPORT int pll_compute_node_ancestral_extbuf(pll_partition_t * partition,
+                                                 unsigned int node_clv_index,
+                                                 int node_scaler_index,
+                                                 unsigned int other_clv_index,
+                                                 int other_scaler_index,
+                                                 unsigned int pmatrix_index,
+                                                 const unsigned int * freqs_indices,
+                                                 double * ancestral,
+                                                 double * temp_clv,
+                                                 unsigned int * temp_scaler,
+                                                 double * ident_pmat)
+{
+  if (!partition || !ancestral)
+  {
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    snprintf(pll_errmsg, 200,
+             "Parameter value is NULL!");
+    return PLL_FAILURE;
+  }
+
+  if (!temp_clv || !temp_scaler || !ident_pmat)
+  {
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    snprintf(pll_errmsg, 200,
+             "NULL buffer pointer");
+    return PLL_FAILURE;
+  }
+
+  if (pll_repeats_enabled(partition))
+  {
+    pll_errno = PLL_ERROR_EINVAL;
+    snprintf(pll_errmsg, 200,
+             "Site repeats are not compatible with ancestral state reconstruction!");
+    return PLL_FAILURE;
+  }
+
+  unsigned int n, i, j;
+  unsigned int states = partition->states;
+  unsigned int states_padded = partition->states_padded;
+  unsigned int sites = partition->sites;
+  unsigned int rate_cats = partition->rate_cats;
+
+  const double * pmat = partition->pmatrix[pmatrix_index];
+
+  const double * node_clv = partition->clv[node_clv_index];
+
+  unsigned int * node_scaler = (node_scaler_index == PLL_SCALE_BUFFER_NONE) ?
+                            NULL : partition->scale_buffer[node_scaler_index];
+
+  if (other_clv_index < partition->tips &&
+      (partition->attributes & PLL_ATTRIB_PATTERN_TIP))
+  {
+    pll_core_update_partial_ti(states,
+                               sites,
+                               rate_cats,
+                               temp_clv,
+                               temp_scaler,
+                               partition->tipchars[other_clv_index],
+                               node_clv,
+                               pmat,
+                               ident_pmat,
+                               node_scaler,
+                               partition->tipmap,
+                               partition->maxstates,
+                               partition->attributes);
+  }
+  else
+  {
+    const double * other_clv = partition->clv[other_clv_index];
+    unsigned int * other_scaler = (other_scaler_index == PLL_SCALE_BUFFER_NONE) ?
+                              NULL : partition->scale_buffer[other_scaler_index];
+
+    pll_core_update_partial_ii(states,
+                               sites,
+                               rate_cats,
+                               temp_clv,
+                               temp_scaler,
+                               node_clv,
+                               other_clv,
+                               ident_pmat,
+                               pmat,
+                               node_scaler,
+                               other_scaler,
+                               partition->attributes);
+  }
+
+  double * clvp = temp_clv;
+  double * ancp = ancestral;
+
+  memset(ancestral, 0, sites * states_padded * sizeof(double));
+
+  for (n = 0; n < sites; ++n)
+  {
+    for (i = 0; i < rate_cats; ++i)
+    {
+      double * freqs = partition->frequencies[freqs_indices[i]];
+      double rate_weight = partition->rate_weights[i];
+
+      for (j = 0; j < states; ++j)
+      {
+        ancp[j] += clvp[j] * freqs[j] * rate_weight;
+      }
+
+      clvp += states_padded;
+    }
+
+    // normalize probs
+    double sum = 0;
+    for (j = 0; j < states; ++j)
+      sum += ancp[j];
+    for (j = 0; j < states; ++j)
+      ancp[j] /= sum;
+
+    ancp += states;
+  }
+
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pll_compute_node_ancestral(pll_partition_t * partition,
+                                          unsigned int node_clv_index,
+                                          int node_scaler_index,
+                                          unsigned int other_clv_index,
+                                          int other_scaler_index,
+                                          unsigned int matrix_index,
+                                          const unsigned int * freqs_indices,
+                                          double * ancestral)
+{
+  int retval = PLL_FAILURE;
+  unsigned int i, j, k;
+
+  unsigned int states = partition->states;
+  unsigned int states_padded = partition->states_padded;
+  unsigned int sites = partition->sites;
+  unsigned int rate_cats = partition->rate_cats;
+
+  unsigned int clv_size = pll_get_clv_size(partition, node_clv_index) * sizeof(double);
+  double * temp_clv = (double *) pll_aligned_alloc(clv_size, partition->alignment);
+  unsigned int scaler_size = ((partition->attributes & PLL_ATTRIB_RATE_SCALERS) ?
+                             sites*rate_cats : sites) * sizeof(unsigned int);
+  unsigned int * temp_scaler = (unsigned int *) pll_aligned_alloc(scaler_size, partition->alignment);
+  unsigned int pmat_size = states_padded * states * rate_cats * sizeof(double);
+  double * ident_pmat = (double *) pll_aligned_alloc(pmat_size, partition->alignment);
+
+  if (!temp_clv || !temp_scaler || !ident_pmat)
+  {
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg, 200, "Cannot allocate memory");
+    goto cleanup;
+  }
+
+  // init identity matrix
+  double * pmat = ident_pmat;
+  for (i = 0; i < rate_cats; ++i)
+  {
+    for (j = 0; j < states; ++j)
+    {
+      for (k = 0; k < states; ++k)
+        pmat[j*states_padded + k] = (j == k) ? 1 : 0;
+    }
+
+    pmat +=  states*states_padded;
+  }
+
+  retval = pll_compute_node_ancestral_extbuf(partition,
+                                           node_clv_index,
+                                           node_scaler_index,
+                                           other_clv_index,
+                                           other_scaler_index,
+                                           matrix_index,
+                                           freqs_indices,
+                                           ancestral,
+                                           temp_clv,
+                                           temp_scaler,
+                                           ident_pmat);
+
+cleanup:
+  pll_aligned_free(temp_clv);
+  pll_aligned_free(temp_scaler);
+  pll_aligned_free(ident_pmat);
+
+  return retval;
+}

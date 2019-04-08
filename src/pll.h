@@ -758,6 +758,28 @@ PLL_EXPORT double pll_compute_edge_loglikelihood(pll_partition_t * partition,
                                                  const unsigned int * freqs_indices,
                                                  double * persite_lnl);
 
+PLL_EXPORT int pll_compute_node_ancestral(pll_partition_t * partition,
+                                          unsigned int node_clv_index,
+                                          int node_scaler_index,
+                                          unsigned int other_clv_index,
+                                          int other_scaler_index,
+                                          unsigned int matrix_index,
+                                          const unsigned int * freqs_indices,
+                                          double * ancestral);
+
+PLL_EXPORT int pll_compute_node_ancestral_extbuf(pll_partition_t * partition,
+                                                 unsigned int node_clv_index,
+                                                 int node_scaler_index,
+                                                 unsigned int other_clv_index,
+                                                 int other_scaler_index,
+                                                 unsigned int pmatrix_index,
+                                                 const unsigned int * freqs_indices,
+                                                 double * ancestral,
+                                                 double * temp_clv,
+                                                 unsigned int * temp_scaler,
+                                                 double * ident_pmat);
+
+
 /* functions in partials.c */
 
 PLL_EXPORT void pll_update_partials(pll_partition_t * partition,
