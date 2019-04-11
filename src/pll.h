@@ -542,6 +542,7 @@ PLL_EXPORT extern __thread pll_hardware_t pll_hardware;
 PLL_EXPORT extern const pll_state_t pll_map_bin[256];
 PLL_EXPORT extern const pll_state_t pll_map_nt[256];
 PLL_EXPORT extern const pll_state_t pll_map_aa[256];
+PLL_EXPORT extern const pll_state_t pll_map_gt10[256];
 PLL_EXPORT extern const unsigned int pll_map_fasta[256];
 PLL_EXPORT extern const unsigned int pll_map_phylip[256];
 PLL_EXPORT extern const unsigned int pll_map_generic[256];
