@@ -711,6 +711,20 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_sequential(pll_phylip_t * fd)
   return msa;
 }
 
+pll_msa_t * pll_phylip_load(const char * fname, pll_bool_t interleaved)
+{
+  pll_phylip_t * fd = pll_phylip_open(fname, pll_map_generic);
+  if (!fd)
+    return NULL;
+
+  pll_msa_t * msa = interleaved ? pll_phylip_parse_interleaved(fd) :
+                                  pll_phylip_parse_sequential(fd);
+
+  pll_phylip_close(fd);
+
+  return msa;
+}
+
 PLL_EXPORT void pll_msa_destroy(pll_msa_t * msa)
 {
   if (!msa) return;
