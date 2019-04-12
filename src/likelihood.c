@@ -725,7 +725,7 @@ PLL_EXPORT int pll_compute_node_ancestral_extbuf(pll_partition_t * partition,
   double * clvp = temp_clv;
   double * ancp = ancestral;
 
-  memset(ancestral, 0, sites * states_padded * sizeof(double));
+  memset(ancestral, 0, sites * states * sizeof(double));
 
   for (n = 0; n < sites; ++n)
   {
