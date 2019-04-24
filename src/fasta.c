@@ -322,3 +322,91 @@ PLL_EXPORT long pll_fasta_getfilepos(pll_fasta_t * fd)
 {
   return ftell(fd->fp);
 }
+
+PLL_EXPORT pll_msa_t * pll_fasta_load(const char * fname)
+{
+  unsigned int i;
+
+  char * seq = NULL;
+  char * hdr = NULL;
+  long seqlen;
+  long hdrlen;
+  long seqno;
+
+  long alloc_count = 0;
+  long alloc_chunk = 0;
+
+  pll_fasta_t * fp = pll_fasta_open(fname, pll_map_generic);
+  if (!fp)
+  {
+    assert(pll_errno);
+    return NULL;
+  }
+
+  pll_msa_t * msa = (pll_msa_t *) calloc(1, sizeof(pll_msa_t));
+  if (!msa)
+  {
+    pll_fasta_close(fp);
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
+    return NULL;
+  }
+
+  /* read FASTA sequences and make sure they are all of the same length */
+  msa->length = -1;
+  msa->count = 0;
+  for (i = 0; pll_fasta_getnext(fp,&hdr,&hdrlen,&seq,&seqlen,&seqno); ++i)
+  {
+    if (msa->length == -1)
+    {
+      msa->length = seqlen;
+
+      /* estimate number of sequences from file size and sequence length
+       * (it's better to overestimate slightly to avoid reallocations) */
+      alloc_chunk = 1.1 * fp->filesize / (seqlen + hdrlen);
+    }
+    else if (msa->length != seqlen)
+    {
+      msa->count = i;
+      pll_msa_destroy(msa);
+      pll_fasta_close(fp);
+      pll_errno = PLL_ERROR_FASTA_NONALIGNED;
+      snprintf(pll_errmsg, 200, "FASTA file does not contain equal size sequences: "
+          "sequence %u has length of %ld (expected: %d)", i, seqlen, msa->length);
+      return NULL;
+    }
+
+    if (i >= alloc_count)
+    {
+      /* allocate arrays to store FASTA headers and sequences */
+      alloc_count += alloc_chunk;
+      msa->label = (char **)realloc(msa->label, alloc_count * sizeof(char *));
+      msa->sequence = (char **)realloc(msa->sequence, alloc_count * sizeof(char *));
+    }
+
+    msa->label[i] = hdr;
+    msa->sequence[i] = seq;
+  }
+
+  msa->count = i;
+
+  /* trim label and sequence arrays to their actual size */
+  msa->label = (char **)realloc(msa->label, msa->count * sizeof(char *));
+  msa->sequence = (char **)realloc(msa->sequence, msa->count * sizeof(char *));
+
+  /* close FASTA file */
+  pll_fasta_close(fp);
+
+  /* did we stop reading the file because we reached EOF? */
+  if (pll_errno != PLL_ERROR_FILE_EOF)
+  {
+    pll_msa_destroy(msa);
+    return NULL;
+  }
+
+  pll_errno = 0;
+
+  return msa;
+}
+
+

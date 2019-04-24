@@ -28,23 +28,60 @@
 
 #define N_TAXA_BIG    43
 #define N_TAXA_SMALL   5
-#define N_SITES      491
+#define N_SITES_BIG   492
+#define N_SITES_SMALL 1964
 
-static int failtest(unsigned int attributes)
+#define SMALL_FASTA "testdata/small.fas"
+#define BIG_FASTA "testdata/worms16s.fas"
+#define BAD_FASTA "unexistent-file"
+
+static void load_fasta_and_set_tips(const char * fasta_fname, pll_partition_t * partition)
 {
-  pll_fasta_t * fp;
-  fp = pll_fasta_open ("unexistent-file", pll_map_fasta);
-  assert(!fp && pll_errno == PLL_ERROR_FILE_OPEN);
+  unsigned int i;
+
+  pll_msa_t * msa = pll_fasta_load(fasta_fname);
+  if (!msa)
+  {
+    printf (" ERROR loading MSA from FASTA file (%d): %s\n", pll_errno, pll_errmsg);
+    exit (PLL_FAILURE);
+  }
+
+  assert(msa->count == partition->tips);
+  assert(msa->length == partition->sites);
+
+  for (i = 0; i < msa->count; ++i)
+  {
+    if (!pll_set_tip_states (partition, i, pll_map_nt, msa->sequence[i]))
+    {
+      printf (" ERROR setting states (%d): %s\n", pll_errno, pll_errmsg);
+      exit (PLL_FAILURE);
+    }
+  }
+
+  pll_msa_destroy(msa);
+}
+
+
+static int failtest(unsigned int attributes, pll_bool_t oneliner)
+{
+  if (oneliner)
+  {
+    pll_msa_t * msa = pll_fasta_load(BAD_FASTA);
+    assert(!msa && pll_errno == PLL_ERROR_FILE_OPEN);
+  }
+  else
+  {
+    pll_fasta_t * fp;
+    fp = pll_fasta_open (BAD_FASTA, pll_map_fasta);
+    assert(!fp && pll_errno == PLL_ERROR_FILE_OPEN);
+  }
 
   return PLL_SUCCESS;
 }
 
-static int bigtest(unsigned int attributes)
+static int bigtest(unsigned int attributes, pll_bool_t oneliner)
 {
   unsigned int i;
-  char * seq, *header;
-  long seq_len, header_len, seqno;
-  pll_fasta_t * fp;
   pll_partition_t * partition;
 
   printf ("Creating PLL partition\n");
@@ -52,7 +89,7 @@ static int bigtest(unsigned int attributes)
   partition = pll_partition_create(N_TAXA_BIG, /* tips */
                                     4, /* clv buffers */
                                     N_STATES, /* states */
-                                    N_SITES, /* sites */
+                                    N_SITES_BIG, /* sites */
                                     1, /* different rate parameters */
                                     8, /* probability matrices */
                                     N_RATE_CATS, /* rate categories */
@@ -60,61 +97,66 @@ static int bigtest(unsigned int attributes)
                                     attributes
                                     );
 
-  fp = pll_fasta_open ("testdata/worms16s.fas", pll_map_fasta);
-  if (!fp)
+  if (oneliner)
   {
-    printf (" ERROR opening file (%d): %s\n", pll_errno, pll_errmsg);
-    exit (PLL_FAILURE);
+    load_fasta_and_set_tips(BIG_FASTA, partition);
   }
-
-  i = 0;
-  while (pll_fasta_getnext (fp, &header, &header_len, &seq, &seq_len, &seqno))
+  else
   {
-    if (seq_len != (N_SITES + 1))
+    char * seq, *header;
+    long seq_len, header_len, seqno;
+    pll_fasta_t * fp = pll_fasta_open (BIG_FASTA, pll_map_fasta);
+    if (!fp)
     {
-      printf (
-          " ERROR: Mismatching sequence length for sequence %d (%ld, and it should be %d)\n",
-          i, seq_len - 1, N_SITES);
+      printf (" ERROR opening file (%d): %s\n", pll_errno, pll_errmsg);
       exit (PLL_FAILURE);
     }
-    if (!pll_set_tip_states (partition, i, pll_map_nt, seq))
+
+    i = 0;
+    while (pll_fasta_getnext (fp, &header, &header_len, &seq, &seq_len, &seqno))
     {
-      printf (" ERROR setting states (%d): %s\n", pll_errno, pll_errmsg);
+      if (seq_len != N_SITES_BIG)
+      {
+        printf (
+            " ERROR: Mismatching sequence length for sequence %d (%ld, and it should be %d)\n",
+            i, seq_len, N_SITES_BIG);
+        exit (PLL_FAILURE);
+      }
+      if (!pll_set_tip_states (partition, i, pll_map_nt, seq))
+      {
+        printf (" ERROR setting states (%d): %s\n", pll_errno, pll_errmsg);
+        exit (PLL_FAILURE);
+      }
+      printf ("Header of sequence %d(%ld) %s (%ld sites)\n", i, seqno, header,
+              seq_len);
+      free (header);
+      free (seq);
+      ++i;
+    }
+
+    if (pll_errno != PLL_ERROR_FILE_EOF)
+    {
+      printf (" ERROR at the end (%d): %s\n", pll_errno, pll_errmsg);
       exit (PLL_FAILURE);
     }
-    printf ("Header of sequence %d(%ld) %s (%ld sites)\n", i, seqno, header,
-            seq_len);
-    free (header);
-    free (seq);
-    ++i;
+
+    pll_fasta_close (fp);
+
+    assert(i == N_TAXA_BIG);
   }
 
-  if (pll_errno != PLL_ERROR_FILE_EOF)
-  {
-    printf (" ERROR at the end (%d): %s\n", pll_errno, pll_errmsg);
-    exit (PLL_FAILURE);
-  }
-
-  assert(i == N_TAXA_BIG);
-
-  pll_fasta_close (fp);
   pll_partition_destroy(partition);
 
   return PLL_SUCCESS;
 }
 
-static int smalltest (unsigned int attributes)
+static int smalltest (unsigned int attributes, pll_bool_t oneliner)
 {
   unsigned int i;
-  char * seq, *header;
-  long seq_len, header_len, seqno;
-  pll_fasta_t * fp;
   pll_partition_t * partition;
   pll_operation_t * operations;
   double rate_cats[4];
   unsigned int params_indices[N_RATE_CATS] = {0,0,0,0};
-
-  unsigned int num_sites = 4 * N_SITES;
 
   double branch_lengths[4] =
     { 0.1, 0.2, 1, 1 };
@@ -125,22 +167,34 @@ static int smalltest (unsigned int attributes)
 
   partition = pll_partition_create(N_TAXA_SMALL, 4,
                                    N_STATES,
-                                   num_sites, 1, 2 * N_TAXA_SMALL - 3,
+                                   N_SITES_SMALL,
+                                   1, 2 * N_TAXA_SMALL - 3,
                                    N_RATE_CATS,
                                    1, 
                                    attributes);
 
-  fp = pll_fasta_open ("testdata/small.fas", pll_map_fasta);
-  i = 0;
-  while (pll_fasta_getnext (fp, &header, &header_len, &seq, &seq_len, &seqno))
+
+  if (oneliner)
   {
-    if (!pll_set_tip_states (partition, i, pll_map_nt, seq))
-      exit (PLL_FAILURE);
-    free (header);
-    free (seq);
-    ++i;
+    load_fasta_and_set_tips(SMALL_FASTA, partition);
   }
-  assert(i == (N_TAXA_SMALL));
+  else
+  {
+    char * seq, *header;
+    long seq_len, header_len, seqno;
+    pll_fasta_t * fp = pll_fasta_open (SMALL_FASTA, pll_map_fasta);
+    i = 0;
+    while (pll_fasta_getnext (fp, &header, &header_len, &seq, &seq_len, &seqno))
+    {
+      if (!pll_set_tip_states (partition, i, pll_map_nt, seq))
+        exit (PLL_FAILURE);
+      free (header);
+      free (seq);
+      ++i;
+    }
+    pll_fasta_close (fp);
+    assert(i == (N_TAXA_SMALL));
+  }
 
   operations = (pll_operation_t *) malloc (4 * sizeof(pll_operation_t));
 
@@ -189,7 +243,6 @@ static int smalltest (unsigned int attributes)
                                  NULL));
 
   free (operations);
-  pll_fasta_close (fp);
   pll_partition_destroy(partition);
 
   return PLL_SUCCESS;
@@ -199,14 +252,24 @@ int main (int argc, char * argv[])
 {
   unsigned int attributes = get_attributes(argc, argv);
 
-  if (bigtest (attributes))
-    printf ("Big test OK\n\n");
+  if (bigtest (attributes, PLL_FALSE))
+    printf ("Big test (low-level): OK\n\n");
 
-  if (smalltest (attributes))
-    printf ("Small test OK\n\n");
+  if (bigtest (attributes, PLL_TRUE))
+    printf ("Big test (one-liner): OK\n\n");
 
-  if (failtest (attributes))
-    printf ("Fail test OK\n");
+  if (smalltest (attributes, PLL_FALSE))
+    printf ("Small test (low-level): OK\n\n");
+
+  if (smalltest (attributes, PLL_TRUE))
+    printf ("Small test (one-liner): OK\n\n");
+
+
+  if (failtest (attributes, PLL_FALSE))
+    printf ("Fail test (low-level): OK\n");
+
+  if (failtest (attributes, PLL_TRUE))
+    printf ("Fail test (one-liner): OK\n");
 
   return PLL_SUCCESS;
 }

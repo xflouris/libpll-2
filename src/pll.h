@@ -143,14 +143,15 @@
 #define PLL_ERROR_FILE_OPEN                100
 #define PLL_ERROR_FILE_SEEK                101
 #define PLL_ERROR_FILE_EOF                 102
-#define PLL_ERROR_FASTA_ILLEGALCHAR        103
-#define PLL_ERROR_FASTA_UNPRINTABLECHAR    104
-#define PLL_ERROR_FASTA_INVALIDHEADER      105
-#define PLL_ERROR_PHYLIP_SYNTAX            106
-#define PLL_ERROR_PHYLIP_LONGSEQ           107
-#define PLL_ERROR_PHYLIP_NONALIGNED        108
-#define PLL_ERROR_PHYLIP_ILLEGALCHAR       109
-#define PLL_ERROR_PHYLIP_UNPRINTABLECHAR   110
+#define PLL_ERROR_FASTA_ILLEGALCHAR        201
+#define PLL_ERROR_FASTA_UNPRINTABLECHAR    202
+#define PLL_ERROR_FASTA_INVALIDHEADER      203
+#define PLL_ERROR_FASTA_NONALIGNED         204
+#define PLL_ERROR_PHYLIP_SYNTAX            231
+#define PLL_ERROR_PHYLIP_LONGSEQ           232
+#define PLL_ERROR_PHYLIP_NONALIGNED        233
+#define PLL_ERROR_PHYLIP_ILLEGALCHAR       234
+#define PLL_ERROR_PHYLIP_UNPRINTABLECHAR   235
 #define PLL_ERROR_NEWICK_SYNTAX            111
 #define PLL_ERROR_MEM_ALLOC                112
 #define PLL_ERROR_PARAM_INVALID            113
@@ -846,6 +847,8 @@ PLL_EXPORT long pll_fasta_getfilesize(const pll_fasta_t * fd);
 PLL_EXPORT long pll_fasta_getfilepos(pll_fasta_t * fd);
 
 PLL_EXPORT int pll_fasta_rewind(pll_fasta_t * fd);
+
+pll_msa_t * pll_fasta_load(const char * fname);
 
 /* functions in parse_rtree.y */
 
