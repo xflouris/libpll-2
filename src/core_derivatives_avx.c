@@ -78,6 +78,9 @@ static int core_update_sumtable_ii_4x4_avx(unsigned int sites,
 
   if (!tt_inv_eigenvecs)
   {
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
     return PLL_FAILURE;
@@ -266,6 +269,8 @@ PLL_EXPORT int pll_core_update_sumtable_repeats_4x4_avx(unsigned int states,
 
   if (!tt_inv_eigenvecs)
   {
+    if (rate_scalings)
+      free(rate_scalings);
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
     return PLL_FAILURE;
@@ -427,6 +432,9 @@ PLL_EXPORT int pll_core_update_sumtable_repeatsbclv_4x4_avx(unsigned int states,
   unsigned int span_padded = rate_cats * states;
   double * lbclv = bclv_buffer;
 
+  double * tt_inv_eigenvecs_buff = NULL;
+  double ** tt_inv_eigenvecs_ptr = NULL;
+
   /* scaling stuff*/
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
@@ -454,12 +462,19 @@ PLL_EXPORT int pll_core_update_sumtable_repeatsbclv_4x4_avx(unsigned int states,
   }
 
   /* transposed inv_eigenvecs */
-  double * tt_inv_eigenvecs_buff = (double *) pll_aligned_alloc (
+  tt_inv_eigenvecs_buff = (double *) pll_aligned_alloc (
       (states * states * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
-  double ** tt_inv_eigenvecs_ptr = (double **) malloc (rate_cats * sizeof(double *));
-  if (!tt_inv_eigenvecs_ptr || ! tt_inv_eigenvecs_buff)
+  tt_inv_eigenvecs_ptr = (double **) malloc (rate_cats * sizeof(double *));
+  if (!tt_inv_eigenvecs_buff || !tt_inv_eigenvecs_ptr)
   {
+    if (rate_scalings)
+      free(rate_scalings);
+    if (tt_inv_eigenvecs_buff)
+      pll_aligned_free(tt_inv_eigenvecs_buff);
+    if (tt_inv_eigenvecs_ptr)
+      free(tt_inv_eigenvecs_ptr);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
     return PLL_FAILURE;
@@ -699,6 +714,9 @@ PLL_EXPORT int pll_core_update_sumtable_repeats_generic_avx(unsigned int states,
 
   if (!tt_eigenvecs)
   {
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
     return PLL_FAILURE;
@@ -955,6 +973,9 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx(unsigned int states,
 
   if (!tt_eigenvecs)
   {
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
     return PLL_FAILURE;
@@ -1155,6 +1176,9 @@ static int core_update_sumtable_ti_4x4_avx(unsigned int sites,
   const double * t_clvc = parent_clv;
   const double * t_eigenvecs_trans;
 
+  double * eigenvecs_trans = NULL;
+  double * precomp_left = NULL;
+
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
   int per_rate_scaling = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 1 : 0;
@@ -1180,16 +1204,23 @@ static int core_update_sumtable_ti_4x4_avx(unsigned int sites,
     }
   }
 
-  double * eigenvecs_trans = (double *) pll_aligned_alloc (
+  eigenvecs_trans = (double *) pll_aligned_alloc (
       (states * states * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
-  double * precomp_left = (double *) pll_aligned_alloc (
+  precomp_left = (double *) pll_aligned_alloc (
       (16 * states * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
   if (!eigenvecs_trans || !precomp_left)
   {
+    if (eigenvecs_trans)
+      pll_aligned_free(eigenvecs_trans);
+    if (precomp_left)
+      pll_aligned_free(precomp_left);
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
     return PLL_FAILURE;
@@ -1359,6 +1390,9 @@ PLL_EXPORT int pll_core_update_sumtable_ti_avx(unsigned int states,
   const double * t_clvc = parent_clv;
   const double * t_eigenvecs_padded;
 
+  double * eigenvecs_padded = NULL;
+  double * precomp_left = NULL;
+
   /* scaling stuff */
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
@@ -1385,16 +1419,23 @@ PLL_EXPORT int pll_core_update_sumtable_ti_avx(unsigned int states,
     }
   }
 
-  double * eigenvecs_padded = (double *) pll_aligned_alloc (
+  eigenvecs_padded = (double *) pll_aligned_alloc (
       (states_padded * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
-  double * precomp_left = (double *) pll_aligned_alloc (
+  precomp_left = (double *) pll_aligned_alloc (
       (maxstates * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
   if (!eigenvecs_padded || !precomp_left)
   {
+    if (eigenvecs_padded)
+      pll_aligned_free(eigenvecs_padded);
+    if (precomp_left)
+      pll_aligned_free(precomp_left);
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
     return PLL_FAILURE;

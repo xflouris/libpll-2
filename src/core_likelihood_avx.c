@@ -352,9 +352,12 @@ double pll_core_edge_loglikelihood_ti_4x4_avx(unsigned int sites,
     /* TODO: in the highly unlikely event that allocation fails, we should
        resort to a non-lookup-precomputation version of this function,
        available at commit e.g.  a4fc873fdc65741e402cdc1c59919375143d97d1 */
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg, 200, "Cannot allocate space for precomputation.");
-    return 1;
+    return -INFINITY;
   }
 
   /* skip first entry of lookup table as it is never used */
@@ -492,7 +495,7 @@ double pll_core_edge_loglikelihood_ti_4x4_avx(unsigned int sites,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -598,9 +601,12 @@ double pll_core_edge_loglikelihood_ti_20x20_avx(unsigned int sites,
     /* TODO: in the highly unlikely event that allocation fails, we should
        resort to a non-lookup-precomputation version of this function,
        available at commit e.g.  a4fc873fdc65741e402cdc1c59919375143d97d1 */
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg, 200, "Cannot allocate space for precomputation.");
-    return 0.;
+    return -INFINITY;
   }
 
   double * ptr = lookup;
@@ -734,7 +740,7 @@ double pll_core_edge_loglikelihood_ti_20x20_avx(unsigned int sites,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -983,7 +989,7 @@ double pll_core_edge_loglikelihood_ti_avx(unsigned int states,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -1231,7 +1237,7 @@ double pll_core_edge_loglikelihood_repeats_generic_avx(unsigned int states,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -1472,7 +1478,7 @@ double pll_core_edge_loglikelihood_ii_avx(unsigned int states,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -1687,7 +1693,7 @@ double pll_core_edge_loglikelihood_ii_4x4_avx(unsigned int sites,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -1909,7 +1915,7 @@ double pll_core_edge_loglikelihood_repeats_4x4_avx(unsigned int states,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -2142,7 +2148,7 @@ double pll_core_edge_loglikelihood_repeatsbclv_4x4_avx(unsigned int states,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }

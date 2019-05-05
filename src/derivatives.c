@@ -29,7 +29,8 @@ static int sumtable_tipinner(pll_partition_t * partition,
                              const unsigned int * params_indices,
                              double *sumtable)
 {
-  unsigned int i, retval;
+  int retval;
+  unsigned int i;
   unsigned int tip_clv_index;
   unsigned int inner_clv_index;
   unsigned int sites = partition->sites;
@@ -106,7 +107,8 @@ static int sumtable_innerinner(pll_partition_t * partition,
                                 const unsigned int * params_indices,
                                 double *sumtable)
 {
-  unsigned int i, retval;
+  int retval;
+  unsigned int i;
   unsigned int sites = partition->sites;
 
   double ** eigenvecs = (double **)malloc(partition->rate_cats *
@@ -128,7 +130,7 @@ static int sumtable_innerinner(pll_partition_t * partition,
 
   /* ascertaiment bias correction */
   if (partition->asc_bias_alloc)
-    sites += partition->asc_additional_sites;
+    sites += (unsigned int) partition->asc_additional_sites;
 
   for (i = 0; i < partition->rate_cats; ++i)
   {
@@ -137,19 +139,18 @@ static int sumtable_innerinner(pll_partition_t * partition,
     freqs[i] = partition->frequencies[params_indices[i]];
   }
 
-  retval =
-  pll_core_update_sumtable_ii(partition->states,
-                              sites,
-                              partition->rate_cats,
-                              partition->clv[parent_clv_index],
-                              partition->clv[child_clv_index],
-                              parent_scaler,
-                              child_scaler,
-                              eigenvecs,
-                              inv_eigenvecs,
-                              freqs,
-                              sumtable,
-                              partition->attributes);
+  retval = pll_core_update_sumtable_ii(partition->states,
+                                       sites,
+                                       partition->rate_cats,
+                                       partition->clv[parent_clv_index],
+                                       partition->clv[child_clv_index],
+                                       parent_scaler,
+                                       child_scaler,
+                                       eigenvecs,
+                                       inv_eigenvecs,
+                                       freqs,
+                                       sumtable,
+                                       partition->attributes);
 
   free(freqs);
   free(eigenvecs);
@@ -166,7 +167,8 @@ static int sumtable_repeats(pll_partition_t * partition,
                                 const unsigned int * params_indices,
                                 double *sumtable)
 {
-  unsigned int i, retval;
+  int retval;
+  unsigned int i;
   unsigned int sites = partition->sites;
 
   double ** eigenvecs = (double **)malloc(partition->rate_cats *
@@ -188,7 +190,7 @@ static int sumtable_repeats(pll_partition_t * partition,
 
   /* ascertaiment bias correction */
   if (partition->asc_bias_alloc)
-    sites += partition->asc_additional_sites;
+    sites += (unsigned int) partition->asc_additional_sites;
 
   for (i = 0; i < partition->rate_cats; ++i)
   {

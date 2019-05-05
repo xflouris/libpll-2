@@ -113,8 +113,6 @@ PLL_EXPORT int pll_core_update_pmatrix_4x4_sse(double ** pmatrix,
 
   if (!expd)
   {
-    if (expd) pll_aligned_free(expd);
-
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
     return PLL_FAILURE;
@@ -141,20 +139,7 @@ PLL_EXPORT int pll_core_update_pmatrix_4x4_sse(double ** pmatrix,
       evals = eigenvals[params_indices[n]];
 
       /* if branch length is zero then set the p-matrix to identity matrix */
-      if (!branch_lengths[i])
-      {
-        _mm_store_pd(pmat+0, xmm0);
-        _mm_store_pd(pmat+2, xmm0);
-        _mm_store_pd(pmat+4, xmm0);
-        _mm_store_pd(pmat+6, xmm0);
-        _mm_store_pd(pmat+8, xmm0);
-        _mm_store_pd(pmat+10,xmm0);
-        _mm_store_pd(pmat+12,xmm0);
-        _mm_store_pd(pmat+14,xmm0);
-
-        pmat[0] = pmat[5] = pmat[10] = pmat[15] = 1;
-      }
-      else
+      if (branch_lengths[i] > 0.)
       {
         /* exponentiate eigenvalues */
 
@@ -231,6 +216,20 @@ PLL_EXPORT int pll_core_update_pmatrix_4x4_sse(double ** pmatrix,
         }
         pmat -= 16;
       }
+      else
+      {
+        _mm_store_pd(pmat+0, xmm0);
+        _mm_store_pd(pmat+2, xmm0);
+        _mm_store_pd(pmat+4, xmm0);
+        _mm_store_pd(pmat+6, xmm0);
+        _mm_store_pd(pmat+8, xmm0);
+        _mm_store_pd(pmat+10,xmm0);
+        _mm_store_pd(pmat+12,xmm0);
+        _mm_store_pd(pmat+14,xmm0);
+
+        pmat[0] = pmat[5] = pmat[10] = pmat[15] = 1;
+      }
+
       #ifdef DEBUG
       unsigned int j,k;
       for (j = 0; j < 4; ++j)

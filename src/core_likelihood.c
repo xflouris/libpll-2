@@ -544,8 +544,8 @@ double pll_core_edge_loglikelihood_ti_4x4(unsigned int sites,
     {
       if (terminv > 0.)
       {
-        /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        /* IMPORTANT: undoing the scaling for non-invariant likelihood term only! */
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -888,7 +888,7 @@ double pll_core_edge_loglikelihood_ti(unsigned int states,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -1158,7 +1158,7 @@ double pll_core_edge_loglikelihood_repeats_generic(unsigned int states,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }
@@ -1465,7 +1465,7 @@ double pll_core_edge_loglikelihood_ii(unsigned int states,
       if (terminv > 0.)
       {
         /* IMPORTANT: undoing the scaling for non-variant likelihood term only! */
-        int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
+        unsigned int capped_scalings = PLL_MIN(site_scalings, PLL_SCALE_RATE_MAXDIFF);
         double scale_factor = scale_minlh[capped_scalings-1];
         site_lk = log(terma * scale_factor + terminv);
       }

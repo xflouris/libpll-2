@@ -171,12 +171,12 @@ pll_srandom_r (unsigned int seed, struct pll_random_data *buf)
   /* We must make sure the seed is not 0.  Take arbitrarily 1 in this case.  */
   if (seed == 0)
     seed = 1;
-  state[0] = seed;
+  state[0] = (int32_t) seed;
   if (type == TYPE_0)
     goto done;
 
   dst = state;
-  word = seed;
+  word = (int32_t) seed;
   kc = buf->rand_deg;
   for (i = 1; i < kc; ++i)
     {
@@ -185,7 +185,7 @@ pll_srandom_r (unsigned int seed, struct pll_random_data *buf)
 	 but avoids overflowing 31 bits.  */
       long int hi = word / 127773;
       long int lo = word % 127773;
-      word = 16807 * lo - 2836 * hi;
+      word = (int32_t) 16807 * lo - 2836 * hi;
       if (word < 0)
 	word += 2147483647;
       *++dst = word;
@@ -232,7 +232,7 @@ pll_initstate_r (unsigned int seed, char *arg_state, size_t n,
       if (old_type == TYPE_0)
 	old_state[-1] = TYPE_0;
       else
-	old_state[-1] = (MAX_TYPES * (buf->rptr - old_state)) + old_type;
+	old_state[-1] = (int32_t) (MAX_TYPES * (buf->rptr - old_state)) + old_type;
     }
 
   int type;
@@ -264,7 +264,7 @@ pll_initstate_r (unsigned int seed, char *arg_state, size_t n,
 
   state[-1] = TYPE_0;
   if (type != TYPE_0)
-    state[-1] = (buf->rptr - state) * MAX_TYPES + type;
+    state[-1] = (int32_t) (buf->rptr - state) * MAX_TYPES + type;
 
   return 0;
 
@@ -301,7 +301,7 @@ pll_setstate_r (char *arg_state, struct pll_random_data *buf)
   if (old_type == TYPE_0)
     old_state[-1] = TYPE_0;
   else
-    old_state[-1] = (MAX_TYPES * (buf->rptr - old_state)) + old_type;
+    old_state[-1] = (int32_t) (MAX_TYPES * (buf->rptr - old_state)) + old_type;
 
   type = new_state[-1] % MAX_TYPES;
   if (type < TYPE_0 || type > TYPE_4)

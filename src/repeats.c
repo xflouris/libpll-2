@@ -49,7 +49,7 @@ PLL_EXPORT int pll_repeats_enabled(const pll_partition_t *partition)
   return PLL_ATTRIB_SITE_REPEATS & partition->attributes;
 }
 
-PLL_EXPORT void pll_resize_repeats_lookup(pll_partition_t *partition, size_t size)
+PLL_EXPORT void pll_resize_repeats_lookup(pll_partition_t *partition, unsigned int size)
 {
   if (!size)
     return;
@@ -119,7 +119,8 @@ PLL_EXPORT unsigned int pll_no_enable_repeats(pll_partition_t *partition,
 
 PLL_EXPORT int pll_repeats_initialize(pll_partition_t *partition)
 {
-  int sites_alloc = partition->asc_additional_sites + partition->sites;
+  unsigned int sites_alloc = (unsigned int) partition->asc_additional_sites +
+                                            partition->sites;
   unsigned int i;
   partition->repeats = malloc(sizeof(pll_repeats_t));
   if (!partition->repeats) 
@@ -205,7 +206,7 @@ PLL_EXPORT int pll_update_repeats_tips(pll_partition_t * partition,
   /* fill pernode_site_id */
   for (s = 0; s < partition->sites; ++s) 
   {
-    unsigned int index_lookup = repeats->charmap[(int)sequence[s]];
+    unsigned int index_lookup = (unsigned int) repeats->charmap[(int)sequence[s]];
     if (EMPTY_ELEMENT == repeats->lookup_buffer[index_lookup]) 
     {
       repeats->toclean_buffer[curr_id] = index_lookup;

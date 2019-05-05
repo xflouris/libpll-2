@@ -71,6 +71,7 @@ PLL_EXPORT pll_fasta_t * pll_fasta_open(const char * filename, const unsigned in
   {
     pll_errno = PLL_ERROR_FILE_SEEK;
     snprintf(pll_errmsg, 200, "Unable to seek in file (%s)", filename);
+    fclose(fd->fp);
     free(fd);
     return NULL;
   }
@@ -88,6 +89,7 @@ PLL_EXPORT pll_fasta_t * pll_fasta_open(const char * filename, const unsigned in
   {
     pll_errno = PLL_ERROR_FILE_SEEK;
     snprintf(pll_errmsg, 200, "Unable to read file (%s)", filename);
+    fclose(fd->fp);
     free(fd);
     return NULL;
   }
@@ -325,7 +327,7 @@ PLL_EXPORT long pll_fasta_getfilepos(pll_fasta_t * fd)
 
 PLL_EXPORT pll_msa_t * pll_fasta_load(const char * fname)
 {
-  unsigned int i;
+  int i;
 
   char * seq = NULL;
   char * hdr = NULL;
@@ -335,6 +337,7 @@ PLL_EXPORT pll_msa_t * pll_fasta_load(const char * fname)
 
   long alloc_count = 0;
   long alloc_chunk = 0;
+  size_t alloc_size = 0;
 
   pll_fasta_t * fp = pll_fasta_open(fname, pll_map_generic);
   if (!fp)
@@ -359,11 +362,11 @@ PLL_EXPORT pll_msa_t * pll_fasta_load(const char * fname)
   {
     if (msa->length == -1)
     {
-      msa->length = seqlen;
+      msa->length = (int) seqlen;
 
       /* estimate number of sequences from file size and sequence length
        * (it's better to overestimate slightly to avoid reallocations) */
-      alloc_chunk = 1.1 * fp->filesize / (seqlen + hdrlen);
+      alloc_chunk =  (long) ceil(1.1 * fp->filesize / (seqlen + hdrlen));
     }
     else if (msa->length != seqlen)
     {
@@ -372,7 +375,7 @@ PLL_EXPORT pll_msa_t * pll_fasta_load(const char * fname)
       pll_fasta_close(fp);
       pll_errno = PLL_ERROR_FASTA_NONALIGNED;
       snprintf(pll_errmsg, 200, "FASTA file does not contain equal size sequences: "
-          "sequence %u has length of %ld (expected: %d)", i, seqlen, msa->length);
+          "sequence %d has length of %ld (expected: %d)", i, seqlen, msa->length);
       return NULL;
     }
 
@@ -380,8 +383,9 @@ PLL_EXPORT pll_msa_t * pll_fasta_load(const char * fname)
     {
       /* allocate arrays to store FASTA headers and sequences */
       alloc_count += alloc_chunk;
-      msa->label = (char **)realloc(msa->label, alloc_count * sizeof(char *));
-      msa->sequence = (char **)realloc(msa->sequence, alloc_count * sizeof(char *));
+      alloc_size = (size_t) alloc_count * sizeof(char *);
+      msa->label = (char **)realloc(msa->label, alloc_size);
+      msa->sequence = (char **)realloc(msa->sequence, alloc_size);
     }
 
     msa->label[i] = hdr;
@@ -391,8 +395,9 @@ PLL_EXPORT pll_msa_t * pll_fasta_load(const char * fname)
   msa->count = i;
 
   /* trim label and sequence arrays to their actual size */
-  msa->label = (char **)realloc(msa->label, msa->count * sizeof(char *));
-  msa->sequence = (char **)realloc(msa->sequence, msa->count * sizeof(char *));
+  alloc_size = (size_t) msa->count * sizeof(char *);
+  msa->label = (char **)realloc(msa->label, alloc_size);
+  msa->sequence = (char **)realloc(msa->sequence, alloc_size);
 
   /* close FASTA file */
   pll_fasta_close(fp);

@@ -650,7 +650,8 @@ PLL_EXPORT void pll_fill_parent_scaler(unsigned int scaler_size,
 
 PLL_EXPORT int pll_repeats_enabled(const pll_partition_t *partition);
 
-PLL_EXPORT void pll_resize_repeats_lookup(pll_partition_t *partition, size_t size);
+PLL_EXPORT void pll_resize_repeats_lookup(pll_partition_t *partition,
+                                          unsigned int size);
 
 PLL_EXPORT unsigned int pll_get_sites_number(const pll_partition_t * partition,
                                              unsigned int clv_index);
@@ -2618,9 +2619,9 @@ PLL_EXPORT void pll_random_destroy(pll_random_state * rstate);
 
 PLL_EXPORT int pll_hardware_probe(void);
 
-PLL_EXPORT void pll_hardware_dump();
+PLL_EXPORT void pll_hardware_dump(void);
 
-PLL_EXPORT void pll_hardware_ignore();
+PLL_EXPORT void pll_hardware_ignore(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

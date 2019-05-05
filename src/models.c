@@ -522,7 +522,7 @@ PLL_EXPORT int pll_update_invariant_sites_proportion(pll_partition_t * partition
     pll_errno = PLL_ERROR_INVAR_PARAMINDEX;
     snprintf(pll_errmsg,
              200,
-             "Invalid params index (%d)", params_index);
+             "Invalid params index (%u)", params_index);
     return PLL_FAILURE;
   }
 
@@ -573,7 +573,7 @@ PLL_EXPORT unsigned int pll_count_invariant_sites(pll_partition_t * partition,
     {
       if (invariant[i] > -1)
       {
-        cur_state = invariant[i];
+        cur_state = (pll_state_t) invariant[i];
         /* since the invariant sites array is generated in the library,
            it should not contain invalid values */
         assert (cur_state < states);
