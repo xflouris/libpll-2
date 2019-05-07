@@ -1,0 +1,250 @@
+---
+title: "Micro Benchmark on core_partials kernels"
+output: html_notebook
+---
+
+In this report, we compared the runtime of the following partials kernel implementations:
+
+* AVX2 - the baseline kernel
+* AVX2 SML - the partials kernel that uses an alternative memory layout
+* AVX512F - the partials kernel that uses AVX512F, but with the same memory layout as used in the old AVX2 kernel
+* AVX512F SML - tha partials kernel which uses both AVX512F and the new memory layout
+
+# Benchmark setup
+
+For generating the data points, we used a minimalistic micro benchmark program written in C. It performs the following steps:
+
+1. Randomly generate an input sequence alignment depending on ‘n-sites’
+2. Executing each kernel variant ‘n-itr=100’ times.
+3. Report the total execution times of all ‘n-itr’ kernel executions
+4. Repeat 1. and 3. ‘n-benchmark-repeat=10’ times to generate a CSV file with 10 rows
+
+We then used a Python script to execute the C benchmark program with varying number of ‘n-sites’
+
+```{r}
+readBenchmarkFile <- function(report.dir, benchmark.file) {
+  table <- fread(file.path(report.dir, benchmark.file))
+  agg_data_row <- data.table(n_sites=table$n_sites[1],
+                             n_categories           = table$n_categories[1],
+                             n_iterations           = table$n_iterations[1],
+                             p_invar                = table$p_invar[1],
+                             CLV_buffer_size_AA     = table$CLV_buffer_size_AA[1],
+                             CLV_buffer_size_NT     = table$CLV_buffer_size_NT[1],
+                             time_aa_avx2_normal    = mean(table$time_aa_avx2_normal),
+                             time_aa_avx2_sml       = mean(table$time_aa_avx2_sml),
+                             time_aa_avx512f_normal = mean(table$time_aa_avx512f_normal),
+                             time_aa_avx512f_sml    = mean(table$time_aa_avx512f_sml),
+                             time_nt_avx2_normal    = mean(table$time_nt_avx2_normal),
+                             time_nt_avx2_sml       = mean(table$time_nt_avx2_sml),
+                             time_nt_avx512f_sml    = mean(table$time_nt_avx512f_sml))
+  return(agg_data_row)
+}
+
+readBenchmarks <- function(report.dir) {
+  benchmarks <- lapply(list.files(report.dir), function(benchmark.file) {
+    readBenchmarkFile(report.dir, benchmark.file)
+  })
+  series <- Reduce(rbind, benchmarks)
+  series[order(n_sites)]
+}
+
+toSpeedUp <- function(data) {
+  data.table(n_sites                = data$n_sites,
+             CLV_buffer_size_NT     = data$CLV_buffer_size_NT,
+             CLV_buffer_size_AA     = data$CLV_buffer_size_AA,
+             time_nt_avx2_sml       = data$time_nt_avx2_normal/data$time_nt_avx2_sml,
+             time_nt_avx512f_sml    = data$time_nt_avx2_normal/data$time_nt_avx512f_sml,
+             time_aa_avx2_sml       = data$time_aa_avx2_normal/data$time_aa_avx2_sml,
+             time_aa_avx512f_normal = data$time_aa_avx2_normal/data$time_aa_avx512f_normal,
+             time_aa_avx512f_sml    = data$time_aa_avx2_normal/data$time_aa_avx512f_sml)
+}
+
+time_data_100_2000   <- readBenchmarks("./reports/partials_100_2000_100/")
+time_data_500_100000 <- readBenchmarks("./reports/partials_500_100000_1000/")
+
+speedup_data_100_2000   <- toSpeedUp(time_data_100_2000)
+speedup_data_500_100000 <- toSpeedUp(time_data_500_100000)
+```
+
+# Benchmark Results
+
+## DNA kernels
+
+### n_sites from 100 to 2000:
+
+```{r}
+time_plot_100_2000 <- plot_ly(time_data_100_2000,
+                              x = ~n_sites,
+                              y = ~time_nt_avx2_normal,
+                              name = 'AVX2',
+                              type = 'scatter',
+                              mode = 'lines+markers') %>%
+  add_trace(y = ~time_nt_avx2_sml, name = 'AVX2 SML', mode = 'lines+markers') %>%
+  add_trace(y = ~CLV_buffer_size_NT, name = 'CLV Buffer Size', yaxis = "y2") %>%
+  add_trace(y = ~time_nt_avx512f_sml, name = 'AVX512 SML', mode = 'lines+markers') %>%
+  layout(title="Timings", 
+         yaxis = list(title = "Runtime (sec)"),
+         yaxis2 = list(tickfont = list(color = "red"),
+                       overlaying = "y",
+                       side = "right",
+                       title = "CLV Buffer Size (KB)"
+                       )
+         )
+time_plot_100_2000
+```
+
+
+```{r}
+speedup_plot_100_2000 <- plot_ly(speedup_data_100_2000,
+                                   x = ~n_sites,
+                                   y = ~time_nt_avx2_sml,
+                                   name = 'AVX2 SML',
+                                   type = 'scatter',
+                                   mode = 'lines+markers') %>%
+  add_trace(y = ~time_nt_avx512f_sml, name = 'AVX512F SML', mode = 'lines+markers') %>%
+  add_trace(y = ~CLV_buffer_size_NT, name = 'CLV Buffer Size', yaxis = "y2") %>%
+  layout(title="Speedups", 
+         yaxis = list(title = "Speedup (AVX2 Normal / X)"),
+         yaxis2 = list(tickfont = list(color = "red"),
+                       overlaying = "y",
+                       side = "right",
+                       title = "CLV Buffer Size (KB)"
+                       )
+         )
+speedup_plot_100_2000
+```
+
+### n_sites from 100 to 2000:
+
+```{r}
+time_plot_500_100000 <- plot_ly(time_data_500_100000,
+                                x = ~n_sites,
+                                y = ~time_nt_avx2_normal,
+                                name = 'AVX2',
+                                type = 'scatter',
+                                mode = 'lines+markers') %>%
+  add_trace(y = ~time_nt_avx2_sml, name = 'AVX2 SML', mode = 'lines+markers') %>%
+  add_trace(y = ~CLV_buffer_size_NT, name = 'CLV Buffer Size', yaxis = "y2") %>%
+  add_trace(y = ~time_nt_avx512f_sml, name = 'AVX512 SML', mode = 'lines+markers') %>%
+  layout(title="Timings", 
+         yaxis = list(title = "Runtime (sec)"),
+         yaxis2 = list(tickfont = list(color = "red"),
+                       overlaying = "y",
+                       side = "right",
+                       title = "CLV Buffer Size (KB)"
+                       )
+         )
+time_plot_500_100000
+```
+
+```{r}
+speedup_plot_500_100000 <- plot_ly(speedup_data_500_100000,
+                                   x = ~n_sites,
+                                   y = ~time_nt_avx2_sml,
+                                   name = 'AVX2 SML',
+                                   type = 'scatter',
+                                   mode = 'lines+markers') %>%
+  add_trace(y = ~time_nt_avx512f_sml, name = 'AVX512F SML', mode = 'lines+markers') %>%
+  add_trace(y = ~CLV_buffer_size_NT, name = 'CLV Buffer Size', yaxis = "y2") %>%
+  layout(title="Speedups", 
+         yaxis = list(title = "Speedup (AVX2 Normal / X)"),
+         yaxis2 = list(tickfont = list(color = "red"),
+                       overlaying = "y",
+                       side = "right",
+                       title = "CLV Buffer Size (KB)"
+                       )
+         )
+speedup_plot_500_100000
+```
+
+## Protein kernels
+
+### n_sites from 100 to 2000:
+
+```{r}
+time_plot_100_2000 <- plot_ly(time_data_100_2000,
+                              x = ~n_sites,
+                              y = ~time_aa_avx2_normal,
+                              name = 'AVX2',
+                              type = 'scatter',
+                              mode = 'lines+markers') %>%
+  add_trace(y = ~time_aa_avx2_sml, name = 'AVX2 SML', mode = 'lines+markers') %>%
+  add_trace(y = ~CLV_buffer_size_NT, name = 'CLV Buffer Size', yaxis = "y2") %>%
+  add_trace(y = ~time_aa_avx512f_normal, name = 'AVX512', mode = 'lines+markers') %>%
+  add_trace(y = ~time_aa_avx512f_sml, name = 'AVX512 SML', mode = 'lines+markers') %>%
+  layout(title="Timings", 
+         yaxis = list(title = "Runtime (sec)"),
+         yaxis2 = list(tickfont = list(color = "red"),
+                       overlaying = "y",
+                       side = "right",
+                       title = "CLV Buffer Size (KB)"
+                       )
+         )
+time_plot_100_2000
+```
+
+```{r}
+speedup_plot_100_2000 <- plot_ly(speedup_data_100_2000,
+                                   x = ~n_sites,
+                                   y = ~time_aa_avx2_sml,
+                                   name = 'AVX2 SML',
+                                   type = 'scatter',
+                                   mode = 'lines+markers') %>%
+  add_trace(y = ~time_aa_avx512f_normal, name = 'AVX512F', mode = 'lines+markers') %>%
+  add_trace(y = ~CLV_buffer_size_NT, name = 'CLV Buffer Size', yaxis = "y2") %>%
+  add_trace(y = ~time_aa_avx512f_sml, name = 'AVX512F SML', mode = 'lines+markers') %>%
+  layout(title="Speedups", 
+         yaxis = list(title = "Speedup (AVX2 Normal / X)"),
+         yaxis2 = list(tickfont = list(color = "red"),
+                       overlaying = "y",
+                       side = "right",
+                       title = "CLV Buffer Size (KB)"
+                       )
+         )
+speedup_plot_100_2000
+```
+
+### n_sites from 100 to 2000:
+
+```{r}
+time_plot_500_100000 <- plot_ly(time_data_500_100000,
+                                x = ~n_sites,
+                                y = ~time_aa_avx2_normal,
+                                name = 'AVX2',
+                                type = 'scatter',
+                                mode = 'lines+markers') %>%
+  add_trace(y = ~time_aa_avx2_sml, name = 'AVX2 SML', mode = 'lines+markers') %>%
+  add_trace(y = ~CLV_buffer_size_NT, name = 'CLV Buffer Size', yaxis = "y2") %>%
+  add_trace(y = ~time_aa_avx512f_normal, name = 'AVX512F', mode = 'lines+markers') %>%
+  add_trace(y = ~time_aa_avx512f_sml, name = 'AVX512F SML', mode = 'lines+markers') %>%
+  layout(title="Timings", 
+         yaxis = list(title = "Runtime (sec)"),
+         yaxis2 = list(tickfont = list(color = "red"),
+                       overlaying = "y",
+                       side = "right",
+                       title = "CLV Buffer Size (KB)"
+                       )
+         )
+time_plot_500_100000
+```
+
+```{r}
+speedup_plot_500_100000 <- plot_ly(speedup_data_500_100000,
+                                   x = ~n_sites,
+                                   y = ~time_aa_avx2_sml,
+                                   name = 'AVX2 SML',
+                                   type = 'scatter',
+                                   mode = 'lines+markers') %>%
+  add_trace(y = ~time_aa_avx512f_normal, name = 'AVX512', mode = 'lines+markers') %>%
+  add_trace(y = ~CLV_buffer_size_NT, name = 'CLV Buffer Size', yaxis = "y2") %>%
+  add_trace(y = ~time_aa_avx512f_sml, name = 'AVX512 SML', mode = 'lines+markers') %>%
+  layout(title="Speedups", 
+         yaxis = list(title = "Speedup (AVX2 Normal / X)"),
+         yaxis2 = list(tickfont = list(color = "red"),
+                       overlaying = "y",
+                       side = "right",
+                       title = "CLV Buffer Size (KB)"
+                       )
+         )
+speedup_plot_500_100000
+```
