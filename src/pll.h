@@ -127,6 +127,8 @@
 #define PLL_ATTRIB_SITE_REPEATS    (1 << 10)
 #define PLL_REPEATS_LOOKUP_SIZE  2000000 
 
+#define PLL_ATTRIB_MASK ((1 << 11) - 1)
+
 /* topological rearrangements */
 
 #define PLL_UTREE_MOVE_SPR                  1
