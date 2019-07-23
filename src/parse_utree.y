@@ -530,6 +530,12 @@ pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root)
   /* check for a bifurcation at the root */
   if (utree_is_rooted(root))
   {
+    if (root->next == root)
+    {
+      pll_errno = PLL_ERROR_NEWICK_SYNTAX;
+      snprintf(pll_errmsg, 200, "Unifurcation detected at root");
+      return PLL_FAILURE;
+    }
     pll_unode_t * left = root->back;
     pll_unode_t * right =  root->next->back;
 
@@ -588,8 +594,13 @@ static pll_utree_t * utree_parse_newick(const char * filename, int auto_unroot)
 
   pll_utree_lex_destroy();
   
-  if (auto_unroot)
+  if (auto_unroot){
 	root = pll_utree_unroot_inplace(root);
+        if(!root){
+          pll_utree_graph_destroy(root,NULL);
+          return PLL_FAILURE;
+        }
+    }
 
   if (utree_is_rooted(root))
   {
@@ -647,8 +658,14 @@ static pll_utree_t * utree_parse_newick_string(const char * s, int auto_unroot)
     return PLL_FAILURE;
   }
   
-  if (auto_unroot)
+  if (auto_unroot){
 	root = pll_utree_unroot_inplace(root);
+        if(!root){
+          pll_utree_graph_destroy(root,NULL);
+          return PLL_FAILURE;
+        }
+    }
+
 
   if (utree_is_rooted(root))
   {
