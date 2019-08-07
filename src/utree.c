@@ -269,7 +269,7 @@ char * utree_export_newick(const pll_unode_t * root,
     subtree2 = newick_utree_recurse(root, cb_serialize, 0);
 
     size_alloced = asprintf(&newick,
-                            "(%s,(%s)%s:%f):0.0;",
+                            "(%s,(%s)%s:%f);",
                             subtree1,
                             subtree2,
                             root->label ? root->label : "",
@@ -281,7 +281,7 @@ char * utree_export_newick(const pll_unode_t * root,
     subtree2 = newick_utree_recurse(root, cb_serialize, 0);
 
     size_alloced = asprintf(&newick,
-                            "(%s,%s)%s:0.0;",
+                            "(%s,%s)%s;",
                             subtree1,
                             subtree2,
                             root->label ? root->label : "");
