@@ -19,16 +19,16 @@ functions that take up the majority of the runtime during phylogenetic
 inference. To do this, `libpll` has a few important data structures which
 contain most of the data required for likelihood computation:
 
-- [`pll_utree_t`](pll_utree_t)
-- [`pll_partition_t`](pll_partition_t)
-- [`pllmod_treeinfo_t`](pllmod_treeinfo_t)
+- [`pll_utree_t`](pll_utree_t.md)
+- [`pll_partition_t`](pll_partition_t.md)
+- [`pllmod_treeinfo_t`](pllmod_treeinfo_t.md)
 
 The `pll_utree_t` data structure contains the information that is relevant to
 the tree portion of the model, while `pll_partitition_t` contains the other
 model parameters, as well as buffers to store intermediate values called
 [CLVs][clvs], and information about the state of computation and the machine.
 
-[clvs]: pll_partition_t#clv
+[clvs]: pll_partition_t.md#clv
 
 For most use cases (especially those involving likelihood calculations) of
 `libpll`, both a `pll_utree_t` and a `pll_partition_t` will be required.
@@ -39,7 +39,7 @@ Likelihood Evaluation
 --------------------------------------------------------------------------------
 
 `libpll` evaluates the likelihood of a tree using Felsenstien's Algorithm
-[^felsenstien]. In summary, the algorithm proceeds like so:
+[felsenstien]. In summary, the algorithm proceeds like so:
 
 1. Pick a virtual root arbitrarily,
 2. Perform a post order traversal from the virtual root. 
@@ -160,7 +160,7 @@ Notable Parameters:
 There are two ways of computing a likelihood: around a root node, or around a
 virtual root node. The difference is the number of CLVs involved. In a rooted
 tree, the root CLV is basically finished. All that is required is to multiply
-the CLV by the frequency, and compute the product[^product].
+the CLV by the frequency, and compute the product.
 
 In an unrooted tree, there is no single CLV that is nearly done, so we need to
 compute it. So, in the case of an unrooted tree, an additional step is required
@@ -200,9 +200,6 @@ logliklihood calculation, only one CLV is needed, so it takes one. In the case
 of edge loglikelihood, we are calculating around and edge, so we need 2 CLVs,
 and additionally a matrix index.
 
-[^product]: Here the product is actually the sum of logs, but the intent is the
-same
-
 ### Probability Matrix
 
 To update the probability matrices of the `pll_partition_t`, a list of branch
@@ -226,15 +223,15 @@ PLL_EXPORT int pll_update_prob_matrices(pll_partition_t * partition,
   to just use [`pll_utree_create_operations`][2].
 - `count`: The number of matrices to update.
 
-[2]: pll_utree_t#Notable-Functions
+[2]: pll_utree_t.md#Notable-Functions
 
 Data Structures
 -------------------------------------------------------------------------------
 
 Data structures have their own pages:
 
-- [`pll_partition_t`](pll_partition_t)
-- [`pll_utree_t`](pll_utree_t)
+- [`pll_partition_t`](pll_partition_t.md)
+- [`pll_utree_t`](pll_utree_t.md)
 
 Errors
 -------------------------------------------------------------------------------
