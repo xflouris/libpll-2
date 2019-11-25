@@ -270,14 +270,12 @@ which will calculate the frequencies for the given partition.
 If we wanted to set substitution parameters of the model to be equal to the
 following matrix
 
-$$
-\begin{bmatrix}
- * & a & b & c \\
- a & * & d & e \\
- b & d & * & f \\
- c & e & f & *
-\end{bmatrix}
-$$
+```
+ *  a  b  c
+ a  *  d  e
+ b  d  *  f
+ c  e  f  *
+```
 
 then the following list will do the trick:
 
