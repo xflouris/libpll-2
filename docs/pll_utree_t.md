@@ -1,4 +1,4 @@
-[This](This) will cover both the structures `pll_utree_t` and `pll_unode_t`, as well as
+This will cover both the structures `pll_utree_t` and `pll_unode_t`, as well as
 the concepts and design around the tree data structure in [`libpll`](libpll)
 
 Concepts
