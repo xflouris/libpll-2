@@ -283,6 +283,3 @@ then the following list will do the trick:
 
 
     double subst_params[] = {a, b, c, d, e, f}
-
-# CLV Mapping
-

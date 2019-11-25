@@ -49,7 +49,7 @@ though that language is slightly problematic, since we  can  analyze  sequences
 that   don't   code   for   anything,   and    thus    are    not    a    gene.
 
 To accomplish steps 2.1 to 2.4, I would recommend reading
-[pll_partition_t](pll_partition_t) for this.
+[pll_partition_t](pll_partition_t.md) for this.
 
 ####3.0: Make an initial tree
 
@@ -114,8 +114,8 @@ This will create a tree under a parsimony model. The arguments are
 
 ####4.0: Make a `pllmod_treeinfo_t`
 
-Please see the relevant section in [pllmod_treeinfo_t](pllmod_treeinfo_t)
+Please see the relevant section in [pllmod_treeinfo_t](pllmod_treeinfo_t.md)
 
 ####5.0: Initialize the partitions for the treeinfo struct
 
-Please see the relevant section in [pllmod_treeinfo_t](pllmod_treeinfo_t)
+Please see the relevant section in [pllmod_treeinfo_t](pllmod_treeinfo_t.md)
