@@ -149,8 +149,10 @@ the $\alpha$ rate in JC69. The parameters are
 - `params_index`: The index for the params. (For mixture models).
 - `min_rate`: The minimum value for each substitution rate. Can be non-positive.
 - `max_rate`: The maximum value for each substitution rate.
-- `bfgs_factor`: Please see [bfgs_factor](bfgs_factor).
-- `tolerance`: Please see [pg_tol](pg_tol).
+- `bfgs_factor`: A value greater than or equal to 0. Typical values are `1e12`
+  for a fast but innacurate, or `1e1` for a slow but accurate search.
+- `tolerance`: This controls the `pgtol` threshold. If the largest entry of the
+  projected gradient is *larger* than this value, optimization will stop.
 
 -------------------------------------------------------------------------------
 
@@ -169,8 +171,10 @@ This function will optimize the initial frequencies, normally notated as $\pi$.
 - `params_index`: The index for the params. (For mixture models).
 - `min_freq`: The minimum value for each frequency.
 - `max_freq`: The maximum value for each frequency.
-- `bfgs_factor`: Please see [bfgs_factor](bfgs_factor).
-- `tolerance`: Please see [pg_tol](pg_tol).
+- `bfgs_factor`: A value greater than or equal to 0. Typical values are `1e12`
+  for a fast but innacurate, or `1e1` for a slow but accurate search.
+- `tolerance`: This controls the `pgtol` threshold. If the largest entry of the
+  projected gradient is *larger* than this value, optimization will stop.
 
 -------------------------------------------------------------------------------
 
@@ -181,21 +185,16 @@ double pllmod_algo_opt_rates_weights_treeinfo(pllmod_treeinfo_t* treeinfo,
                                               double bfgs_factor,
                                               double tolerance);
 ```
-
-TODO
-
 - `treeinfo`: a `pllmod_treeinfo_t` strut that contains the model and tree.
 - `min_rate`: The minimum value for each TODO rate.
 - `max_rate`: The maximum value for each TODO rate.
-- `bfgs_factor`: Please see [bfgs_factor](bfgs_factor).
-- `tolerance`: Please see [pg_tol](pg_tol).
+- `bfgs_factor`: A value greater than or equal to 0. Typical values are `1e12`
+  for a fast but innacurate, or `1e1` for a slow but accurate search.
+- `tolerance`: This controls the `pgtol` threshold. If the largest entry of the
+  projected gradient is *larger* than this value, optimization will stop.
 
 Seems to cause an assertion failure for me. I don't know if I am doing
 something wrong here. Here is the assertion error:
-
-```
-hellopll: algo_search.c:1268: pllmod_algo_spr_round: Assertion `fabs(loglh - best_lh) < 1e-6' failed.
-```
 
 -------------------------------------------------------------------------------
 
@@ -219,8 +218,10 @@ invariant sites.
 - `max_alpha`: The maximum value for alpha.
 - `min_pinv`: The minimum value for the invariant site proportion.
 - `max_pinv`: The maximum value for the invariant site proportion.
-- `bfgs_factor`: Please see [bfgs_factor](bfgs_factor).
-- `tolerance`: Please see [pg_tol](pg_tol).
+- `bfgs_factor`: A value greater than or equal to 0. Typical values are `1e12`
+  for a fast but innacurate, or `1e1` for a slow but accurate search.
+- `tolerance`: This controls the `pgtol` threshold. If the largest entry of the
+  projected gradient is *larger* than this value, optimization will stop.
 
 -------------------------------------------------------------------------------
 

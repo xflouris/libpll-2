@@ -1,5 +1,5 @@
-[This](This) will cover both the structures `pll_utree_t` and `pll_unode_t`, as well as
-the concepts and design around the tree data structure in [`libpll`](libpll)
+This will cover both the structures `pll_utree_t` and `pll_unode_t`, as well as
+the concepts and design around the tree data structure in [`libpll`](libpll.md)
 
 Concepts
 ================================================================================
@@ -164,7 +164,7 @@ PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,
 ```
 
 Given the `pll_unode_t**` from a traversal, this will create a list of
-[`pll_operation_t`](pll_operation_t) from that list. If `branches`,
+[`pll_operation_t`](pll_operation_t.md) from that list. If `branches`,
 `pmatrix_index` is not `null`, then the values of the branches and probability
 matrix indices are stored in these buffers. Likewise if `matrix_count` is not
 null, then it is an out paramter with the number of matricies needed for a
