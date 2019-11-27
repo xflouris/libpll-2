@@ -184,7 +184,7 @@ endif()
 
 add_library(pll_obj OBJECT ${LIBPLL_SOURCES})
   
-# Build static library
+# Build shared library
 if(BUILD_LIBPLL_SHARED)
   message(STATUS "Libpll shared build enabled")
   set_property(TARGET pll_obj PROPERTY POSITION_INDEPENDENT_CODE 1) 
@@ -195,7 +195,7 @@ if(BUILD_LIBPLL_SHARED)
     CACHE INTERNAL "${PROJECT_NAME}: Libraries to link against")
 endif()
 
-# Build shared library
+# Build static library
 if(BUILD_LIBPLL_STATIC)
   message(STATUS "Libpll static build enabled")
   add_library(pll_static STATIC $<TARGET_OBJECTS:pll_obj>)

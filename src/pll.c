@@ -287,7 +287,7 @@ static int update_charmap(pll_partition_t * partition, const pll_state_t * map)
 
 /* create a bijective mapping from states to the range <1,maxstates> where
    maxstates is the maximum number of states (including ambiguities). It is
-   neeed to index the precomputed conditional likelihoods for each pair of
+   needed to index the precomputed conditional likelihoods for each pair of
    states. The sequences are then encoded using this charmap, and we store
    the precomputated CLV for a charmapped pair i and j, at index:
 
@@ -942,11 +942,15 @@ static int set_tipchars(pll_partition_t * partition,
        weights for the invariant sites would not match the correct character.
        For example, the expected order of amino acids is A,R,N,..., and the
        tipchars order is 1,16,13,... (i.e., not sequential)  */
-    for (i = 0; i < PLL_ASCII_SIZE; ++i)
+    for (i = 0; i < partition->maxstates; ++i)
     {
-      unsigned int state = partition->charmap[i];
-      if (state < partition->states && !tipchars[state])
-        tipchars[state] = (unsigned char)i;
+      pll_state_t state = partition->tipmap[i];
+      if (PLL_STATE_POPCNT(state) == 1)
+      {
+        unsigned int pos = PLL_STATE_CTZ(state);
+        assert(pos < partition->states);
+        tipchars[pos] = i;
+      }
     }
   }
   return PLL_SUCCESS;

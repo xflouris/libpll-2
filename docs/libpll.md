@@ -19,26 +19,16 @@ functions that take up the majority of the runtime during phylogenetic
 inference. To do this, `libpll` has a few important data structures which
 contain most of the data required for likelihood computation:
 
-<<<<<<< HEAD
 - [`pll_utree_t`](pll_utree_t.md)
 - [`pll_partition_t`](pll_partition_t.md)
 - [`pllmod_treeinfo_t`](pllmod_treeinfo_t.md)
-=======
-- [`pll_utree_t`](pll_utree_t)
-- [`pll_partition_t`](pll_partition_t)
-- [`pllmod_treeinfo_t`](pllmod_treeinfo_t)
->>>>>>> 6f2c704ca5d73a58a8e0190d1ca5d841ff13f4cd
 
 The `pll_utree_t` data structure contains the information that is relevant to
 the tree portion of the model, while `pll_partitition_t` contains the other
 model parameters, as well as buffers to store intermediate values called
 [CLVs][clvs], and information about the state of computation and the machine.
 
-<<<<<<< HEAD
 [clvs]: pll_partition_t.md#clv
-=======
-[clvs]: pll_partition_t#clv
->>>>>>> 6f2c704ca5d73a58a8e0190d1ca5d841ff13f4cd
 
 For most use cases (especially those involving likelihood calculations) of
 `libpll`, both a `pll_utree_t` and a `pll_partition_t` will be required.
