@@ -793,7 +793,7 @@ PLL_EXPORT int pll_compute_node_ancestral(pll_partition_t * partition,
   {
     for (j = 0; j < states; ++j)
     {
-      for (k = 0; k < states; ++k)
+      for (k = 0; k < states_padded; ++k)
         pmat[j*states_padded + k] = (j == k) ? 1 : 0;
     }
 
