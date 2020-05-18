@@ -183,7 +183,10 @@ if(NOT DEFINED BUILD_LIBPLL_SHARED AND NOT DEFINED BUILD_LIBPLL_STATIC)
 endif()
 
 add_library(pll_obj OBJECT ${LIBPLL_SOURCES})
-  
+
+# set the C standard
+set_property(TARGET pll_obj PROPERTY C_STANDARD 99)
+
 # Build shared library
 if(BUILD_LIBPLL_SHARED)
   message(STATUS "Libpll shared build enabled")
