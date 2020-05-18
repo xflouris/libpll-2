@@ -230,28 +230,34 @@ typedef struct pll_hardware_s
 } pll_hardware_t;
 
 struct pll_repeats;
+struct pll_partition;
+struct pll_clv_manager;
+
+/* memory management */
+#define PLL_CLV_NODE_UNPINNED     -1
+#define PLL_CLV_SLOT_UNUSED       -1
 
 typedef struct pll_clv_manager_strategy
 {
   // some replacement function pointer
+  double * (*replace)(struct pll_partition* partition,
+                      struct pll_clv_manager* clv_man);
 } pll_clv_manager_strategy_t;
 
 typedef struct pll_clv_manager
 {
   size_t size; // max number of CLVs to hold in partition
-  size_t width; // ?
-  double ** slots; // pointerarray to the actual CLV buffers
-  unsigned int * node_of_slot;
-    // <size> entries, translates from slot_id to node_id of node
+  bool all_slots_busy;
+  unsigned int * clvid_of_slot;
+    // <size> entries, translates from slot_id to clv_index of node
     //  whos CLV is currently slotted here
-    //  special value: SLOT_UNUSED if this slot isn't in use
-  unsigned int * slot_of_node;
-    // the reverse: indexed by node_id, returns slot_id of a node
-    // special value: NODE_UNPINNED if the node's clv isn't slotted currently
+    //  special value: PLL_CLV_SLOT_UNUSED if this slot isn't in use
+  unsigned int * slot_of_clvid;
+    // the reverse: indexed by clv_index, returns slot_id of a node
+    // special value: PLL_CLV_NODE_UNPINNED if the node's clv isn't slotted currently
   unsigned int * unpinnable;
     // holds slot_id of slots that are ready to be replaced
-  int all_slots_busy;
-  pll_clv_manager_strategy_t * replacement_strat;
+  pll_clv_manager_strategy_t * replacer;
 } pll_clv_manager_t;
 
 typedef struct pll_partition
@@ -2656,6 +2662,21 @@ PLL_EXPORT int pll_hardware_probe(void);
 PLL_EXPORT void pll_hardware_dump(void);
 
 PLL_EXPORT void pll_hardware_ignore(void);
+
+
+/* functions in clv_manager.c */
+
+PLL_EXPORT const double * pll_get_clv_reading(
+                                        const pll_partition_t * const partition,
+                                        const unsigned int clv_index);
+
+PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
+                                        const unsigned int clv_index);
+
+PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
+                                    const size_t concurrent_clvs,
+                                    pll_clv_manager_strategy_t * strategy);
+
 
 #ifdef __cplusplus
 } /* extern "C" */

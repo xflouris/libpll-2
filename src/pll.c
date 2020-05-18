@@ -128,6 +128,17 @@ static void dealloc_partition_data(pll_partition_t * partition)
     free(repeats);
   }
 
+  if (partition->clv_man)
+  {
+    pll_clv_manager_t * clv_man = partition->clv_man;
+
+    free(clv_man->clvid_of_slot);
+    free(clv_man->slot_of_clvid);
+    free(clv_man->unpinnable);
+    free(clv_man->replacer);
+    free(clv_man);
+  }
+
   free(partition);
 }
 
@@ -881,47 +892,6 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
       return PLL_FAILURE;
     }
   }
-
-  /* memory management */
-  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
-  {
-    if (pll_repeats_enabled(partition))
-    {
-      dealloc_partition_data(partition);
-      pll_errno = PLL_ERROR_PARAM_INVALID;
-      snprintf(pll_errmsg,
-               200,
-               "Memory management not yet possible in conjunction with site repeats");
-      return PLL_FAILURE;
-    }
-
-    // alloc the manager struct
-    partition->clv_man = (pll_clv_manager_t *)malloc(sizeof(pll_clv_manager_t));
-
-  }
-
-  // typedef struct pll_clv_manager_strategy
-  // {
-  //   // some replacement function pointer
-  // } pll_clv_manager_strategy_t;
-
-  // typedef struct pll_clv_manager
-  // {
-  //   size_t size; // max number of CLVs to hold in partition
-  //   size_t width; // ?
-  //   double ** slots; // pointerarray to the actual CLV buffers
-  //   unsigned int * node_of_slot;
-  //     // <size> entries, translates from slot_id to node_id of node
-  //     //  whos CLV is currently slotted here
-  //     //  special value: SLOT_UNUSED if this slot isn't in use
-  //   unsigned int * slot_of_node;
-  //     // the reverse: indexed by node_id, returns slot_id of a node
-  //     // special value: NODE_UNPINNED if the node's clv isn't slotted currently
-  //   unsigned int * unpinnable;
-  //     // holds slot_id of slots that are ready to be replaced
-  //   bool all_slots_busy;
-  //   pll_clv_manager_strategy replacement_strat;
-  // } pll_clv_manager_t;
 
   return partition;
 }
