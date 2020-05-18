@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -207,7 +208,7 @@
 #define PLL_STATE_CTZ    PLL_CTZ64
 
 typedef unsigned long long pll_state_t;
-typedef int pll_bool_t;
+typedef bool pll_bool_t;
 
 typedef struct pll_hardware_s
 {
@@ -987,7 +988,7 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_interleaved(pll_phylip_t * fd);
 
 PLL_EXPORT pll_msa_t * pll_phylip_parse_sequential(pll_phylip_t * fd);
 
-pll_msa_t * pll_phylip_load(const char * fname, pll_bool_t interleaved);
+pll_msa_t * pll_phylip_load(const char * fname, bool interleaved);
 
 /* functions in rtree.c */
 
