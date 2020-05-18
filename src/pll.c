@@ -421,6 +421,39 @@ static int create_charmap(pll_partition_t * partition, const pll_state_t * userm
   return PLL_SUCCESS;
 }
 
+int alloc_clvs(pll_partition_t * partition, const size_t num_clvs)
+{
+  unsigned int states_padded  = partition->states_padded;
+  unsigned int sites          = partition->sites;
+  unsigned int rate_cats      = partition->rate_cats;
+  unsigned int sites_alloc    = partition->asc_additional_sites + sites;
+
+  /*  if tip pattern precomputation is enabled, then do not allocate CLV space
+      for the tip nodes */
+  unsigned int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
+                        partition->tips : 0;
+
+  for (size_t i = start; i < partition->tips + num_clvs; ++i)
+  {
+    partition->clv[i] = pll_aligned_alloc(sites_alloc * states_padded *
+                                          rate_cats * sizeof(double),
+                                          partition->alignment);
+    if (!partition->clv[i])
+    {
+      pll_errno = PLL_ERROR_MEM_ALLOC;
+      snprintf(pll_errmsg, 200, "Unable to allocate enough memory for CLVs.");
+      return PLL_FAILURE;
+    }
+    /* zero-out CLV vectors to avoid valgrind warnings when using odd number of
+       states with vectorized code */
+    memset(partition->clv[i],
+           0,
+           (size_t)sites_alloc*states_padded*rate_cats*sizeof(double));
+  }
+
+  return PLL_SUCCESS;
+}
+
 PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
                                                   unsigned int clv_buffers,
                                                   unsigned int states,
@@ -553,31 +586,14 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
     return PLL_FAILURE;
   }
 
-  /* if site repeats are enabled, we allocate CLVs dynamically */
-  if (!pll_repeats_enabled(partition))
+  /* if site repeats or memory management are enabled,
+     we allocate CLVs dynamically / later */
+  if (!pll_repeats_enabled(partition) && !(attributes & PLL_ATTRIB_LIMIT_MEMORY))
   {
-    /* if tip pattern precomputation is enabled, then do not allocate CLV space
-       for the tip nodes */
-    unsigned int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
-                          partition->tips : 0;
-
-    for (i = start; i < partition->tips + partition->clv_buffers; ++i)
+    if (!alloc_clvs(partition, partition->clv_buffers))
     {
-      partition->clv[i] = pll_aligned_alloc(sites_alloc * states_padded *
-                                            rate_cats * sizeof(double),
-                                            partition->alignment);
-      if (!partition->clv[i])
-      {
-        dealloc_partition_data(partition);
-        pll_errno = PLL_ERROR_MEM_ALLOC;
-        snprintf(pll_errmsg, 200, "Unable to allocate enough memory for CLVs.");
-        return PLL_FAILURE;
-      }
-      /* zero-out CLV vectors to avoid valgrind warnings when using odd number of
-         states with vectorized code */
-      memset(partition->clv[i],
-             0,
-             (size_t)sites_alloc*states_padded*rate_cats*sizeof(double));
+      dealloc_partition_data(partition);
+      return PLL_FAILURE;
     }
   }
   /* pmatrix */

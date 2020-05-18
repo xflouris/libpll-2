@@ -632,6 +632,8 @@ extern "C" {
 #endif
 
 /* functions in pll.c */
+int alloc_clvs( pll_partition_t * partition,
+                const size_t num_clvs);
 
 PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
                                                   unsigned int clv_buffers,
