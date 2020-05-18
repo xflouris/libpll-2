@@ -125,9 +125,12 @@
 /* site repeats */
 
 #define PLL_ATTRIB_SITE_REPEATS    (1 << 10)
-#define PLL_REPEATS_LOOKUP_SIZE  2000000 
+#define PLL_REPEATS_LOOKUP_SIZE  2000000
 
-#define PLL_ATTRIB_MASK ((1 << 11) - 1)
+/* memory management */
+#define PLL_ATTRIB_LIMIT_MEMORY    (1 << 11)
+
+#define PLL_ATTRIB_MASK ((1 << 12) - 1)
 
 /* topological rearrangements */
 
@@ -227,6 +230,29 @@ typedef struct pll_hardware_s
 
 struct pll_repeats;
 
+typedef struct pll_clv_manager_strategy
+{
+  // some replacement function pointer
+} pll_clv_manager_strategy_t;
+
+typedef struct pll_clv_manager
+{
+  size_t size; // max number of CLVs to hold in partition
+  size_t width; // ?
+  double ** slots; // pointerarray to the actual CLV buffers
+  unsigned int * node_of_slot;
+    // <size> entries, translates from slot_id to node_id of node
+    //  whos CLV is currently slotted here
+    //  special value: SLOT_UNUSED if this slot isn't in use
+  unsigned int * slot_of_node;
+    // the reverse: indexed by node_id, returns slot_id of a node
+    // special value: NODE_UNPINNED if the node's clv isn't slotted currently
+  unsigned int * unpinnable;
+    // holds slot_id of slots that are ready to be replaced
+  int all_slots_busy;
+  pll_clv_manager_strategy_t * replacement_strat;
+} pll_clv_manager_t;
+
 typedef struct pll_partition
 {
   unsigned int tips;
@@ -270,19 +296,22 @@ typedef struct pll_partition
 
   /* ascertainment bias correction */
   int asc_bias_alloc;
-  int asc_additional_sites; // partition->asc_bias_alloc ? states : 0 
+  int asc_additional_sites; // partition->asc_bias_alloc ? states : 0
 
   /* site repeats */
   struct pll_repeats *repeats;
+
+  /* memory management */
+  pll_clv_manager_t * clv_man;
 } pll_partition_t;
 
 typedef struct pll_repeats
 {
   /* (node,site) -> class identifier (starts at 1) */
-  unsigned int ** pernode_site_id; 
-  // (node,id) -> class site   
-  unsigned int ** pernode_id_site; 
-  // (node) -> numer of class ids 
+  unsigned int ** pernode_site_id;
+  // (node,id) -> class site
+  unsigned int ** pernode_id_site;
+  // (node) -> numer of class ids
   unsigned int * pernode_ids;
   // (scale) -> number of class ids
   unsigned int * perscale_ids;
@@ -291,19 +320,19 @@ typedef struct pll_repeats
 
   /* return true if we should compute repeats on the current node
    default is pll_default_enable_repeats */
-  unsigned int (*enable_repeats) (struct pll_partition *partition, 
-      unsigned int left_clv, 
+  unsigned int (*enable_repeats) (struct pll_partition *partition,
+      unsigned int left_clv,
       unsigned int right_clv);
- 
+
   /* reallocate repeats callback */
   void (*reallocate_repeats) (struct pll_partition *partition,
                               unsigned int parent,
                               int scaler_index,
                               unsigned int sites_to_alloc);
-  /* temporary buffers */ 
-  unsigned int * lookup_buffer;  
-  unsigned int * toclean_buffer; 
-  unsigned int * id_site_buffer; 
+  /* temporary buffers */
+  unsigned int * lookup_buffer;
+  unsigned int * toclean_buffer;
+  unsigned int * id_site_buffer;
   double * bclv_buffer;
   unsigned int lookup_buffer_size;
   char * charmap;
@@ -1626,7 +1655,7 @@ PLL_EXPORT void pll_core_update_partial_repeats_4x4_avx(unsigned int states,
                                                         double * bclv_buffer,
                                                         unsigned int attrib);
 
-                                                        
+
 PLL_EXPORT void pll_core_update_partial_repeatsbclv_4x4_avx(unsigned int states,
                                                             unsigned int parent_sites,
                                                             unsigned int left_sites,
@@ -2318,7 +2347,7 @@ double pll_core_edge_loglikelihood_ii_avx2(unsigned int states,
                                            double * persite_lnl,
                                            unsigned int attrib);
 
-PLL_EXPORT 
+PLL_EXPORT
 double pll_core_root_loglikelihood_repeats_avx2(unsigned int states,
                                                 unsigned int sites,
                                                 unsigned int rate_cats,
