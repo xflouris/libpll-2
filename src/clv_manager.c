@@ -84,9 +84,9 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
     else
     {
       // CLV not slotted, check if any slots are available to be overwritten
-      if (!clv_man->all_slots_busy)
+      if (!clv_man->unpinnable->empty)
       {
-        
+        return partition->clv[pll_uint_stack_pop(clv_man->unpinnable)];
       }
       else
       {
@@ -109,6 +109,18 @@ static void* alloc_and_set(const size_t n, const size_t size, const int val)
   memset(data, val, n * size);
 
   return data;
+}
+
+void dealloc_clv_manager(pll_clv_manager_t * clv_man)
+{
+  if (clv_man)
+  {
+    free(clv_man->clvid_of_slot);
+    free(clv_man->slot_of_clvid);
+    free(clv_man->unpinnable);
+    free(clv_man->replacer);
+    free(clv_man);
+  }
 }
 
 /**
@@ -160,14 +172,14 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   }
 
   // set member fields to defaults
-  clv_man->size             = concurrent_clvs;
-  clv_man->all_slots_busy   = false;
+  clv_man->size = concurrent_clvs;
 
   clv_man->clvid_of_slot = (unsigned int *)alloc_and_set(concurrent_clvs,
                                                          sizeof(unsigned int),
                                                          PLL_CLV_SLOT_UNUSED);
   if (!clv_man->clvid_of_slot)
   {
+    dealloc_clv_manager(clv_man);
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
              200,
@@ -181,6 +193,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                                          PLL_CLV_NODE_UNPINNED);
   if (!clv_man->slot_of_clvid)
   {
+    dealloc_clv_manager(clv_man);
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
              200,
@@ -188,10 +201,11 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
     return PLL_FAILURE;
   }
 
-  clv_man->unpinnable = (unsigned int *)malloc(concurrent_clvs *
-                                               sizeof(unsigned int));
+  clv_man->unpinnable = pll_uint_stack_create(concurrent_clvs);
+
   if (!clv_man->unpinnable)
   {
+    dealloc_clv_manager(clv_man);
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
              200,
@@ -202,7 +216,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   // initialize the unpinnable array: all slots are ready to be used
   for( size_t i = 0; i < concurrent_clvs; ++i )
   {
-    clv_man->unpinnable[i] = i;
+    pll_uint_stack_push(clv_man->unpinnable, i);
   }
 
   clv_man->replacer = strategy;
@@ -210,6 +224,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   // alloc the CLVs of the partition!
   if(!alloc_clvs(partition, concurrent_clvs))
   {
+    dealloc_clv_manager(clv_man);
     return PLL_FAILURE;
   }
 

@@ -128,16 +128,7 @@ static void dealloc_partition_data(pll_partition_t * partition)
     free(repeats);
   }
 
-  if (partition->clv_man)
-  {
-    pll_clv_manager_t * clv_man = partition->clv_man;
-
-    free(clv_man->clvid_of_slot);
-    free(clv_man->slot_of_clvid);
-    free(clv_man->unpinnable);
-    free(clv_man->replacer);
-    free(clv_man);
-  }
+  dealloc_clv_manager(partition->clv_man);
 
   free(partition);
 }

@@ -237,6 +237,14 @@ struct pll_clv_manager;
 #define PLL_CLV_NODE_UNPINNED     -1
 #define PLL_CLV_SLOT_UNUSED       -1
 
+typedef struct pll_uint_stack
+{
+  unsigned int * data;
+  unsigned int * top;
+  size_t size;
+  bool empty;
+} pll_uint_stack_t;
+
 typedef struct pll_clv_manager_strategy
 {
   // some replacement function pointer
@@ -247,7 +255,6 @@ typedef struct pll_clv_manager_strategy
 typedef struct pll_clv_manager
 {
   size_t size; // max number of CLVs to hold in partition
-  bool all_slots_busy;
   unsigned int * clvid_of_slot;
     // <size> entries, translates from slot_id to clv_index of node
     //  whos CLV is currently slotted here
@@ -255,7 +262,7 @@ typedef struct pll_clv_manager
   unsigned int * slot_of_clvid;
     // the reverse: indexed by clv_index, returns slot_id of a node
     // special value: PLL_CLV_NODE_UNPINNED if the node's clv isn't slotted currently
-  unsigned int * unpinnable;
+  pll_uint_stack_t * unpinnable;
     // holds slot_id of slots that are ready to be replaced
   pll_clv_manager_strategy_t * replacer;
 } pll_clv_manager_t;
@@ -2673,10 +2680,21 @@ PLL_EXPORT const double * pll_get_clv_reading(
 PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
                                         const unsigned int clv_index);
 
+void dealloc_clv_manager(pll_clv_manager_t * clv_man);
+
 PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     const size_t concurrent_clvs,
                                     pll_clv_manager_strategy_t * strategy);
 
+/* stack.c */
+pll_uint_stack_t* pll_uint_stack_create(const size_t size);
+
+void pll_uint_stack_destroy(pll_uint_stack_t* stack);
+
+unsigned int pll_uint_stack_push(pll_uint_stack_t* stack,
+                                 const unsigned int val);
+
+unsigned int pll_uint_stack_pop(pll_uint_stack_t* stack);
 
 #ifdef __cplusplus
 } /* extern "C" */
