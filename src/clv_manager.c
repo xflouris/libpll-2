@@ -22,12 +22,12 @@
 #include "pll.h"
 
 /**
- * Get the adress of the specified CLV for reading. If partition is
+ * Get the address of the specified CLV for reading. If partition is
  * memory-managed and the specified CLV is not currently in memory, return NULL.
  *
  * @param  partition the partition the CLV belongs to
  * @param  clv_index the index of the CLV
- * @return           adress of the CLV, or NULL if CLV doesn't reside in memory
+ * @return           address of the CLV, or NULL if CLV doesn't reside in memory
  */
 PLL_EXPORT const double * pll_get_clv_reading(
                                         const pll_partition_t * const partition,
@@ -51,15 +51,15 @@ PLL_EXPORT const double * pll_get_clv_reading(
 }
 
 /**
- * Get the adress of the specified CLV for writing.
+ * Get the address of the specified CLV for writing.
  *
  * If partition is memory-managed and the specified CLV is not currently in
- * memory, first tries to pick a CLV slot to overwrite and return its adress.
+ * memory, first tries to pick a CLV slot to overwrite and return its address.
  * If no overwritable slot exists, apply replacement strategy to get a slot.
  *
  * @param  partition the partition the CLV belongs to
  * @param  clv_index the index of the CLV
- * @return           adress of the CLV
+ * @return           address of the CLV
  */
 PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
                                         const unsigned int clv_index)
