@@ -2,4 +2,6 @@ obj
 testdata
 tmp
 tmperr
+tmpvalgrind
 result
+src/*.o
