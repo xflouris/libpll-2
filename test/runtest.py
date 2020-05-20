@@ -42,7 +42,7 @@ import time
 #####################
 do_memtest       =  1                 # Evaluate memory leaks
 num_replicates   = 20                 # Number of samples for the speed test
-all_args         = [18,16,20,24,0,1,2,3,4,5,8,9]
+all_args         = [32,18,16,20,24,0,1,2,3,4,5,8,9]
                                       # 0: No vector / No tip pattern
                                       # 1: No vector / Tip pattern
                                       # 2: AVX / No tip pattern
@@ -51,10 +51,11 @@ all_args         = [18,16,20,24,0,1,2,3,4,5,8,9]
                                       # 5: SSE / Tip pattern
                                       # 8: AVX2 / No tip pattern
                                       # 9: AVX2 / Tip pattern
-                                      #16: no vector / repeats
+                                      #16: No vector / repeats
                                       #18: AVX / repeats
                                       #20: SSE / repeats
                                       #24: AVX2 / repeats
+                                      #32: No vector / memory management
 #####################
 
 colors={"default":"",
@@ -173,6 +174,10 @@ def runSpeedTest(files):
           attrib    += " sr"
           attribstr += " Site repeats"
           typestr   += "R"
+      if (args & 32):
+          attrib    += " mem"
+          attribstr += " memory management"
+          typestr   += "M"
       else:
           attribstr += " CPU"
           typestr   += "C"
@@ -305,6 +310,10 @@ def runValidation(files):
           attrib    += " sr"
           attribstr += "Site repeats"
           typestr   += "R"
+      if (args & 32):
+          attrib    += " mem"
+          attribstr += " memory management"
+          typestr   += "M"
       else:
         attribstr += " CPU"
         typestr   += "C"

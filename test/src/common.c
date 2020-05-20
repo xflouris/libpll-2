@@ -51,6 +51,11 @@ unsigned int get_attributes(int argc, char **argv)
       /* avx2 vectorization */
       attributes |= PLL_ATTRIB_ARCH_AVX2;
     }
+    else if (!strcmp (argv[i], "mem"))
+    {
+      /* avx2 vectorization */
+      attributes |= PLL_ATTRIB_LIMIT_MEMORY;
+    }
     else
     {
       printf("Unrecognised attribute: %s\n", argv[i]);
