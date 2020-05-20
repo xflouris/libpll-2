@@ -20,6 +20,7 @@
 CC = gcc
 CFLAGS = -L. -g -O3 -Wall -std=c99
 CLIBS = -lpll -lm
+CLIBS = ../build/src/libpll.a -lm
 
 CFILES = $(shell find src -name '*.c' ! -name 'common.c')
 
