@@ -71,6 +71,8 @@ set(LIBPLL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/compress.c
   ${CMAKE_CURRENT_SOURCE_DIR}/utree.c
   ${CMAKE_CURRENT_SOURCE_DIR}/utree_moves.c
   ${CMAKE_CURRENT_SOURCE_DIR}/utree_svg.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/clv_manager.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/stack.c
   )
 
 file(GLOB LIBPLL_SSE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/core_derivatives_sse.c

@@ -91,7 +91,7 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
       else
       {
         // no slots available, need to run the replacement strategy
-        return clv_man->replacer->replace(partition, clv_man):
+        return clv_man->replacer->replace(partition, clv_man);
       }
     }
   }

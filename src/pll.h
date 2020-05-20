@@ -234,8 +234,8 @@ struct pll_partition;
 struct pll_clv_manager;
 
 /* memory management */
-#define PLL_CLV_NODE_UNPINNED     -1
-#define PLL_CLV_SLOT_UNUSED       -1
+#define PLL_CLV_NODE_UNPINNED     (unsigned int)-1
+#define PLL_CLV_SLOT_UNUSED       (unsigned int)-1
 
 typedef struct pll_uint_stack
 {

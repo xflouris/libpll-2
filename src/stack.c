@@ -74,7 +74,7 @@ unsigned int pll_uint_stack_push(pll_uint_stack_t* stack,
   // if the next push causes top to be the first element, the stack isn't empty
   stack->empty = (stack->top >= stack->data);
 
-  stack->data[stack->top] = val;
+  *(stack->top) = val;
   return PLL_SUCCESS;
 }
 
@@ -91,5 +91,8 @@ unsigned int pll_uint_stack_pop(pll_uint_stack_t* stack)
   // if the element being popped is the last remaining, the stack will be empty
   stack->empty = (stack->top == stack->data);
 
-  return stack->data[stack->top--];
+  unsigned int ret = *stack->top;
+  stack->top--;
+
+  return ret;
 }
