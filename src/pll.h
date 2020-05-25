@@ -230,42 +230,7 @@ typedef struct pll_hardware_s
 } pll_hardware_t;
 
 struct pll_repeats;
-struct pll_partition;
 struct pll_clv_manager;
-
-/* memory management */
-#define PLL_CLV_NODE_UNPINNED     (unsigned int)-1
-#define PLL_CLV_SLOT_UNUSED       (unsigned int)-1
-
-typedef struct pll_uint_stack
-{
-  unsigned int * data;
-  unsigned int * top;
-  size_t size;
-  bool empty;
-} pll_uint_stack_t;
-
-typedef struct pll_clv_manager_strategy
-{
-  // some replacement function pointer
-  double * (*replace)(struct pll_partition* partition,
-                      struct pll_clv_manager* clv_man);
-} pll_clv_manager_strategy_t;
-
-typedef struct pll_clv_manager
-{
-  size_t size; // max number of CLVs to hold in partition
-  unsigned int * clvid_of_slot;
-    // <size> entries, translates from slot_id to clv_index of node
-    //  whos CLV is currently slotted here
-    //  special value: PLL_CLV_SLOT_UNUSED if this slot isn't in use
-  unsigned int * slot_of_clvid;
-    // the reverse: indexed by clv_index, returns slot_id of a node
-    // special value: PLL_CLV_NODE_UNPINNED if the node's clv isn't slotted currently
-  pll_uint_stack_t * unpinnable;
-    // holds slot_id of slots that are ready to be replaced
-  pll_clv_manager_strategy_t * replacer;
-} pll_clv_manager_t;
 
 typedef struct pll_partition
 {
@@ -316,8 +281,51 @@ typedef struct pll_partition
   struct pll_repeats *repeats;
 
   /* memory management */
-  pll_clv_manager_t * clv_man;
+  struct pll_clv_manager * clv_man;
 } pll_partition_t;
+
+/* memory management */
+#define PLL_CLV_CLV_UNSLOTTED    (unsigned int)-1
+#define PLL_CLV_SLOT_UNUSED       (unsigned int)-1
+
+typedef struct pll_uint_stack
+{
+  unsigned int * data;
+  unsigned int * top;
+  size_t size;
+  bool empty;
+} pll_uint_stack_t;
+
+typedef double * (*pll_clv_manager_cb_t)(pll_partition_t*);
+
+typedef struct pll_clv_manager
+{
+  /**
+   * Some upfront terminology:
+   * - A slot is a buffer for one CLV that is held in memory
+   * - the clv_index worls like always, though now they function as "addressable" CLV indices
+   * - a clv index that is slotted, means the CLV resides in memory
+   * - a clv index that is pinned, means the CLV resides in memory and may not be overwritten
+   * - a clv index that is unslottable, means the CLV may be overwritten by the strategy
+   */
+
+  size_t size; // max number of CLVs to hold in partition
+  unsigned int * clvid_of_slot;
+    // <size> entries, translates from slot_id to clv_index of node
+    //  whos CLV is currently slotted here
+    //  special value: PLL_CLV_SLOT_UNUSED if this slot isn't in use
+  unsigned int * slot_of_clvid;
+    // the reverse: indexed by clv_index, returns slot_id of a node
+    // special value: PLL_CLV_CLV_UNSLOTTED if the node's clv isn't slotted currently
+  bool * is_pinned;
+    // tells if a given clv_index is marked as pinned
+  pll_uint_stack_t * unslottable;
+    // holds slot_id of slots that are ready to be replaced
+  pll_clv_manager_cb_t replace;
+    // replacement strategy function pointer
+  void* repl_strat_data;
+    // void pointer to whatever data your replacement data might need
+} pll_clv_manager_t;
 
 typedef struct pll_repeats
 {
@@ -2684,7 +2692,13 @@ void dealloc_clv_manager(pll_clv_manager_t * clv_man);
 
 PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     const size_t concurrent_clvs,
-                                    pll_clv_manager_strategy_t * strategy);
+                                    pll_clv_manager_cb_t cb_replace);
+
+double* cb_replace_MRC(pll_partition_t* partition);
+
+PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man, pll_unode_t * root);
+
+
 
 /* stack.c */
 pll_uint_stack_t* pll_uint_stack_create(const size_t size);

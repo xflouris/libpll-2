@@ -22,6 +22,10 @@
 #include "pll.h"
 
 /**
+ * ====================  GETTERS / SETTERS ====================
+ */
+
+/**
  * Get the address of the specified CLV for reading. If partition is
  * memory-managed and the specified CLV is not currently in memory, return NULL.
  *
@@ -46,7 +50,7 @@ PLL_EXPORT const double * pll_get_clv_reading(
 
     unsigned int slot = clv_man->slot_of_clvid[clv_index];
 
-    return (slot != PLL_CLV_NODE_UNPINNED) ? partition->clv[slot] : NULL;
+    return (slot != PLL_CLV_CLV_UNSLOTTED) ? partition->clv[slot] : NULL;
   }
 }
 
@@ -76,24 +80,41 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
     assert(clv_man);
 
     unsigned int slot = clv_man->slot_of_clvid[clv_index];
-    // check if clv is pinned
-    if (slot != PLL_CLV_NODE_UNPINNED)
+    // check if clv is slotted
+    if (slot != PLL_CLV_CLV_UNSLOTTED)
     {
       return partition->clv[slot];
     }
     else
     {
       // CLV not slotted, check if any slots are available to be overwritten
-      if (!clv_man->unpinnable->empty)
+      if (!clv_man->unslottable->empty)
       {
-        return partition->clv[pll_uint_stack_pop(clv_man->unpinnable)];
+        return partition->clv[pll_uint_stack_pop(clv_man->unslottable)];
       }
       else
       {
         // no slots available, need to run the replacement strategy
-        return clv_man->replacer->replace(partition, clv_man);
+        return clv_man->replace(partition);
       }
     }
+  }
+}
+
+/**
+ * ====================  CREATION / DESTRUCTION ====================
+ */
+
+void dealloc_clv_manager(pll_clv_manager_t * clv_man)
+{
+  if (clv_man)
+  {
+    free(clv_man->clvid_of_slot);
+    free(clv_man->slot_of_clvid);
+    free(clv_man->is_pinned);
+    pll_uint_stack_destroy(clv_man->unslottable);
+    free(clv_man->repl_strat_data);
+    free(clv_man);
   }
 }
 
@@ -102,25 +123,11 @@ static void* alloc_and_set(const size_t n, const size_t size, const int val)
   void* data = malloc(n * size);
 
   if (!data)
-  {
     return PLL_FAILURE;
-  }
 
   memset(data, val, n * size);
 
   return data;
-}
-
-void dealloc_clv_manager(pll_clv_manager_t * clv_man)
-{
-  if (clv_man)
-  {
-    free(clv_man->clvid_of_slot);
-    free(clv_man->slot_of_clvid);
-    free(clv_man->unpinnable);
-    free(clv_man->replacer);
-    free(clv_man);
-  }
 }
 
 /**
@@ -131,19 +138,13 @@ void dealloc_clv_manager(pll_clv_manager_t * clv_man)
  */
 PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     const size_t concurrent_clvs,
-                                    pll_clv_manager_strategy_t * strategy)
+                                    pll_clv_manager_cb_t cb_replace)
 {
   assert(partition);
-  assert(strategy);
 
   const size_t addressable_clvs = partition->clv_buffers;
-  // const size_t concurrent_clvs = partition->clv_buffers;
 
   assert(concurrent_clvs <= addressable_clvs);
-
-  // set the pll attribute
-  // partition->attributes |= PLL_ATTRIB_LIMIT_MEMORY;
-  // this happens at partition creation time now
 
   if (pll_repeats_enabled(partition))
   {
@@ -173,6 +174,10 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
 
   // set member fields to defaults
   clv_man->size = concurrent_clvs;
+  // if replacement func was null, use default
+  clv_man->replace = cb_replace ? cb_replace : &cb_replace_MRC;
+
+  // alloc everything else
 
   clv_man->clvid_of_slot = (unsigned int *)alloc_and_set(concurrent_clvs,
                                                          sizeof(unsigned int),
@@ -190,7 +195,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
 
   clv_man->slot_of_clvid = (unsigned int *)alloc_and_set(addressable_clvs,
                                                          sizeof(unsigned int),
-                                                         PLL_CLV_NODE_UNPINNED);
+                                                         PLL_CLV_CLV_UNSLOTTED);
   if (!clv_man->slot_of_clvid)
   {
     dealloc_clv_manager(clv_man);
@@ -201,25 +206,36 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
     return PLL_FAILURE;
   }
 
-  clv_man->unpinnable = pll_uint_stack_create(concurrent_clvs);
-
-  if (!clv_man->unpinnable)
+  clv_man->is_pinned = (bool *)alloc_and_set(addressable_clvs,
+                                             sizeof(bool),
+                                             false);
+  if (!clv_man->is_pinned)
   {
     dealloc_clv_manager(clv_man);
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
              200,
-             "Unable to allocate enough memory for unpinnable.");
+             "Unable to allocate enough memory for is_pinned.");
     return PLL_FAILURE;
   }
 
-  // initialize the unpinnable array: all slots are ready to be used
-  for( size_t i = 0; i < concurrent_clvs; ++i )
+  clv_man->unslottable = pll_uint_stack_create(concurrent_clvs);
+
+  if (!clv_man->unslottable)
   {
-    pll_uint_stack_push(clv_man->unpinnable, i);
+    dealloc_clv_manager(clv_man);
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg,
+             200,
+             "Unable to allocate enough memory for unslottable.");
+    return PLL_FAILURE;
   }
 
-  clv_man->replacer = strategy;
+  // initialize the unslottable array: all slots are ready to be used
+  for( size_t i = 0; i < concurrent_clvs; ++i )
+  {
+    pll_uint_stack_push(clv_man->unslottable, i);
+  }
 
   // alloc the CLVs of the partition!
   if(!alloc_clvs(partition, concurrent_clvs))
@@ -227,6 +243,58 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
     dealloc_clv_manager(clv_man);
     return PLL_FAILURE;
   }
+
+  return PLL_SUCCESS;
+}
+
+/**
+ * ====================  REPLACEMENT STRATEGY ====================
+ */
+
+double* cb_replace_MRC(pll_partition_t* partition)
+{
+  pll_clv_manager_t * clv_man = partition->clv_man;
+  assert(clv_man);
+
+  // get a pointer to the data and cast it correctly
+  // in this case our "data" holds CLV indexes sorted in ascending order by their cost to recompute
+  unsigned int * clv_id_by_cost = (unsigned int *) clv_man->repl_strat_data;
+  assert(clv_id_by_cost);
+
+  // therefore the size should be the number of addressable clv buffers
+  const size_t size = partition->clv_buffers;
+
+  // go through this list until we find a clv that is slotted and not maked as "pinned"
+  for (size_t i = 0; i < size; ++i)
+  {
+    const unsigned int clv_id  = clv_id_by_cost[i];
+    const unsigned int slot_id = clv_man->slot_of_clvid[clv_id];
+    if ((slot_id != PLL_CLV_CLV_UNSLOTTED)
+     && !clv_man->is_pinned[clv_id])
+    {
+      return partition->clv[ clv_man->slot_of_clvid[clv_id] ];
+    }
+  }
+  
+  return NULL;
+}
+
+/**
+ * Initializes the replacement strategy for the default MRC replacement.
+ *
+ * Basically just allocs / fills the array holding the clv indices sorted by their recomputation cost.
+ * Does so according to the structure of the tree: each node's recomputation cost is essentially their
+ * subtree size.
+ * 
+ * @param  clv_man the pll_clv_manager struct 
+ * @param  root    the root of the (utree) tree structure
+ * @return         PLL_FAILURE if somethig went wrong, PLL_SUCCESS otherwise
+ */
+PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man, pll_unode_t * root)
+{
+
+
+
 
   return PLL_SUCCESS;
 }

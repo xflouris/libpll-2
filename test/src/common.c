@@ -53,7 +53,7 @@ unsigned int get_attributes(int argc, char **argv)
     }
     else if (!strcmp (argv[i], "mem"))
     {
-      /* avx2 vectorization */
+      /* memory management */
       attributes |= PLL_ATTRIB_LIMIT_MEMORY;
     }
     else
