@@ -260,17 +260,19 @@ double* cb_replace_MRC(pll_partition_t* partition)
   assert(clv_man);
 
   // get a pointer to the data and cast it correctly
-  // in this case our "data" holds CLV indexes sorted in ascending order by their cost to recompute
-  unsigned int * clv_id_by_cost = (unsigned int *) clv_man->repl_strat_data;
-  assert(clv_id_by_cost);
+  // in this case our "data" holds CLV indexes sorted in ascending order by
+  // their cost to recompute
+  unsigned int * clvid_by_cost = (unsigned int *) clv_man->repl_strat_data;
+  assert(clvid_by_cost);
 
   // therefore the size should be the number of addressable clv buffers
   const size_t size = partition->clv_buffers;
 
-  // go through this list until we find a clv that is slotted and not maked as "pinned"
+  // go through this list until we find a clv that is slotted and not marked as
+  // "pinned"
   for (size_t i = 0; i < size; ++i)
   {
-    const unsigned int clv_id  = clv_id_by_cost[i];
+    const unsigned int clv_id  = clvid_by_cost[i];
     const unsigned int slot_id = clv_man->slot_of_clvid[clv_id];
     if ((slot_id != PLL_CLV_CLV_UNSLOTTED)
      && !clv_man->is_pinned[clv_id])
@@ -282,22 +284,70 @@ double* cb_replace_MRC(pll_partition_t* partition)
   return NULL;
 }
 
+static int cb_full_traversal(pll_unode_t * node)
+{
+  return 1;
+}
+
 /**
  * Initializes the replacement strategy for the default MRC replacement.
  *
- * Basically just allocs / fills the array holding the clv indices sorted by their recomputation cost.
- * Does so according to the structure of the tree: each node's recomputation cost is essentially their
- * subtree size.
+ * Basically just allocs / fills the array holding the clv indices sorted by
+ * their recomputation cost. Does so according to the structure of the tree:
+ * each node's recomputation cost is essentially their subtree size.
  * 
  * @param  clv_man the pll_clv_manager struct 
  * @param  root    the root of the (utree) tree structure
  * @return         PLL_FAILURE if somethig went wrong, PLL_SUCCESS otherwise
  */
-PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man, pll_unode_t * root)
+PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
+                                                 const pll_utree_t* const tree)
 {
+  const size_t addr_begin = clv_man->addressable_begin;
+  const size_t addr_end   = clv_man->addressable_end;
 
+  // firstly, allocate the clvid_by_cost array
+  unsigned int * clvid_by_cost = clv_man->repl_strat_data =
+    (unsigned int *)calloc(addr_end, sizeof(unsigned int));
 
+  const size_t nodes_count = tree->tip_count + tree->inner_count;
 
+  pll_unode_t ** travbuffer = (pll_unode_t **)calloc(nodes_count,
+                                                     sizeof(pll_unode_t *));
+
+  // get list of nodes in the tree via postorder traversal
+  unsigned int traversal_size;
+  pll_utree_traverse(tree->vroot,
+                     PLL_TREE_TRAVERSE_POSTORDER,
+                     cb_full_traversal,
+                     travbuffer,
+                     &traversal_size);
+
+  assert(traversal_size == nodes_count);
+
+  // make a cost array: indexed by clv_id, gives this nodes cost to recompute
+  int* cost_of_clv = (int*)calloc(addr_end, sizeof(int));
+
+  // go through the list, for each look up that node
+  for( size_t i = 0; i < traversal_size; ++i )
+  {
+    pll_unode_t* node = travbuffer[i];
+    // if node is leaf, set 1 in the cost array, othwerwise add the children
+    cost_of_clv[node->clv_index] = (!node->next) ? 1 :
+      cost_of_clv[node->next->back->clv_index] +
+      cost_of_clv[node->next->next->back->clv_index];
+  }
+
+  // now fill in the clvid_by_cost array by descending order of clv cost
+  // importantly, if we are under tip pattern setting, ignore the tips as
+  // they are not real CLVs
+  for( size_t i = addr_begin; i < addr_end; ++i )
+  {
+    // TODO :)
+  }
+
+  free(travbuffer);
+  free(cost_of_clv);
 
   return PLL_SUCCESS;
 }

@@ -2702,7 +2702,8 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
 
 double* cb_replace_MRC(pll_partition_t* partition);
 
-PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man, pll_unode_t * root);
+PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
+                                                 const pll_utree_t* const tree);
 
 
 
