@@ -142,7 +142,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
 {
   assert(partition);
 
-  const size_t addressable_clvs = partition->clv_buffers;
+  const size_t addressable_clvs = partition->nodes;
 
   assert(concurrent_clvs <= addressable_clvs);
 
@@ -173,7 +173,10 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   }
 
   // set member fields to defaults
-  clv_man->size = concurrent_clvs;
+  clv_man->slottable_size     = concurrent_clvs;
+  clv_man->addressable_end    = addressable_clvs;
+  clv_man->addressable_begin  = (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
+                                ? partition->tips : 0;
   // if replacement func was null, use default
   clv_man->replace = cb_replace ? cb_replace : &cb_replace_MRC;
 

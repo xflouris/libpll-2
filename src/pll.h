@@ -303,20 +303,26 @@ typedef struct pll_clv_manager
   /**
    * Some upfront terminology:
    * - A slot is a buffer for one CLV that is held in memory
-   * - the clv_index worls like always, though now they function as "addressable" CLV indices
+   * - the clv_index worls like always, though now they function as 
+   *     "addressable" CLV indices
    * - a clv index that is slotted, means the CLV resides in memory
-   * - a clv index that is pinned, means the CLV resides in memory and may not be overwritten
-   * - a clv index that is unslottable, means the CLV may be overwritten by the strategy
+   * - a clv index that is pinned, means the CLV resides in memory and may not 
+   *     be overwritten
+   * - a clv index that is unslottable, means the CLV may be overwritten by the 
+   *     strategy
    */
 
-  size_t size; // max number of CLVs to hold in partition
+  size_t slottable_size; // max number of CLVs to hold in partition
+  size_t addressable_begin; // first clv_index that is addressable
+  size_t addressable_end; // one past last clv index that is addressable
   unsigned int * clvid_of_slot;
     // <size> entries, translates from slot_id to clv_index of node
     //  whos CLV is currently slotted here
     //  special value: PLL_CLV_SLOT_UNUSED if this slot isn't in use
   unsigned int * slot_of_clvid;
     // the reverse: indexed by clv_index, returns slot_id of a node
-    // special value: PLL_CLV_CLV_UNSLOTTED if the node's clv isn't slotted currently
+    // special value: PLL_CLV_CLV_UNSLOTTED if the node's clv isn't slotted 
+    // currently
   bool * is_pinned;
     // tells if a given clv_index is marked as pinned
   pll_uint_stack_t * unslottable;
