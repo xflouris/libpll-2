@@ -285,8 +285,8 @@ typedef struct pll_partition
 } pll_partition_t;
 
 /* memory management */
-#define PLL_CLV_CLV_UNSLOTTED    (unsigned int)-1
-#define PLL_CLV_SLOT_UNUSED       (unsigned int)-1
+#define PLL_CLV_CLV_UNSLOTTED     -1u
+#define PLL_CLV_SLOT_UNUSED       -1u
 
 typedef struct pll_uint_stack
 {
@@ -296,7 +296,7 @@ typedef struct pll_uint_stack
   bool empty;
 } pll_uint_stack_t;
 
-typedef double * (*pll_clv_manager_cb_t)(pll_partition_t*);
+typedef double * (*pll_clv_manager_cb_t)(pll_partition_t*, const unsigned int);
 
 typedef struct pll_clv_manager
 {
@@ -316,7 +316,7 @@ typedef struct pll_clv_manager
   size_t addressable_begin; // first clv_index that is addressable
   size_t addressable_end; // one past last clv index that is addressable
   unsigned int * clvid_of_slot;
-    // <size> entries, translates from slot_id to clv_index of node
+    // <addressable_size> entries, translates from slot_id to clv_index of node
     //  whos CLV is currently slotted here
     //  special value: PLL_CLV_SLOT_UNUSED if this slot isn't in use
   unsigned int * slot_of_clvid;
@@ -325,8 +325,8 @@ typedef struct pll_clv_manager
     // currently
   bool * is_pinned;
     // tells if a given clv_index is marked as pinned
-  pll_uint_stack_t * unslottable;
-    // holds slot_id of slots that are ready to be replaced
+  pll_uint_stack_t * unused_slots;
+    // holds slot_id of slots that are not yet used
   pll_clv_manager_cb_t replace;
     // replacement strategy function pointer
   void* repl_strat_data;
@@ -2700,7 +2700,8 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     const size_t concurrent_clvs,
                                     pll_clv_manager_cb_t cb_replace);
 
-double* cb_replace_MRC(pll_partition_t* partition);
+double* cb_replace_MRC(pll_partition_t* partition,
+                       const unsigned int new_clvid);
 
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
                                                  const pll_utree_t* const tree);

@@ -21,9 +21,9 @@
 
 #include "pll.h"
 
-/**
- * ====================  GETTERS / SETTERS ====================
- */
+///////////////////////
+// GETTERS / SETTERS //
+///////////////////////
 
 /**
  * Get the address of the specified CLV for reading. If partition is
@@ -87,23 +87,23 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
     }
     else
     {
-      // CLV not slotted, check if any slots are available to be overwritten
-      if (!clv_man->unslottable->empty)
+      // CLV not slotted, check if any slots are completely unused so far
+      if (!clv_man->unused_slots->empty)
       {
-        return partition->clv[pll_uint_stack_pop(clv_man->unslottable)];
+        return partition->clv[pll_uint_stack_pop(clv_man->unused_slots)];
       }
       else
       {
         // no slots available, need to run the replacement strategy
-        return clv_man->replace(partition);
+        return clv_man->replace(partition, clv_index);
       }
     }
   }
 }
 
-/**
- * ====================  CREATION / DESTRUCTION ====================
- */
+////////////////////////////
+// CREATION / DESTRUCTION //
+////////////////////////////
 
 void dealloc_clv_manager(pll_clv_manager_t * clv_man)
 {
@@ -112,7 +112,7 @@ void dealloc_clv_manager(pll_clv_manager_t * clv_man)
     free(clv_man->clvid_of_slot);
     free(clv_man->slot_of_clvid);
     free(clv_man->is_pinned);
-    pll_uint_stack_destroy(clv_man->unslottable);
+    pll_uint_stack_destroy(clv_man->unused_slots);
     free(clv_man->repl_strat_data);
     free(clv_man);
   }
@@ -155,10 +155,9 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
     return PLL_FAILURE;
   }
 
-
-  /**
-   * =============== MEMORY ALLOCATION ===============
-   */
+  ///////////////////////
+  // MEMORY ALLOCATION //
+  ///////////////////////
 
   // alloc the manager struct
   pll_clv_manager_t * clv_man = partition->clv_man =
@@ -222,22 +221,22 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
     return PLL_FAILURE;
   }
 
-  clv_man->unslottable = pll_uint_stack_create(concurrent_clvs);
+  clv_man->unused_slots = pll_uint_stack_create(concurrent_clvs);
 
-  if (!clv_man->unslottable)
+  if (!clv_man->unused_slots)
   {
     dealloc_clv_manager(clv_man);
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
              200,
-             "Unable to allocate enough memory for unslottable.");
+             "Unable to allocate enough memory for unused_slots.");
     return PLL_FAILURE;
   }
 
-  // initialize the unslottable array: all slots are ready to be used
+  // initialize the unused_slots array: all slots are ready to be used
   for( size_t i = 0; i < concurrent_clvs; ++i )
   {
-    pll_uint_stack_push(clv_man->unslottable, i);
+    pll_uint_stack_push(clv_man->unused_slots, i);
   }
 
   // alloc the CLVs of the partition!
@@ -250,43 +249,70 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   return PLL_SUCCESS;
 }
 
-/**
- * ====================  REPLACEMENT STRATEGY ====================
- */
+//////////////////////////
+// REPLACEMENT STRATEGY //
+//////////////////////////
 
-double* cb_replace_MRC(pll_partition_t* partition)
+typedef struct mrc_data
+{
+  unsigned int* cost_of_clvid;
+    // <addressable_size> entries, provides the approx. recomputation cost value
+    // of each clvid
+  unsigned int* cost_of_slot;
+    // <slottable_size> entries, provides the approx. recomputation cost value
+    // of each slot. Has to be updated during replacement
+} mrc_data_t;
+
+double* cb_replace_MRC(pll_partition_t* partition, const unsigned int new_clvid)
 {
   pll_clv_manager_t * clv_man = partition->clv_man;
   assert(clv_man);
 
   // get a pointer to the data and cast it correctly
-  // in this case our "data" holds CLV indexes sorted in ascending order by
-  // their cost to recompute
-  unsigned int * clvid_by_cost = (unsigned int *) clv_man->repl_strat_data;
-  assert(clvid_by_cost);
+  // in this case our "data" is the mrc_data struct, through which we can access
+  // the cost of each slot and clvid
+  mrc_data_t * mrc = (mrc_data_t *) clv_man->repl_strat_data;
+  assert(mrc);
 
-  // therefore the size should be the number of addressable clv buffers
-  const size_t size = partition->clv_buffers;
+  const size_t slots = clv_man->slottable_size;
 
-  // go through this list until we find a clv that is slotted and not marked as
-  // "pinned"
-  for (size_t i = 0; i < size; ++i)
+  // get the cheapest non-pinned slot
+  size_t cheapest_slot        = -1u;
+  unsigned int cheapest_cost  = -1u;
+  for (size_t slot_id = 0; slot_id < slots; ++slot_id)
   {
-    const unsigned int clv_id  = clvid_by_cost[i];
-    const unsigned int slot_id = clv_man->slot_of_clvid[clv_id];
-    if ((slot_id != PLL_CLV_CLV_UNSLOTTED)
-     && !clv_man->is_pinned[clv_id])
+    if (!clv_man->is_pinned[clv_man->clvid_of_slot[slot_id]]
+     && (mrc->cost_of_slot[slot_id] < cheapest_cost))
     {
-      return partition->clv[ clv_man->slot_of_clvid[clv_id] ];
+      cheapest_slot = slot_id;
+      cheapest_cost = mrc->cost_of_slot[slot_id];
     }
   }
+
+  assert(cheapest_slot != -1u);
+  assert(cheapest_cost != -1u);
+
+  // now that we know which one will be OK to overwrite, we update all tracking
+  // strucutres to the new clvid that will reside there
+  clv_man->clvid_of_slot[cheapest_slot] = new_clvid;
+  clv_man->slot_of_clvid[new_clvid]     = cheapest_slot;
+  mrc->cost_of_slot[cheapest_slot]      = mrc->cost_of_clvid[new_clvid];
   
-  return NULL;
+  // return the address of the new clv's slot
+  return partition->clv[ cheapest_slot ];
 }
 
 static int cb_full_traversal(pll_unode_t * node)
 {
   return 1;
+}
+
+PLL_EXPORT void pll_clv_manager_MRC_strategy_dealloc(pll_clv_manager_t * clv_man)
+{
+  mrc_data_t* mrcd = (mrc_data_t*) clv_man->repl_strat_data;
+  free(mrcd->cost_of_clvid);
+  free(mrcd->cost_of_slot);
+  free(mrcd);
 }
 
 /**
@@ -301,14 +327,54 @@ static int cb_full_traversal(pll_unode_t * node)
  * @return         PLL_FAILURE if somethig went wrong, PLL_SUCCESS otherwise
  */
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
-                                                 const pll_utree_t* const tree)
+                                                 const pll_utree_t * const tree)
 {
-  const size_t addr_begin = clv_man->addressable_begin;
-  const size_t addr_end   = clv_man->addressable_end;
+  const size_t addr_size  = clv_man->addressable_end;
+  const size_t slots      = clv_man->slottable_size;
 
-  // firstly, allocate the clvid_by_cost array
-  unsigned int * clvid_by_cost = clv_man->repl_strat_data =
-    (unsigned int *)calloc(addr_end, sizeof(unsigned int));
+  // firstly, allocate the mrc_data struct
+  mrc_data_t * mrc = clv_man->repl_strat_data = 
+                                        (mrc_data_t *)malloc(sizeof(mrc_data_t));
+  if (!mrc)
+  {
+    pll_clv_manager_MRC_strategy_dealloc(clv_man);
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg,
+             200,
+             "Unable to allocate enough memory for mrc_data.");
+    return PLL_FAILURE;
+  }
+
+  // then, its parts
+  unsigned int * cost_of_clvid = 
+  mrc->cost_of_clvid = (unsigned int*)calloc(addr_size, sizeof(unsigned int));
+  if (!mrc->cost_of_clvid)
+  {
+    pll_clv_manager_MRC_strategy_dealloc(clv_man);
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg,
+             200,
+             "Unable to allocate enough memory for cost_of_clvid.");
+    return PLL_FAILURE;
+  }
+
+  unsigned int * cost_of_slot =
+  mrc->cost_of_slot = (unsigned int*)alloc_and_set(slots,
+                                                   sizeof(unsigned int),
+                                                   -1);
+  if (!mrc->cost_of_slot)
+  {
+    pll_clv_manager_MRC_strategy_dealloc(clv_man);
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg,
+             200,
+             "Unable to allocate enough memory for cost_of_slot.");
+    return PLL_FAILURE;
+  }
+  
+  // next, we do the initial cost computation
+  // TODO this probably needs to be its own function so it can be called again
+  // after topology changes
 
   const size_t nodes_count = tree->tip_count + tree->inner_count;
 
@@ -325,29 +391,29 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
 
   assert(traversal_size == nodes_count);
 
-  // make a cost array: indexed by clv_id, gives this nodes cost to recompute
-  int* cost_of_clv = (int*)calloc(addr_end, sizeof(int));
-
   // go through the list, for each look up that node
-  for( size_t i = 0; i < traversal_size; ++i )
+  for (size_t i = 0; i < traversal_size; ++i)
   {
     pll_unode_t* node = travbuffer[i];
     // if node is leaf, set 1 in the cost array, othwerwise add the children
-    cost_of_clv[node->clv_index] = (!node->next) ? 1 :
-      cost_of_clv[node->next->back->clv_index] +
-      cost_of_clv[node->next->next->back->clv_index];
+    cost_of_clvid[node->clv_index] = (!node->next) ? 1 :
+      cost_of_clvid[node->next->back->clv_index] +
+      cost_of_clvid[node->next->next->back->clv_index];
   }
 
-  // now fill in the clvid_by_cost array by descending order of clv cost
-  // importantly, if we are under tip pattern setting, ignore the tips as
-  // they are not real CLVs
-  for( size_t i = addr_begin; i < addr_end; ++i )
+  // finally, set up the cost per slot array
+  // as this is used here as part of the init, probably they will all be unused 
+  const unsigned int * const clvid_of_slot = clv_man->clvid_of_slot;
+  for (size_t slot_id = 0; slot_id < slots; ++slot_id)
   {
-    // TODO :)
+    unsigned int clv_id = clvid_of_slot[slot_id];
+    if (clv_id != PLL_CLV_SLOT_UNUSED)
+    {
+      cost_of_slot[slot_id] = cost_of_clvid[clv_id];
+    }
   }
 
   free(travbuffer);
-  free(cost_of_clv);
 
   return PLL_SUCCESS;
 }
