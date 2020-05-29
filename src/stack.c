@@ -71,10 +71,11 @@ unsigned int pll_uint_stack_push(pll_uint_stack_t* stack,
   }
 
   ++stack->top;
-  // if the next push causes top to be the first element, the stack isn't empty
-  stack->empty = (stack->top >= stack->data);
 
   *(stack->top) = val;
+
+  // we are pushing, so the stack can't be empty afterwards
+  stack->empty = false;
   return PLL_SUCCESS;
 }
 
