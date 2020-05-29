@@ -88,14 +88,14 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
     else
     {
       // CLV not slotted, check if any slots are completely unused so far
-      if (!clv_man->unused_slots->empty)
-      {
-        return partition->clv[pll_uint_stack_pop(clv_man->unused_slots)];
-      }
-      else
+      if (clv_man->unused_slots->empty)
       {
         // no slots available, need to run the replacement strategy
         return clv_man->replace(partition, clv_index);
+      }
+      else
+      {
+        return partition->clv[pll_uint_stack_pop(clv_man->unused_slots)];
       }
     }
   }
@@ -294,6 +294,13 @@ double* cb_replace_MRC(pll_partition_t* partition, const unsigned int new_clvid)
 
   // now that we know which one will be OK to overwrite, we update all tracking
   // strucutres to the new clvid that will reside there
+  // TODO the setting of the standard stuff should probably be done at the
+  // callsite, such that people don't have to redo it for eveery custom replacer
+  
+  // update info about the CLV being overwritten
+  const unsigned int old_clvid = clv_man->clvid_of_slot[cheapest_slot];
+  clv_man->slot_of_clvid[old_clvid] = PLL_CLV_CLV_UNSLOTTED;
+
   clv_man->clvid_of_slot[cheapest_slot] = new_clvid;
   clv_man->slot_of_clvid[new_clvid]     = cheapest_slot;
   mrc->cost_of_slot[cheapest_slot]      = mrc->cost_of_clvid[new_clvid];
