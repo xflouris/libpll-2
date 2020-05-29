@@ -296,7 +296,11 @@ typedef struct pll_uint_stack
   bool empty;
 } pll_uint_stack_t;
 
-typedef double * (*pll_clv_manager_cb_t)(pll_partition_t*, const unsigned int);
+typedef double * (*pll_clv_manager_replace_cb)(pll_partition_t*,
+                                               const unsigned int);
+typedef void (*pll_clv_manager_update_cb)(struct pll_clv_manager*,
+                                          const unsigned int,
+                                          const unsigned int);
 
 typedef struct pll_clv_manager
 {
@@ -327,8 +331,10 @@ typedef struct pll_clv_manager
     // tells if a given clv_index is marked as pinned
   pll_uint_stack_t * unused_slots;
     // holds slot_id of slots that are not yet used
-  pll_clv_manager_cb_t replace;
-    // replacement strategy function pointer
+  pll_clv_manager_replace_cb strat_replace;
+    // replacement strategy: replace function
+  pll_clv_manager_update_cb strat_update_slot;
+    // replacement strategy: update a slot with a clv_id function
   void* repl_strat_data;
     // void pointer to whatever data your replacement data might need
 } pll_clv_manager_t;
@@ -2698,10 +2704,19 @@ void dealloc_clv_manager(pll_clv_manager_t * clv_man);
 
 PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     const size_t concurrent_clvs,
-                                    pll_clv_manager_cb_t cb_replace);
+                                    pll_clv_manager_replace_cb replace_cb,
+                                    pll_clv_manager_update_cb update_cb);
 
-double* cb_replace_MRC(pll_partition_t* partition,
+void pll_clv_manager_update_slot(pll_clv_manager_t * clv_man,
+                                 const unsigned int slot,
+                                 const unsigned int clv_index);
+
+double* MRC_replace_cb(pll_partition_t* partition,
                        const unsigned int new_clvid);
+
+void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
+                        const unsigned int slot,
+                        const unsigned int clv_index);
 
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
                                                  const pll_utree_t* const tree);

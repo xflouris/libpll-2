@@ -20,6 +20,8 @@
 */
 #include "common.h"
 
+#include <math.h> 
+
 #define N_STATES_NT 4
 #define N_STATES_AA 20
 #define N_STATES_ODD 5
@@ -167,6 +169,13 @@ pll_partition_t * init_partition(unsigned int attrs, int datatype)
                                              N_CAT_GAMMA,
                                              tree->inner_count,
                                              attrs);
+
+  if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
+  {
+    const size_t low_clv_num = ceil(log2(tree->inner_count)) + 3;
+    pll_clv_manager_init(p, low_clv_num, NULL, NULL);
+    pll_clv_manager_MRC_strategy_init(p->clv_man, tree);
+  }
 
   if (!p)
     fatal("ERROR creating partition: %s\n", pll_errmsg);

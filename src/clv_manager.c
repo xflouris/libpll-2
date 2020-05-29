@@ -91,14 +91,39 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
       if (clv_man->unused_slots->empty)
       {
         // no slots available, need to run the replacement strategy
-        return clv_man->replace(partition, clv_index);
+        return clv_man->strat_replace(partition, clv_index);
       }
       else
       {
-        return partition->clv[pll_uint_stack_pop(clv_man->unused_slots)];
+        // get a free slot
+        unsigned int slot = pll_uint_stack_pop(clv_man->unused_slots);
+        // associate the requested CLV with that slot
+        pll_clv_manager_update_slot(clv_man, slot, clv_index);
+
+        return partition->clv[slot];
       }
     }
   }
+}
+
+/**
+ * Update the tracked information about a given slot with a given clv_index.
+ *
+ * Calls update function of the replacement strategy if one is set.
+ *
+ * @param clv_man   [description]
+ * @param slot      [description]
+ * @param clv_index [description]
+ */
+void pll_clv_manager_update_slot(pll_clv_manager_t * clv_man,
+                                 const unsigned int slot,
+                                 const unsigned int clv_index)
+{
+  clv_man->clvid_of_slot[slot]      = clv_index;
+  clv_man->slot_of_clvid[clv_index] = slot;
+  // if custom replacement strat update function is set, call it
+  if (clv_man->strat_update_slot)
+    clv_man->strat_update_slot(clv_man, slot, clv_index);
 }
 
 ////////////////////////////
@@ -138,7 +163,8 @@ static void* alloc_and_set(const size_t n, const size_t size, const int val)
  */
 PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     const size_t concurrent_clvs,
-                                    pll_clv_manager_cb_t cb_replace)
+                                    pll_clv_manager_replace_cb cb_replace,
+                                    pll_clv_manager_update_cb cb_update)
 {
   assert(partition);
 
@@ -177,7 +203,8 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   clv_man->addressable_begin  = (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
                                 ? partition->tips : 0;
   // if replacement func was null, use default
-  clv_man->replace = cb_replace ? cb_replace : &cb_replace_MRC;
+  clv_man->strat_replace      = cb_replace ? cb_replace : &MRC_replace_cb;
+  clv_man->strat_update_slot  = cb_update ? cb_update : &MRC_update_slot_cb;
 
   // alloc everything else
 
@@ -236,7 +263,8 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   // initialize the unused_slots array: all slots are ready to be used
   for( size_t i = 0; i < concurrent_clvs; ++i )
   {
-    pll_uint_stack_push(clv_man->unused_slots, i);
+    int ret = pll_uint_stack_push(clv_man->unused_slots, i);
+    assert(ret == PLL_SUCCESS);
   }
 
   // alloc the CLVs of the partition!
@@ -263,10 +291,13 @@ typedef struct mrc_data
     // of each slot. Has to be updated during replacement
 } mrc_data_t;
 
-double* cb_replace_MRC(pll_partition_t* partition, const unsigned int new_clvid)
+double* MRC_replace_cb(pll_partition_t* partition, const unsigned int new_clvid)
 {
   pll_clv_manager_t * clv_man = partition->clv_man;
   assert(clv_man);
+
+  // this function should only be called if there is no free slot
+  assert(clv_man->unused_slots->empty);
 
   // get a pointer to the data and cast it correctly
   // in this case our "data" is the mrc_data struct, through which we can access
@@ -281,6 +312,8 @@ double* cb_replace_MRC(pll_partition_t* partition, const unsigned int new_clvid)
   unsigned int cheapest_cost  = -1u;
   for (size_t slot_id = 0; slot_id < slots; ++slot_id)
   {
+    assert(clv_man->clvid_of_slot[slot_id] != PLL_CLV_SLOT_UNUSED);
+
     if (!clv_man->is_pinned[clv_man->clvid_of_slot[slot_id]]
      && (mrc->cost_of_slot[slot_id] < cheapest_cost))
     {
@@ -307,6 +340,16 @@ double* cb_replace_MRC(pll_partition_t* partition, const unsigned int new_clvid)
   
   // return the address of the new clv's slot
   return partition->clv[ cheapest_slot ];
+}
+
+void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
+                        const unsigned int slot,
+                        const unsigned int clv_index)
+{
+  mrc_data_t * mrc = (mrc_data_t *) clv_man->repl_strat_data;
+  assert(mrc);
+
+  mrc->cost_of_slot[slot] = mrc->cost_of_clvid[clv_index];
 }
 
 static int cb_full_traversal(pll_unode_t * node)
