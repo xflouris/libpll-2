@@ -113,13 +113,15 @@ static void case_tipinner(pll_partition_t * partition,
       right_scaler = partition->scale_buffer[op->child1_scaler_index];
   }
 
+  const double * inner_clv = pll_get_clv_reading(partition, inner_clv_index);
+
   pll_core_update_partial_ti(partition->states,
                              sites,
                              partition->rate_cats,
                              parent_clv,
                              parent_scaler,
                              partition->tipchars[tip_clv_index],
-                             partition->clv[inner_clv_index],
+                             inner_clv,
                              partition->pmatrix[tip_matrix_index],
                              partition->pmatrix[inner_matrix_index],
                              right_scaler,
@@ -133,9 +135,12 @@ static void case_innerinner(pll_partition_t * partition,
 {
   const double * left_matrix = partition->pmatrix[op->child1_matrix_index];
   const double * right_matrix = partition->pmatrix[op->child2_matrix_index];
-  double * parent_clv       = pll_get_clv_writing(partition, op->parent_clv_index);
-  const double * left_clv   = partition->clv[op->child1_clv_index];
-  const double * right_clv  = partition->clv[op->child2_clv_index];
+  double * parent_clv      = pll_get_clv_writing(partition,
+                                                 op->parent_clv_index);
+  const double * left_clv  = pll_get_clv_reading(partition,
+                                                 op->child1_clv_index);
+  const double * right_clv = pll_get_clv_reading(partition,
+                                                 op->child2_clv_index);
   unsigned int * parent_scaler;
   unsigned int * left_scaler;
   unsigned int * right_scaler;
@@ -187,14 +192,21 @@ static void case_repeats(pll_partition_t * partition,
   unsigned int * parent_scaler;
   unsigned int * left_scaler;
   unsigned int * right_scaler;
-  unsigned int parent_sites = pll_get_sites_number(partition, op->parent_clv_index);
-  const unsigned int * parent_id_site = pll_get_id_site(partition,  op->parent_clv_index);
-  const unsigned int * left_site_id = pll_get_site_id(partition, op->child1_clv_index);
-  const unsigned int * right_site_id = pll_get_site_id(partition, op->child2_clv_index);
-  unsigned int left_sites = pll_get_sites_number(partition, op->child1_clv_index);
-  unsigned int right_sites = pll_get_sites_number(partition, op->child2_clv_index);
-  double * bclv_buffer = partition->repeats ? partition->repeats->bclv_buffer : 0;;
-  unsigned int inv = left_sites < right_sites;
+  unsigned int parent_sites         = pll_get_sites_number(partition,
+                                                           op->parent_clv_index);
+  const unsigned int * parent_id_site = pll_get_id_site(partition,
+                                                        op->parent_clv_index);
+  const unsigned int * left_site_id   = pll_get_site_id(partition,
+                                                        op->child1_clv_index);
+  const unsigned int * right_site_id  = pll_get_site_id(partition,
+                                                        op->child2_clv_index);
+  unsigned int left_sites          = pll_get_sites_number(partition,
+                                                          op->child1_clv_index);
+  unsigned int right_sites         = pll_get_sites_number(partition,
+                                                          op->child2_clv_index);
+  double * bclv_buffer             = partition->repeats
+                                    ? partition->repeats->bclv_buffer : 0;
+  unsigned int inv                 = left_sites < right_sites;
 
 
   /* get parent scaler */
