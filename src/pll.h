@@ -296,8 +296,8 @@ typedef struct pll_uint_stack
   bool empty;
 } pll_uint_stack_t;
 
-typedef double * (*pll_clv_manager_replace_cb)(pll_partition_t*,
-                                               const unsigned int);
+typedef unsigned int (*pll_clv_manager_replace_cb)(pll_partition_t*,
+                                                   const unsigned int);
 typedef void (*pll_clv_manager_update_cb)(struct pll_clv_manager*,
                                           const unsigned int,
                                           const unsigned int);
@@ -2711,8 +2711,8 @@ void pll_clv_manager_update_slot(pll_clv_manager_t * clv_man,
                                  const unsigned int slot,
                                  const unsigned int clv_index);
 
-double* MRC_replace_cb(pll_partition_t* partition,
-                       const unsigned int new_clvid);
+unsigned int MRC_replace_cb(pll_partition_t* partition,
+                            const unsigned int new_clvid);
 
 void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
                         const unsigned int slot,

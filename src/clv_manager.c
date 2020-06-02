@@ -47,10 +47,12 @@ PLL_EXPORT const double * pll_get_clv_reading(
   {
     pll_clv_manager_t * clv_man = partition->clv_man;
     assert(clv_man);
+    const size_t offset = clv_man->addressable_begin;
 
     unsigned int slot = clv_man->slot_of_clvid[clv_index];
 
-    return (slot != PLL_CLV_CLV_UNSLOTTED) ? partition->clv[slot] : NULL;
+    return (slot != PLL_CLV_CLV_UNSLOTTED) 
+            ? partition->clv[offset + slot] : NULL;
   }
 }
 
@@ -80,10 +82,12 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
     assert(clv_man);
 
     unsigned int slot = clv_man->slot_of_clvid[clv_index];
+    const size_t offset = clv_man->addressable_begin;
+
     // check if clv is slotted
     if (slot != PLL_CLV_CLV_UNSLOTTED)
     {
-      return partition->clv[slot];
+      return partition->clv[offset + slot];
     }
     else
     {
@@ -91,39 +95,20 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
       if (clv_man->unused_slots->empty)
       {
         // no slots available, need to run the replacement strategy
-        return clv_man->strat_replace(partition, clv_index);
+        slot = clv_man->strat_replace(partition, clv_index);
       }
       else
       {
         // get a free slot
-        unsigned int slot = pll_uint_stack_pop(clv_man->unused_slots);
-        // associate the requested CLV with that slot
-        pll_clv_manager_update_slot(clv_man, slot, clv_index);
-
-        return partition->clv[slot];
+        slot = pll_uint_stack_pop(clv_man->unused_slots);
       }
+
+      // finally, associate the requested CLV with that slot
+      pll_clv_manager_update_slot(clv_man, slot, clv_index);
+
+      return partition->clv[offset + slot];
     }
   }
-}
-
-/**
- * Update the tracked information about a given slot with a given clv_index.
- *
- * Calls update function of the replacement strategy if one is set.
- *
- * @param clv_man   [description]
- * @param slot      [description]
- * @param clv_index [description]
- */
-void pll_clv_manager_update_slot(pll_clv_manager_t * clv_man,
-                                 const unsigned int slot,
-                                 const unsigned int clv_index)
-{
-  clv_man->clvid_of_slot[slot]      = clv_index;
-  clv_man->slot_of_clvid[clv_index] = slot;
-  // if custom replacement strat update function is set, call it
-  if (clv_man->strat_update_slot)
-    clv_man->strat_update_slot(clv_man, slot, clv_index);
 }
 
 ////////////////////////////
@@ -277,6 +262,31 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   return PLL_SUCCESS;
 }
 
+/**
+ * Update the tracked information about a given slot with a given clv_index.
+ *
+ * Calls update function of the replacement strategy if one is set.
+ *
+ * @param clv_man   [description]
+ * @param slot      [description]
+ * @param clv_index [description]
+ */
+void pll_clv_manager_update_slot(pll_clv_manager_t * clv_man,
+                                 const unsigned int slot,
+                                 const unsigned int clv_index)
+{
+  // unslot the old index
+  const unsigned int old_clvid = clv_man->clvid_of_slot[slot];
+  if (old_clvid != PLL_CLV_SLOT_UNUSED)
+    clv_man->slot_of_clvid[old_clvid] = PLL_CLV_CLV_UNSLOTTED;
+  // update to the new
+  clv_man->clvid_of_slot[slot]      = clv_index;
+  clv_man->slot_of_clvid[clv_index] = slot;
+  // if custom replacement strat update function is set, call it
+  if (clv_man->strat_update_slot)
+    clv_man->strat_update_slot(clv_man, slot, clv_index);
+}
+
 //////////////////////////
 // REPLACEMENT STRATEGY //
 //////////////////////////
@@ -291,7 +301,8 @@ typedef struct mrc_data
     // of each slot. Has to be updated during replacement
 } mrc_data_t;
 
-double* MRC_replace_cb(pll_partition_t* partition, const unsigned int new_clvid)
+unsigned int MRC_replace_cb(pll_partition_t* partition,
+                            const unsigned int new_clvid)
 {
   pll_clv_manager_t * clv_man = partition->clv_man;
   assert(clv_man);
@@ -325,21 +336,7 @@ double* MRC_replace_cb(pll_partition_t* partition, const unsigned int new_clvid)
   assert(cheapest_slot != -1u);
   assert(cheapest_cost != -1u);
 
-  // now that we know which one will be OK to overwrite, we update all tracking
-  // strucutres to the new clvid that will reside there
-  // TODO the setting of the standard stuff should probably be done at the
-  // callsite, such that people don't have to redo it for eveery custom replacer
-  
-  // update info about the CLV being overwritten
-  const unsigned int old_clvid = clv_man->clvid_of_slot[cheapest_slot];
-  clv_man->slot_of_clvid[old_clvid] = PLL_CLV_CLV_UNSLOTTED;
-
-  clv_man->clvid_of_slot[cheapest_slot] = new_clvid;
-  clv_man->slot_of_clvid[new_clvid]     = cheapest_slot;
-  mrc->cost_of_slot[cheapest_slot]      = mrc->cost_of_clvid[new_clvid];
-  
-  // return the address of the new clv's slot
-  return partition->clv[ cheapest_slot ];
+  return cheapest_slot;
 }
 
 void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
@@ -357,7 +354,7 @@ static int cb_full_traversal(pll_unode_t * node)
   return 1;
 }
 
-PLL_EXPORT void pll_clv_manager_MRC_strategy_dealloc(pll_clv_manager_t * clv_man)
+PLL_EXPORT void pll_clv_manager_MRC_strategy_dealloc(pll_clv_manager_t* clv_man)
 {
   mrc_data_t* mrcd = (mrc_data_t*) clv_man->repl_strat_data;
   free(mrcd->cost_of_clvid);
@@ -384,7 +381,7 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
 
   // firstly, allocate the mrc_data struct
   mrc_data_t * mrc = clv_man->repl_strat_data = 
-                                        (mrc_data_t *)malloc(sizeof(mrc_data_t));
+                                      (mrc_data_t *)malloc(sizeof(mrc_data_t));
   if (!mrc)
   {
     pll_clv_manager_MRC_strategy_dealloc(clv_man);
