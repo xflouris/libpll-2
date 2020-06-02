@@ -783,3 +783,85 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
     }
   }
 }
+
+static size_t reorder_by_subtree_size(pll_unode_t * node)
+{
+
+  size_t subtree_size = 0;
+
+  if (node->next)
+  {
+    pll_unode_t * first = node->next;
+    pll_unode_t * second = node->next;
+    const size_t first_size   = reorder_by_subtree_size(first->back);
+    const size_t second_size  = reorder_by_subtree_size(second->back);
+
+    if (first_size < second_size)
+    {
+      // swap
+      node->next   = second;
+      second->next = first;
+      first->next  = node;
+    }
+    subtree_size = first_size + second_size;
+  }
+  else
+  {
+    subtree_size = 1;
+  }
+
+  return subtree_size;
+}
+
+static void reorder_triplet(pll_unode_t* first,
+                            pll_unode_t* second,
+                            pll_unode_t* third)
+{
+  first->next   = second;
+  second->next  = third;
+  third->next   = first;
+}
+
+PLL_EXPORT int pll_utree_reorder_by_subtree_size(pll_utree_t * tree)
+{
+  pll_unode_t* root = tree->vroot;
+
+  // TODO implement for non-binary trees
+  if (!root->next || !tree->binary) return PLL_FAILURE;
+
+  pll_unode_t * node[3];
+  size_t size[3];
+
+  node[0] = root;
+  node[1] = node[0]->next;
+  node[2] = node[1]->next;
+
+  assert(node[2]->next && node[2]->next == root);
+
+  size[0] = reorder_by_subtree_size(node[0]->back);
+  size[1] = reorder_by_subtree_size(node[1]->back);
+  size[2] = reorder_by_subtree_size(node[2]->back);
+  
+  // cheeky bubble sort
+  for( size_t i = 0; i < 2; ++i)
+  {
+    for( size_t k = 0; k < 2 - i; ++k )
+    {
+      if (size[k] < size[k+1])
+      {
+        pll_unode_t * tmp = node[k];
+        node[k] = node[k+1];
+        node[k+1] = tmp;
+
+        size_t tmp_size = size[k];
+        size[k] = size[k+1];
+        size[k+1] = tmp_size;
+      }
+    }
+  }
+
+  tree->vroot = node[0];
+  reorder_triplet(node[0], node[1], node[2]);
+
+  return PLL_SUCCESS;
+}

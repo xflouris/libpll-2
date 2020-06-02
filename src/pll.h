@@ -1008,6 +1008,8 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
                                                pll_pars_buildop_t * ops,
                                                unsigned int * ops_count);
 
+PLL_EXPORT int pll_utree_reorder_by_subtree_size(pll_utree_t * tree);
+
 /* functions in phylip.c */
 
 PLL_EXPORT void pll_msa_destroy(pll_msa_t * msa);

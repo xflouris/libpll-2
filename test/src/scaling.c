@@ -172,9 +172,12 @@ pll_partition_t * init_partition(unsigned int attrs, int datatype)
 
   if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
   {
-    const size_t low_clv_num = ceil(log2(tree->inner_count)) + 3;
-    pll_clv_manager_init(p, low_clv_num, NULL, NULL);
-    pll_clv_manager_MRC_strategy_init(p->clv_man, tree);
+    const size_t low_clv_num = ceil(log2(tree->tip_count)) + 2;
+    if (!pll_clv_manager_init(p, low_clv_num, NULL, NULL))
+      fatal("clv_manager_init failed: %s\n", pll_errmsg);
+
+    if (!pll_clv_manager_MRC_strategy_init(p->clv_man, tree))
+      fatal("clv_manager_strategy_init failed: %s\n", pll_errmsg);
   }
 
   if (!p)
@@ -208,6 +211,10 @@ void init(unsigned int attrs)
 
   if (!tree)
     fatal("ERROR reading tree file: %s\n", pll_errmsg);
+
+  if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
+    if(!pll_utree_reorder_by_subtree_size(tree))
+      fatal("ERROR reordering the tree\n");
 
   part_sitescale_nt = init_partition(attrs, DATATYPE_NT);
   part_ratescale_nt = init_partition(attrs | PLL_ATTRIB_RATE_SCALERS, DATATYPE_NT);
