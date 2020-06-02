@@ -266,6 +266,12 @@ PLL_EXPORT void pll_update_partials_rep(pll_partition_t * partition,
   for (i = 0; i < count; ++i)
   {
     op = &(operations[i]);
+
+    // in the memory saver case, make sure to pin the clv we are about to
+    // calculate before deciding which slot it should be in (avoids RC)
+    if (partition->attributes & PLL_ATTRIB_LIMIT_MEMORY)
+      partition->clv_man->is_pinned[op->parent_clv_index] = true;
+
     if (pll_repeats_enabled(partition) && update_repeats) 
       pll_update_repeats(partition, op);
 
@@ -299,6 +305,13 @@ PLL_EXPORT void pll_update_partials_rep(pll_partition_t * partition,
     {
       /* inner-inner */
       case_innerinner(partition,op);
+    }
+
+    // memory saver: reading of the children CLV definitely done now, so unpin
+    if (partition->attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    {
+      partition->clv_man->is_pinned[op->child1_clv_index] = false;
+      partition->clv_man->is_pinned[op->child2_clv_index] = false;
     }
   }
 }
