@@ -366,8 +366,8 @@ PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,
 }
 
 PLL_EXPORT int pll_utree_every(pll_utree_t * tree,
-                               int (*cb)(const pll_utree_t *,
-                                         const pll_unode_t *))
+                               int (*cb)(pll_utree_t *,
+                                         pll_unode_t *))
 {
   unsigned int i;
   int rc = 1;

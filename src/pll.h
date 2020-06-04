@@ -996,8 +996,8 @@ PLL_EXPORT pll_utree_t * pll_utree_clone(const pll_utree_t * root);
 PLL_EXPORT pll_utree_t * pll_rtree_unroot(pll_rtree_t * tree);
 
 PLL_EXPORT int pll_utree_every(pll_utree_t * tree,
-                               int (*cb)(const pll_utree_t *,
-                                         const pll_unode_t *));
+                               int (*cb)(pll_utree_t *,
+                                         pll_unode_t *));
 
 PLL_EXPORT int pll_utree_every_const(const pll_utree_t * tree,
                                      int (*cb)(const pll_utree_t * tree,
