@@ -784,84 +784,163 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
   }
 }
 
-static size_t reorder_by_subtree_size(pll_unode_t * node)
+static int cb_traverse_empty_subtreesize(pll_unode_t * node)
 {
+  // only keep traversing where the subtree size isn't set yet
+  return node->subtree_size == 0;
+}
 
-  size_t subtree_size = 0;
+/**
+ * sets the subtree sizes in the direction of the vroot
+ */
+static int utree_set_subtree_sizes(pll_utree_t * tree)
+{
+  const size_t nodes_count = tree->tip_count + tree->inner_count;
+
+  pll_unode_t ** travbuffer = (pll_unode_t **)calloc(nodes_count,
+                                                     sizeof(pll_unode_t *));
+
+  // get list of nodes in the tree via postorder traversal
+  unsigned int traversal_size;
+  pll_utree_traverse(tree->vroot,
+                     PLL_TREE_TRAVERSE_POSTORDER,
+                     cb_traverse_empty_subtreesize,
+                     travbuffer,
+                     &traversal_size);
+
+  assert(traversal_size <= nodes_count);
+
+  // go through the list, for each look up that node
+  for (size_t i = 0; i < traversal_size; ++i)
+  {
+    pll_unode_t* node = travbuffer[i];
+    // if node is leaf, set 1 in the cost array, otherwise add the children
+    node->subtree_size = (!node->next) ? 1 :
+      node->next->back->subtree_size + node->next->next->back->subtree_size;
+  }
+
+  free(travbuffer);
+
+  return PLL_SUCCESS;
+}
+
+static int reset_subtree_sizes_cb(pll_utree_t * tree, pll_unode_t * node)
+{
+  (void)tree;
+  pll_unode_t * snode = node;
+  do
+  {
+    snode->subtree_size = 0;
+    snode = snode->next;
+  }
+  while (snode && snode != node);
+
+  return PLL_SUCCESS;
+}
+
+/**
+ * Sets the subtree sizes in the direction of the vroot, overwriting existing
+ * ones
+ */
+PLL_EXPORT int pll_utree_set_all_subtree_sizes(pll_utree_t * tree)
+{
+  pll_utree_every(tree, reset_subtree_sizes_cb);
+  return utree_set_subtree_sizes(tree);
+}
+
+/**
+ * Sets the missing subtree sizes in the direction of the vroot
+ */
+PLL_EXPORT int pll_utree_set_missing_subtree_sizes(pll_utree_t * tree)
+{
+  return utree_set_subtree_sizes(tree);
+}
+
+static void utree_traverse_lsf_recursive(pll_unode_t * node,
+                                     int traversal,
+                                     int (*cbtrav)(pll_unode_t *),
+                                     unsigned int * index,
+                                     pll_unode_t ** outbuffer)
+{
+  if (!cbtrav(node))
+    return;
+
+  if (traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    outbuffer[*index] = node;
+    *index = *index + 1;
+  }
 
   if (node->next)
   {
-    pll_unode_t * first = node->next;
-    pll_unode_t * second = node->next;
-    const size_t first_size   = reorder_by_subtree_size(first->back);
-    const size_t second_size  = reorder_by_subtree_size(second->back);
+    // largest subtree first: determine which one
+    pll_unode_t * first;
+    pll_unode_t * second;
 
-    if (first_size < second_size)
+    if (node->next->back->subtree_size > node->next->next->back->subtree_size)
     {
-      // swap
-      node->next   = second;
-      second->next = first;
-      first->next  = node;
+      first   = node->next;
+      second  = node->next->next;
     }
-    subtree_size = first_size + second_size;
+    else
+    {
+      first   = node->next->next;
+      second  = node->next;
+    }
+
+    // this function is for bifurcating only
+    utree_traverse_recursive(first->back,
+                             traversal,
+                             cbtrav,
+                             index,
+                             outbuffer);
+    utree_traverse_recursive(second->back,
+                             traversal,
+                             cbtrav,
+                             index,
+                             outbuffer);
+  }
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER)
+  {
+    outbuffer[*index] = node;
+    *index = *index + 1;
+  }
+}
+
+PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t * tree,
+                                  int traversal,
+                                  int (*cbtrav)(pll_unode_t *),
+                                  pll_unode_t ** outbuffer,
+                                  unsigned int * trav_size)
+{
+  pll_unode_t * root = tree->vroot;
+
+  assert(tree->binary);
+  assert(root->subtree_size);
+
+  *trav_size = 0;
+  if (!root->next) return PLL_FAILURE;
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER ||
+      traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    /* traverse down in the order of largest subtree first */
+
+    pll_unode_t * first = (root->subtree_size > root->back->subtree_size) ?
+                        root : root->back;
+
+    utree_traverse_lsf_recursive(
+                      first, traversal, cbtrav, trav_size, outbuffer);
+    utree_traverse_lsf_recursive(
+                      first->back, traversal, cbtrav, trav_size, outbuffer);
   }
   else
   {
-    subtree_size = 1;
+    snprintf(pll_errmsg, 200, "Invalid traversal value.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
   }
-
-  return subtree_size;
-}
-
-static void reorder_triplet(pll_unode_t* first,
-                            pll_unode_t* second,
-                            pll_unode_t* third)
-{
-  first->next   = second;
-  second->next  = third;
-  third->next   = first;
-}
-
-PLL_EXPORT int pll_utree_reorder_by_subtree_size(pll_utree_t * tree)
-{
-  pll_unode_t* root = tree->vroot;
-
-  // TODO implement for non-binary trees
-  if (!root->next || !tree->binary) return PLL_FAILURE;
-
-  pll_unode_t * node[3];
-  size_t size[3];
-
-  node[0] = root;
-  node[1] = node[0]->next;
-  node[2] = node[1]->next;
-
-  assert(node[2]->next && node[2]->next == root);
-
-  size[0] = reorder_by_subtree_size(node[0]->back);
-  size[1] = reorder_by_subtree_size(node[1]->back);
-  size[2] = reorder_by_subtree_size(node[2]->back);
-  
-  // cheeky bubble sort
-  for( size_t i = 0; i < 2; ++i)
-  {
-    for( size_t k = 0; k < 2 - i; ++k )
-    {
-      if (size[k] < size[k+1])
-      {
-        pll_unode_t * tmp = node[k];
-        node[k] = node[k+1];
-        node[k+1] = tmp;
-
-        size_t tmp_size = size[k];
-        size[k] = size[k+1];
-        size[k+1] = tmp_size;
-      }
-    }
-  }
-
-  tree->vroot = node[0];
-  reorder_triplet(node[0], node[1], node[2]);
 
   return PLL_SUCCESS;
 }

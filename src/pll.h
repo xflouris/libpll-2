@@ -443,6 +443,7 @@ typedef struct pll_unode_s
   double length;
   unsigned int node_index;
   unsigned int clv_index;
+  unsigned int subtree_size;
   int scaler_index;
   unsigned int pmatrix_index;
   struct pll_unode_s * next;
@@ -1008,7 +1009,15 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
                                                pll_pars_buildop_t * ops,
                                                unsigned int * ops_count);
 
-PLL_EXPORT int pll_utree_reorder_by_subtree_size(pll_utree_t * tree);
+PLL_EXPORT int pll_utree_set_all_subtree_sizes(pll_utree_t * tree);
+
+PLL_EXPORT int pll_utree_set_missing_subtree_sizes(pll_utree_t * tree);
+
+PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t * tree,
+                                  int traversal,
+                                  int (*cbtrav)(pll_unode_t *),
+                                  pll_unode_t ** outbuffer,
+                                  unsigned int * trav_size);
 
 /* functions in phylip.c */
 
@@ -2721,7 +2730,7 @@ void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
                         const unsigned int clv_index);
 
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
-                                                 const pll_utree_t* const tree);
+                                                 pll_utree_t* const tree);
 
 
 

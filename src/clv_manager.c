@@ -349,11 +349,6 @@ void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
   mrc->cost_of_slot[slot] = mrc->cost_of_clvid[clv_index];
 }
 
-static int cb_full_traversal(pll_unode_t * node)
-{
-  return 1;
-}
-
 PLL_EXPORT void pll_clv_manager_MRC_strategy_dealloc(pll_clv_manager_t* clv_man)
 {
   mrc_data_t* mrcd = (mrc_data_t*) clv_man->repl_strat_data;
@@ -374,7 +369,7 @@ PLL_EXPORT void pll_clv_manager_MRC_strategy_dealloc(pll_clv_manager_t* clv_man)
  * @return         PLL_FAILURE if somethig went wrong, PLL_SUCCESS otherwise
  */
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
-                                                 const pll_utree_t * const tree)
+                                                 pll_utree_t * const tree)
 {
   const size_t addr_size  = clv_man->addressable_end;
   const size_t slots      = clv_man->slottable_size;
@@ -423,29 +418,15 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
   // TODO this probably needs to be its own function so it can be called again
   // after topology changes
 
+  pll_utree_set_all_subtree_sizes(tree);
+
   const size_t nodes_count = tree->tip_count + tree->inner_count;
 
-  pll_unode_t ** travbuffer = (pll_unode_t **)calloc(nodes_count,
-                                                     sizeof(pll_unode_t *));
-
-  // get list of nodes in the tree via postorder traversal
-  unsigned int traversal_size;
-  pll_utree_traverse(tree->vroot,
-                     PLL_TREE_TRAVERSE_POSTORDER,
-                     cb_full_traversal,
-                     travbuffer,
-                     &traversal_size);
-
-  assert(traversal_size == nodes_count);
-
-  // go through the list, for each look up that node
-  for (size_t i = 0; i < traversal_size; ++i)
+  // go through all the nodes of the tree
+  for (size_t i = 0; i < nodes_count; ++i)
   {
-    pll_unode_t* node = travbuffer[i];
-    // if node is leaf, set 1 in the cost array, othwerwise add the children
-    cost_of_clvid[node->clv_index] = (!node->next) ? 1 :
-      cost_of_clvid[node->next->back->clv_index] +
-      cost_of_clvid[node->next->next->back->clv_index];
+    pll_unode_t* node = tree->nodes[i];
+    cost_of_clvid[node->clv_index] = node->subtree_size;
   }
 
   // finally, set up the cost per slot array
@@ -459,8 +440,6 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
       cost_of_slot[slot_id] = cost_of_clvid[clv_id];
     }
   }
-
-  free(travbuffer);
 
   return PLL_SUCCESS;
 }

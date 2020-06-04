@@ -212,9 +212,9 @@ void init(unsigned int attrs)
   if (!tree)
     fatal("ERROR reading tree file: %s\n", pll_errmsg);
 
-  if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
-    if(!pll_utree_reorder_by_subtree_size(tree))
-      fatal("ERROR reordering the tree\n");
+  // if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
+  //   if(!pll_utree_reorder_by_subtree_size(tree))
+  //     fatal("ERROR reordering the tree\n");
 
   part_sitescale_nt = init_partition(attrs, DATATYPE_NT);
   part_ratescale_nt = init_partition(attrs | PLL_ATTRIB_RATE_SCALERS, DATATYPE_NT);
@@ -242,11 +242,23 @@ void init(unsigned int attrs)
   root = tree->nodes[tree->tip_count+tree->inner_count-1];
 
   /* get full traversal */
-  pll_utree_traverse(root,
-                     PLL_TREE_TRAVERSE_POSTORDER,
-                     cb_full_traversal,
-                     travbuffer,
-                     &traversal_size);
+  if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
+  {
+    pll_utree_traverse_lsf(tree,
+                      PLL_TREE_TRAVERSE_POSTORDER,
+                      cb_full_traversal,
+                      travbuffer,
+                      &traversal_size);
+  }
+  else
+  {
+    pll_utree_traverse(root,
+                      PLL_TREE_TRAVERSE_POSTORDER,
+                      cb_full_traversal,
+                      travbuffer,
+                      &traversal_size);
+
+  }
 
   pll_utree_create_operations(travbuffer,
                               traversal_size,
