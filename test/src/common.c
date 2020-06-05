@@ -55,6 +55,7 @@ unsigned int get_attributes(int argc, char **argv)
     {
       /* memory management */
       attributes |= PLL_ATTRIB_LIMIT_MEMORY;
+      attributes |= PLL_ATTRIB_PATTERN_TIP;
     }
     else
     {
@@ -62,7 +63,12 @@ unsigned int get_attributes(int argc, char **argv)
       exit(1);
     }
   }
-    return attributes;
+
+  if ((attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    && !(attributes & PLL_ATTRIB_PATTERN_TIP))
+    skip_test();
+
+  return attributes;
 }
 
 void skip_test ()
@@ -159,6 +165,16 @@ pll_partition_t * parse_msa_reduced(const char * filename,
                                    rate_cats,            /* rate categories */
                                    taxa_count - 2,       /* scale buffers */
                                    attributes);
+
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+  {
+    const size_t low_clv_num = ceil(log2(tree->tip_count)) + 2;
+    if (!pll_clv_manager_init(partition, low_clv_num, NULL, NULL))
+      fatal("clv_manager_init failed: %s\n", pll_errmsg);
+
+    if (!pll_clv_manager_MRC_strategy_init(partition->clv_man, tree))
+      fatal("clv_manager_strategy_init failed: %s\n", pll_errmsg);
+  }
 
   /* create a libc hash table of size tip_nodes_count */
   hcreate(taxa_count);

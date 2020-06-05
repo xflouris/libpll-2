@@ -116,10 +116,18 @@ void show_clv(const pll_partition_t * p, unsigned int clv_idx, unsigned int site
 {
   unsigned int i;
   unsigned int clv_span = p->states * p->rate_cats;
-  printf("CLV %u site %u (size=%u): [ ", clv_idx, site, clv_span);
-  for (i = (site-1)*clv_span; i < site*clv_span; ++i)
-    printf("%e ", p->clv[clv_idx][i]);
-  printf("]\n");
+  const double * clv = pll_get_clv_reading(p, clv_idx);
+  if (clv)
+  {
+    printf("CLV %u site %u (size=%u): [ ", clv_idx, site, clv_span);
+    for (i = (site-1)*clv_span; i < site*clv_span; ++i)
+      printf("%e ", clv[i]);
+    printf("]\n");
+  }
+  else
+  {
+    printf("CLV %u not in memory.\n", clv_idx);
+  }
 
 }
 
@@ -170,6 +178,7 @@ pll_partition_t * init_partition(unsigned int attrs, int datatype)
                                              tree->inner_count,
                                              attrs);
 
+
   if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
   {
     const size_t low_clv_num = ceil(log2(tree->tip_count)) + 2;
@@ -211,10 +220,6 @@ void init(unsigned int attrs)
 
   if (!tree)
     fatal("ERROR reading tree file: %s\n", pll_errmsg);
-
-  // if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
-  //   if(!pll_utree_reorder_by_subtree_size(tree))
-  //     fatal("ERROR reordering the tree\n");
 
   part_sitescale_nt = init_partition(attrs, DATATYPE_NT);
   part_ratescale_nt = init_partition(attrs | PLL_ATTRIB_RATE_SCALERS, DATATYPE_NT);

@@ -222,11 +222,24 @@ int main(int argc, char * argv[])
 
     pll_set_asc_bias_type(partition, 0);
 
-    retval = pll_utree_traverse(root,
-                                PLL_TREE_TRAVERSE_POSTORDER,
-                                cb_full_traversal,
-                                travbuffer,
-                                &traversal_size);
+    if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    {
+      tree->vroot = root;
+      pll_utree_set_missing_subtree_sizes(tree);
+      retval = pll_utree_traverse_lsf(tree,
+                        PLL_TREE_TRAVERSE_POSTORDER,
+                        cb_full_traversal,
+                        travbuffer,
+                        &traversal_size);
+    }
+    else
+    {
+      retval = pll_utree_traverse(root,
+                                  PLL_TREE_TRAVERSE_POSTORDER,
+                                  cb_full_traversal,
+                                  travbuffer,
+                                  &traversal_size);
+    }
 
     if (!retval)
     {
