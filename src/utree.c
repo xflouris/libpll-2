@@ -37,6 +37,8 @@ static void print_node_info(const pll_unode_t * node, int options)
     printf (" %u", node->pmatrix_index);
   if (options & PLL_UTREE_SHOW_DATA)
     printf (" %p", node->data);
+  if (options & PLL_UTREE_SHOW_SUBTREE_SIZE)
+    printf (" %u", node->subtree_size);
   printf("\n");
 }
 
@@ -889,16 +891,16 @@ static void utree_traverse_lsf_recursive(pll_unode_t * node,
     }
 
     // this function is for bifurcating only
-    utree_traverse_recursive(first->back,
-                             traversal,
-                             cbtrav,
-                             index,
-                             outbuffer);
-    utree_traverse_recursive(second->back,
-                             traversal,
-                             cbtrav,
-                             index,
-                             outbuffer);
+    utree_traverse_lsf_recursive(first->back,
+                                 traversal,
+                                 cbtrav,
+                                 index,
+                                 outbuffer);
+    utree_traverse_lsf_recursive(second->back,
+                                 traversal,
+                                 cbtrav,
+                                 index,
+                                 outbuffer);
   }
 
   if (traversal == PLL_TREE_TRAVERSE_POSTORDER)

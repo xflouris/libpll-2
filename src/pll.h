@@ -190,6 +190,7 @@
 #define PLL_UTREE_SHOW_SCALER_INDEX      (1 << 3)
 #define PLL_UTREE_SHOW_PMATRIX_INDEX     (1 << 4)
 #define PLL_UTREE_SHOW_DATA              (1 << 5)
+#define PLL_UTREE_SHOW_SUBTREE_SIZE      (1 << 6)
 
 
 /* GAMMA discretization modes */
