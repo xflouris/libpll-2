@@ -477,6 +477,15 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
     return PLL_FAILURE;
   }
 
+  // ensure pattern_tip was set when trying to use memory saver
+  if ((attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    && !(attributes & PLL_ATTRIB_PATTERN_TIP))
+  {
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    snprintf(pll_errmsg, 200, "Memory saver must be used with pattern_tip.");
+    return PLL_FAILURE;
+  }
+
   /* disable repeats if there are to few sites */
   if (sites < 16 && (attributes & PLL_ATTRIB_SITE_REPEATS))
   {
