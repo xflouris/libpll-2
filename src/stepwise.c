@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2016 Tomas Flouri
+    Copyright (C) 2016-2020 Tomas Flouri, Alexey Kozlov
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -123,44 +123,34 @@ static int cb_partial_traversal(pll_unode_t * node)
      allow tips */
   if (!node->next) return 1;
 
-  /* get the data element from the node and check if the CLV vector is
-     oriented in the direction that we want to traverse. If the data
-     element is not yet allocated then we allocate it, set the direction
-     and instruct the traversal routine to place the node in the traversal array
-     by returning 1 */
+  /* get the data element from the node -> all inner nodes must have
+   * pre-allocated data */
   node_info = (node_info_t *)(node->data);
-  if (!node_info)
-  {
-    /* allocate data element. TODO: Check whether allocation was successful */
-    node->data             = (node_info_t *)calloc(1,sizeof(node_info_t));
-    node->next->data       = (node_info_t *)calloc(1,sizeof(node_info_t));
-    node->next->next->data = (node_info_t *)calloc(1,sizeof(node_info_t));
 
-    /* set orientation on selected direction and traverse the subtree */
-    node_info = node->data;
-    node_info->clv_valid = 1;
-    return 1;
-  }
+  assert(node_info);
 
-  /* if the data element was already there and the CLV on this direction is
-     set, i.e. the CLV is valid, we instruct the traversal routine not to
+  /* if the CLV is valid, we instruct the traversal routine not to
      traverse the subtree rooted in this node/direction by returning 0 */
   if (node_info->clv_valid) return 0;
 
-  /* otherwise, set orientation on selected direction */
+  /* otherwise, mark CLV as valid since it will be updated */
   node_info->clv_valid = 1;
-
-  /* reset orientation on the other two directions and return 1 (i.e. traverse
-     the subtree */
-  node_info = node->next->data;
-  node_info->clv_valid = 0;
-  node_info = node->next->next->data;
-  node_info->clv_valid = 0;
 
   return 1;
 }
 
-static pll_unode_t * utree_inner_create(unsigned int i)
+static int cb_validate(pll_unode_t * node)
+{
+  if (node->data)
+  {
+    node_info_t * node_info = (node_info_t *)(node->data);
+    node_info->clv_valid = 1;
+  }
+
+  return 1;
+}
+
+static pll_unode_t * utree_inner_create(unsigned int i, unsigned int tip_count)
 {
   pll_unode_t * node = (pll_unode_t *)calloc(1,sizeof(pll_unode_t));
   if (!node)
@@ -180,11 +170,33 @@ static pll_unode_t * utree_inner_create(unsigned int i)
     return NULL;
   }
 
+  /* allocate data element */
+  node->data             = (node_info_t *)calloc(1,sizeof(node_info_t));
+  node->next->data       = (node_info_t *)calloc(1,sizeof(node_info_t));
+  node->next->next->data = (node_info_t *)calloc(1,sizeof(node_info_t));
+
+  if (!node->data || !node->next->data || !node->next->next->data)
+  {
+    free(node->next->next->data);
+    free(node->next->data);
+    free(node->data);
+    free(node->next->next);
+    free(node->next);
+    free(node);
+    return NULL;
+  }
+
   node->next->next->next = node;
 
-  node->clv_index = i;
-  node->next->clv_index = i;
-  node->next->next->clv_index = i;
+  unsigned int clv_id = tip_count + i;
+  node->clv_index = clv_id;
+  node->next->clv_index = clv_id;
+  node->next->next->clv_index = clv_id;
+
+  unsigned int node_id = tip_count + i*3;
+  node->node_index = node_id;
+  node->next->node_index = node_id + 1;
+  node->next->next->node_index = node_id + 2;
 
   return node;
 }
@@ -194,6 +206,7 @@ static pll_unode_t * utree_tip_create(unsigned int i)
   pll_unode_t * node = (pll_unode_t *)calloc(1,sizeof(pll_unode_t));
   node->next = NULL;
   node->clv_index = i;
+  node->node_index = i;
 
   return node;
 }
@@ -238,6 +251,18 @@ static void utree_edgesplit(pll_unode_t * a, pll_unode_t * b, pll_unode_t * c)
   utree_link(a,b);
 }
 
+static void invalidate_node(pll_unode_t * node)
+{
+  node_info_t * info;
+
+  info = (node_info_t *)(node->data);
+  info->clv_valid = 0;
+  info = (node_info_t *)(node->next->data);
+  info->clv_valid = 0;
+  info = (node_info_t *)(node->next->next->data);
+  info->clv_valid = 0;
+}
+
 static unsigned int utree_iterate(pll_parsimony_t ** list,
                                   pll_unode_t ** edge_list,
                                   pll_unode_t * inner_node,
@@ -251,6 +276,7 @@ static unsigned int utree_iterate(pll_parsimony_t ** list,
   unsigned int cost;
   unsigned int ops_count;
   unsigned int traversal_size;
+  size_t total_ops = 0;
 
   /* set min cost to maximum possible value */
   min_cost = ~0u;
@@ -258,19 +284,18 @@ static unsigned int utree_iterate(pll_parsimony_t ** list,
   /* find first empty slot in edge_list */
   pll_unode_t ** empty_slot = edge_list + edge_count;
 
+  /* fill *all* CLV vectors in all directions, ie 3 CLVs per inner nodes ->
+   * this way, we can do avoid unnecessary CLV recomputation when
+   * evaluating insertion branches in the loop below */
   for (i = 0; i < edge_count; ++i)
   {
-    /* make the split */
-    pll_unode_t * d = edge_list[i]->back;
-    utree_edgesplit(edge_list[i], inner_node, inner_node->next); 
-    utree_link(inner_node->next->next, tip_node);
+    pll_unode_t * root = edge_list[i]->next ? edge_list[i] : edge_list[i]->back;
 
-    /* add the two new edges to the end of the list */
-    empty_slot[0] = inner_node->next;
-    empty_slot[1] = inner_node->next->next;
+    if (root->back->next)
+      continue;
 
     /* make a partial traversal */
-    if (!pll_utree_traverse(tip_node->back,
+    if (!pll_utree_traverse(root,
                             PLL_TREE_TRAVERSE_POSTORDER,
                             cb_partial_traversal,
                             travbuffer,
@@ -283,6 +308,30 @@ static unsigned int utree_iterate(pll_parsimony_t ** list,
                                    parsops,
                                    &ops_count);
 
+    for (j = 0; j < partition_count; ++j)
+    {
+      /* update parsimony vectors */
+      pll_fastparsimony_update_vectors(list[j], parsops, ops_count);
+    }
+
+    total_ops += ops_count;
+  }
+
+  for (i = 0; i < edge_count; ++i)
+  {
+    /* make the split */
+    pll_unode_t * d = edge_list[i]->back;
+    utree_edgesplit(edge_list[i], inner_node, inner_node->next); 
+    utree_link(inner_node->next->next, tip_node);
+
+    /* we only need to recompute one CLV vector at the inner node */
+    parsops[0].parent_score_index = tip_node->back->node_index;
+    parsops[0].child1_score_index = tip_node->back->next->back->node_index;
+    parsops[0].child2_score_index = tip_node->back->next->next->back->node_index;
+    ops_count = 1;
+
+    total_ops += ops_count;
+
     /* compute the costs for each parsimony partition */
     cost = 0;
     for (j = 0; j < partition_count; ++j)
@@ -292,8 +341,8 @@ static unsigned int utree_iterate(pll_parsimony_t ** list,
 
       /* get parsimony score */
       cost += pll_fastparsimony_edge_score(list[j],
-                                           tip_node->clv_index,
-                                           tip_node->back->clv_index);
+                                           tip_node->node_index,
+                                           tip_node->back->node_index);
     }
 
     /* if current cost is smaller than minimum cost save topology index */
@@ -303,10 +352,6 @@ static unsigned int utree_iterate(pll_parsimony_t ** list,
       best_index = i;
     }
 
-    /* reset direction for the newly placed inner node */
-    node_info_t * node_info = (node_info_t *)(inner_node->next->next->data);
-    node_info->clv_valid = 0;
-
     /* restore tree to its state before placing the tip (and inner) node */
     utree_link(edge_list[i], d);
     inner_node->back = NULL;
@@ -315,23 +360,32 @@ static unsigned int utree_iterate(pll_parsimony_t ** list,
     tip_node->back = NULL;
   }
 
+//  printf("STEPWISE edges: %u, ops: %lu\n", edge_count, total_ops);
+
   /* perform the placement yielding the lowest cost */
   utree_edgesplit(edge_list[best_index], inner_node, inner_node->next); 
   utree_link(inner_node->next->next, tip_node);
 
+  /* add the two new edges to the end of the list */
+  empty_slot[0] = inner_node->next;
+  empty_slot[1] = inner_node->next->next;
+
+  /* invalidate all CLVs */
+  for (j = 0; j < edge_count; ++j)
+    invalidate_node(edge_list[j]);
+
+  /* re-validate CLVs that remain correct after new tip insertion */
+  if (!pll_utree_traverse(tip_node->back,
+                          PLL_TREE_TRAVERSE_POSTORDER,
+                          cb_validate,
+                          travbuffer,
+                          &traversal_size))
+    assert(0);
+
+  /* reset direction for the newly placed inner node */
+  invalidate_node(inner_node);
+
   return min_cost;
-}
-
-static void invalidate_node(pll_unode_t * node)
-{
-  node_info_t * info;
-
-  info = (node_info_t *)(node->data);
-  info->clv_valid = 0;
-  info = (node_info_t *)(node->next->data);
-  info->clv_valid = 0;
-  info = (node_info_t *)(node->next->next->data);
-  info->clv_valid = 0;
 }
 
 PLL_EXPORT pll_utree_t * pll_fastparsimony_stepwise(pll_parsimony_t ** list,
@@ -364,7 +418,6 @@ PLL_EXPORT pll_utree_t * pll_fastparsimony_stepwise(pll_parsimony_t ** list,
 
   *cost = ~0u;
 
-
   pll_unode_t * root;
 
   /* check that all parsimony structures have the same number of tips and
@@ -388,7 +441,7 @@ PLL_EXPORT pll_utree_t * pll_fastparsimony_stepwise(pll_parsimony_t ** list,
 
   travbuffer = (pll_unode_t **)malloc((2*tips_count-2) * sizeof(pll_unode_t *));
 
-  root = utree_inner_create(2*tips_count-3);
+  root = utree_inner_create(tips_count-3, tips_count);
 
   /* allocate parsimony operations container */
   parsops = (pll_pars_buildop_t *)malloc((tips_count-2)*
@@ -419,7 +472,7 @@ PLL_EXPORT pll_utree_t * pll_fastparsimony_stepwise(pll_parsimony_t ** list,
   /* allocate all inner nodes */
   for (i=0; i<tips_count-3; ++i)
   {
-    inner_node_list[i] = utree_inner_create(i+tips_count);
+    inner_node_list[i] = utree_inner_create(i, tips_count);
     if (!inner_node_list[i])
     {
       pll_utree_graph_destroy(root,NULL);
@@ -510,11 +563,6 @@ PLL_EXPORT pll_utree_t * pll_fastparsimony_stepwise(pll_parsimony_t ** list,
                             tip_node_list[i],
                             edge_count,
                             count);
-
-      /* reset traversal such that parsimony vectors are re-computed */
-      for (j = 0; j < i-2; ++j)
-        invalidate_node(inner_node_list[j]);
-      invalidate_node(root);
 
       /* after adding a leaf, we have two new edges */
       edge_count += 2;

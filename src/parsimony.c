@@ -74,7 +74,7 @@ PLL_EXPORT void pll_parsimony_destroy(pll_parsimony_t * parsimony)
   if (!parsimony)
     return;
 
-  nodes_count = parsimony->tips + parsimony->inner_nodes;
+  nodes_count = parsimony->tips + 3*parsimony->inner_nodes;
 
   /* deallocate fast parsimony structures */
   if (parsimony->packedvector)
