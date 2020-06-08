@@ -123,7 +123,10 @@ void dealloc_clv_manager(pll_clv_manager_t * clv_man)
     free(clv_man->slot_of_clvid);
     free(clv_man->is_pinned);
     pll_uint_stack_destroy(clv_man->unused_slots);
-    free(clv_man->repl_strat_data);
+    if(clv_man->strat_data_dealloc)
+      clv_man->strat_data_dealloc(clv_man->repl_strat_data);
+    if (clv_man->repl_strat_data)
+      free(clv_man->repl_strat_data);
     free(clv_man);
   }
 }
@@ -149,7 +152,8 @@ static void* alloc_and_set(const size_t n, const size_t size, const int val)
 PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     const size_t concurrent_clvs,
                                     pll_clv_manager_replace_cb cb_replace,
-                                    pll_clv_manager_update_cb cb_update)
+                                    pll_clv_manager_update_cb cb_update,
+                                    pll_clv_manager_dealloc_cb cb_dealloc)
 {
   assert(partition);
 
@@ -190,6 +194,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   // if replacement func was null, use default
   clv_man->strat_replace      = cb_replace ? cb_replace : &MRC_replace_cb;
   clv_man->strat_update_slot  = cb_update ? cb_update : &MRC_update_slot_cb;
+  clv_man->strat_data_dealloc = cb_dealloc ? cb_dealloc : &MRC_dealloc_cb;
 
   // alloc everything else
 
@@ -349,12 +354,11 @@ void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
   mrc->cost_of_slot[slot] = mrc->cost_of_clvid[clv_index];
 }
 
-PLL_EXPORT void pll_clv_manager_MRC_strategy_dealloc(pll_clv_manager_t* clv_man)
+void MRC_dealloc_cb(void* data)
 {
-  mrc_data_t* mrcd = (mrc_data_t*) clv_man->repl_strat_data;
+  mrc_data_t* mrcd = (mrc_data_t*) data;
   free(mrcd->cost_of_clvid);
   free(mrcd->cost_of_slot);
-  free(mrcd);
 }
 
 /**
@@ -379,7 +383,7 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
                                       (mrc_data_t *)malloc(sizeof(mrc_data_t));
   if (!mrc)
   {
-    pll_clv_manager_MRC_strategy_dealloc(clv_man);
+    MRC_dealloc_cb(clv_man);
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
              200,
@@ -392,7 +396,7 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
   mrc->cost_of_clvid = (unsigned int*)calloc(addr_size, sizeof(unsigned int));
   if (!mrc->cost_of_clvid)
   {
-    pll_clv_manager_MRC_strategy_dealloc(clv_man);
+    MRC_dealloc_cb(clv_man);
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
              200,
@@ -406,7 +410,7 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
                                                    -1);
   if (!mrc->cost_of_slot)
   {
-    pll_clv_manager_MRC_strategy_dealloc(clv_man);
+    MRC_dealloc_cb(clv_man);
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
              200,

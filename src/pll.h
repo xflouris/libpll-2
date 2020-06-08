@@ -302,6 +302,7 @@ typedef unsigned int (*pll_clv_manager_replace_cb)(pll_partition_t*,
 typedef void (*pll_clv_manager_update_cb)(struct pll_clv_manager*,
                                           const unsigned int,
                                           const unsigned int);
+typedef void (*pll_clv_manager_dealloc_cb)(void*);
 
 typedef struct pll_clv_manager
 {
@@ -336,6 +337,8 @@ typedef struct pll_clv_manager
     // replacement strategy: replace function
   pll_clv_manager_update_cb strat_update_slot;
     // replacement strategy: update a slot with a clv_id function
+  pll_clv_manager_dealloc_cb strat_data_dealloc;
+    // replacement strategy: dealloc the custom data
   void* repl_strat_data;
     // void pointer to whatever data your replacement data might need
 } pll_clv_manager_t;
@@ -2717,7 +2720,8 @@ void dealloc_clv_manager(pll_clv_manager_t * clv_man);
 PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     const size_t concurrent_clvs,
                                     pll_clv_manager_replace_cb replace_cb,
-                                    pll_clv_manager_update_cb update_cb);
+                                    pll_clv_manager_update_cb update_cb,
+                                    pll_clv_manager_dealloc_cb dealloc_cb);
 
 void pll_clv_manager_update_slot(pll_clv_manager_t * clv_man,
                                  const unsigned int slot,
@@ -2729,6 +2733,7 @@ unsigned int MRC_replace_cb(pll_partition_t* partition,
 void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
                         const unsigned int slot,
                         const unsigned int clv_index);
+void MRC_dealloc_cb(void* clv_man);
 
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
                                                  pll_utree_t* const tree);
