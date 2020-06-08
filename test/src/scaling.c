@@ -182,7 +182,7 @@ pll_partition_t * init_partition(unsigned int attrs, int datatype)
   if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
   {
     const size_t low_clv_num = ceil(log2(tree->tip_count)) + 2;
-    if (!pll_clv_manager_init(p, low_clv_num, NULL, NULL))
+    if (!pll_clv_manager_init(p, low_clv_num, NULL, NULL, NULL))
       fatal("clv_manager_init failed: %s\n", pll_errmsg);
 
     if (!pll_clv_manager_MRC_strategy_init(p->clv_man, tree))

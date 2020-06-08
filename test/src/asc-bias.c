@@ -93,6 +93,7 @@ static double eval(pll_partition_t * partition,
                            branch_lengths,
                            matrix_count);
   pll_update_partials(partition, operations, ops_count);
+
   logl = pll_compute_edge_loglikelihood(partition,
                                         node->clv_index,
                                         node->scaler_index,
@@ -289,14 +290,14 @@ int main(int argc, char * argv[])
     lnl_test[3] = eval(partition, root, alpha, lnl_test[3]);
 
   }
-    /* clean */
-    free(travbuffer);
-    free(branch_lengths);
-    free(operations);
-    free(matrix_indices);
-    pll_partition_destroy(partition);
 
-  pll_utree_destroy(tree,NULL);
+  /* clean */
+  free(travbuffer);
+  free(branch_lengths);
+  free(operations);
+  free(matrix_indices);
+  pll_partition_destroy(partition);
+  pll_utree_destroy(tree, NULL);
 
   return 0;
 }
