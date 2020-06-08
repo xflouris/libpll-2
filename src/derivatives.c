@@ -78,10 +78,13 @@ static int sumtable_tipinner(pll_partition_t * partition,
     scaler = parent_scaler;
   }
 
+  const double * inner_clv = pll_get_clv_reading(partition, inner_clv_index);
+  assert(inner_clv);
+
   retval = pll_core_update_sumtable_ti(partition->states,
                                        sites,
                                        partition->rate_cats,
-                                       partition->clv[inner_clv_index],
+                                       inner_clv,
                                        partition->tipchars[tip_clv_index],
                                        scaler,
                                        eigenvecs,
@@ -139,11 +142,17 @@ static int sumtable_innerinner(pll_partition_t * partition,
     freqs[i] = partition->frequencies[params_indices[i]];
   }
 
+  const double * parent_clv = pll_get_clv_reading(partition, parent_clv_index);
+  const double * child_clv  = pll_get_clv_reading(partition, child_clv_index);
+
+  assert(parent_clv);
+  assert(child_clv);
+
   retval = pll_core_update_sumtable_ii(partition->states,
                                        sites,
                                        partition->rate_cats,
-                                       partition->clv[parent_clv_index],
-                                       partition->clv[child_clv_index],
+                                       parent_clv,
+                                       child_clv,
                                        parent_scaler,
                                        child_scaler,
                                        eigenvecs,
