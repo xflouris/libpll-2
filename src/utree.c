@@ -879,7 +879,7 @@ static void utree_traverse_lsf_recursive(pll_unode_t * node,
     pll_unode_t * first;
     pll_unode_t * second;
 
-    if (node->next->back->subtree_size > node->next->next->back->subtree_size)
+    if (node->next->back->subtree_size >= node->next->next->back->subtree_size)
     {
       first   = node->next;
       second  = node->next->next;
@@ -929,8 +929,8 @@ PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t * tree,
   {
     /* traverse down in the order of largest subtree first */
 
-    pll_unode_t * first = (root->subtree_size > root->back->subtree_size) ?
-                        root : root->back;
+    pll_unode_t * first = (root->back->subtree_size >= root->subtree_size) ?
+                        root->back : root;
 
     utree_traverse_lsf_recursive(
                       first, traversal, cbtrav, trav_size, outbuffer);
