@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2015 Tomas Flouri, Diego Darriba
+    Copyright (C) 2015-2020 Tomas Flouri, Diego Darriba, Alexey Kozlov
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -2451,6 +2451,11 @@ PLL_EXPORT unsigned int * pll_compress_site_patterns(char ** sequence,
                                                      const pll_state_t * map,
                                                      int count,
                                                      int * length);
+
+PLL_EXPORT
+unsigned int * pll_compress_site_patterns_msa(pll_msa_t * msa,
+                                              const pll_state_t * map,
+                                              unsigned int * site_pattern_map);
 
 /* functions in utree_moves.c */
 
