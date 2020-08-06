@@ -184,14 +184,7 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
       inv_evecs = inv_eigenvecs[params_indices[n]];
       evals = eigenvals[params_indices[n]];
 
-      /* if branch length is zero then set the p-matrix to identity matrix */
-      if (!branch_lengths[i])
-      {
-        for (j = 0; j < states; ++j)
-          for (k = 0; k < states; ++k)
-            pmat[j*states_padded + k] = (j == k) ? 1 : 0;
-      }
-      else
+      if (branch_lengths[i] > 0.)
       {
         /* NOTE: in order to deal with numerical issues in cases when Qt -> 0, we
          * use a trick suggested by Ben Redelings and explained here:
@@ -229,6 +222,14 @@ PLL_EXPORT int pll_core_update_pmatrix(double ** pmatrix,
           }
         }
       }
+      else
+      {
+        /* if branch length is zero then set the p-matrix to identity matrix */
+        for (j = 0; j < states; ++j)
+          for (k = 0; k < states; ++k)
+            pmat[j*states_padded + k] = (j == k) ? 1 : 0;
+      }
+
       #ifdef DEBUG
       for (j = 0; j < states; ++j)
         for (k = 0; k < states; ++k)

@@ -89,7 +89,7 @@ static int dfa_parse(pll_phylip_t * fd,
 static const int delimiters[4] = {' ', '\t', '\r', '\n'};
 static int get_headerlen(char * s)
 {
-  int min_len = strlen(s);
+  long min_len = strlen(s);
   int i;
 
   for (i=0; i<4; ++i)
@@ -99,7 +99,7 @@ static int get_headerlen(char * s)
         min_len = r - s;
   }
 
-  return min_len;
+  return (int) min_len;
 }
 
 static char * reallocline(pll_phylip_t * fd, size_t newmaxsize)
@@ -434,7 +434,7 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_interleaved(pll_phylip_t * fd)
   /* assume the worst: whole sequence in one line + long label. *
    * Doing reallocate+copy really hurts on long alignments,     *
    * so we better waste some memory here to avoid reallocation. */
-  reallocline(fd, msa->length+300);
+  reallocline(fd, (size_t) msa->length+300);
 
   /* read sequences with headers */
   seqno = 0;
@@ -616,7 +616,7 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_sequential(pll_phylip_t * fd)
   /* assume the worst: whole sequence in one line + long label. *
    * Doing reallocate+copy really hurts on long alignments,     *
    * so we better waste some memory here to avoid reallocation. */
-  reallocline(fd, msa->length+300);
+  reallocline(fd, (size_t) msa->length+300);
 
   /* read sequences */
   int seqno = 0;
@@ -707,6 +707,20 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_sequential(pll_phylip_t * fd)
     pll_msa_destroy(msa);
     return NULL;
   }
+
+  return msa;
+}
+
+pll_msa_t * pll_phylip_load(const char * fname, pll_bool_t interleaved)
+{
+  pll_phylip_t * fd = pll_phylip_open(fname, pll_map_generic);
+  if (!fd)
+    return NULL;
+
+  pll_msa_t * msa = interleaved ? pll_phylip_parse_interleaved(fd) :
+                                  pll_phylip_parse_sequential(fd);
+
+  pll_phylip_close(fd);
 
   return msa;
 }

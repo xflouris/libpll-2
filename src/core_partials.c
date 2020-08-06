@@ -178,7 +178,7 @@ PLL_EXPORT void pll_core_update_partial_tt(unsigned int states,
   #endif
 
   unsigned int span = states * rate_cats;
-  unsigned int log2_maxstates = (unsigned int)ceil(log2(tipmap_size));
+  unsigned int log2_maxstates = (unsigned int) ceil(log2(tipmap_size));
   size_t scaler_size = (attrib & PLL_ATTRIB_RATE_SCALERS) ?
                                                         sites*rate_cats : sites;
 
@@ -276,7 +276,7 @@ PLL_EXPORT void pll_core_update_partial_ti_4x4(unsigned int sites,
     /* determine the scaling mode and init the vars accordingly */
     scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
     init_mask = (scale_mode == 1) ? 1 : 0;
-    const size_t scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
+    const unsigned int scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
 
     /* update the parent scaler with the scaler of the right child */
     fill_parent_scaler(scaler_size, parent_scaler, NULL, right_scaler);
@@ -368,7 +368,7 @@ PLL_EXPORT void pll_core_update_partial_ti(unsigned int states,
   int scaling;
   unsigned int i,j,k,n;
   unsigned int span = states * rate_cats;
-  size_t scaler_size = (attrib & PLL_ATTRIB_RATE_SCALERS) ?
+  unsigned int scaler_size = (attrib & PLL_ATTRIB_RATE_SCALERS) ?
                                                         sites*rate_cats : sites;
 
   const double * lmat;
@@ -694,7 +694,7 @@ PLL_EXPORT void pll_core_update_partial_ii(unsigned int states,
     /* determine the scaling mode and init the vars accordingly */
     scale_mode = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 2 : 1;
     init_mask = (scale_mode == 1) ? 1 : 0;
-    const size_t scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
+    const unsigned int scaler_size = (scale_mode == 2) ? sites * rate_cats : sites;
 
     /* add up the scale vectors of the two children if available */
     fill_parent_scaler(scaler_size, parent_scaler, left_scaler, right_scaler);

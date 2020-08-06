@@ -4,6 +4,10 @@ include(CheckIncludeFile)
 
 set (LIBPLL_BASE_FLAGS "-Wall -Wsign-compare -D_GNU_SOURCE -O3 -fPIC ")
 
+if(PLLMOD_DEBUG)
+  set(LIBPLL_BASE_FLAGS "${LIBPLL_BASE_FLAGS} -DDEBUG")
+endif()
+
 set (SSE_FLAGS "-msse3")
 set (AVX_FLAGS "-mavx")
 set (AVX2_FLAGS "-mfma -mavx2")
@@ -180,7 +184,7 @@ endif()
 
 add_library(pll_obj OBJECT ${LIBPLL_SOURCES})
   
-# Build static library
+# Build shared library
 if(BUILD_LIBPLL_SHARED)
   message(STATUS "Libpll shared build enabled")
   set_property(TARGET pll_obj PROPERTY POSITION_INDEPENDENT_CODE 1) 
@@ -191,7 +195,7 @@ if(BUILD_LIBPLL_SHARED)
     CACHE INTERNAL "${PROJECT_NAME}: Libraries to link against")
 endif()
 
-# Build shared library
+# Build static library
 if(BUILD_LIBPLL_STATIC)
   message(STATUS "Libpll static build enabled")
   add_library(pll_static STATIC $<TARGET_OBJECTS:pll_obj>)

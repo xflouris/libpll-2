@@ -30,11 +30,11 @@ static void print_node_info(const pll_unode_t * node, int options)
   if (options & PLL_UTREE_SHOW_BRANCH_LENGTH)
     printf (" %f", node->length);
   if (options & PLL_UTREE_SHOW_CLV_INDEX)
-    printf (" %d", node->clv_index);
+    printf (" %u", node->clv_index);
   if (options & PLL_UTREE_SHOW_SCALER_INDEX)
     printf (" %d", node->scaler_index);
   if (options & PLL_UTREE_SHOW_PMATRIX_INDEX)
-    printf (" %d", node->pmatrix_index);
+    printf (" %u", node->pmatrix_index);
   if (options & PLL_UTREE_SHOW_DATA)
     printf (" %p", node->data);
   printf("\n");
@@ -171,7 +171,7 @@ static char * newick_utree_recurse(const pll_unode_t * root,
     if (cb_serialize)
     {
       newick = cb_serialize(root);
-      size_alloced = strlen(newick);
+      size_alloced = (int) strlen(newick);
     }
     else
     {
@@ -182,7 +182,7 @@ static char * newick_utree_recurse(const pll_unode_t * root,
   {
     const pll_unode_t * start = root->next;
     const pll_unode_t * snode = start;
-    char * cur_newick;
+    char * cur_newick = NULL;
     do
     {
       char * subtree = newick_utree_recurse(snode->back, cb_serialize, level+1);
@@ -199,6 +199,7 @@ static char * newick_utree_recurse(const pll_unode_t * root,
       }
       else
       {
+        assert(cur_newick);
         char * temp = cur_newick;
         size_alloced = asprintf(&cur_newick,
                                 "%s,%s",
@@ -268,7 +269,7 @@ char * utree_export_newick(const pll_unode_t * root,
     subtree2 = newick_utree_recurse(root, cb_serialize, 0);
 
     size_alloced = asprintf(&newick,
-                            "(%s,(%s)%s:%f):0.0;",
+                            "(%s,(%s)%s:%f);",
                             subtree1,
                             subtree2,
                             root->label ? root->label : "",
@@ -280,7 +281,7 @@ char * utree_export_newick(const pll_unode_t * root,
     subtree2 = newick_utree_recurse(root, cb_serialize, 0);
 
     size_alloced = asprintf(&newick,
-                            "(%s,%s)%s:0.0;",
+                            "(%s,%s)%s;",
                             subtree1,
                             subtree2,
                             root->label ? root->label : "");
@@ -516,7 +517,7 @@ static int cb_check_integrity_mult(const pll_utree_t * tree,
       }
       if (snode->scaler_index != scaler_index)
       {
-        snprintf(pll_errmsg, 200, "Inconsistent scaler indices: %u != %u",
+        snprintf(pll_errmsg, 200, "Inconsistent scaler indices: %d != %d",
                  scaler_index, snode->scaler_index);
         return PLL_FAILURE;
       }
@@ -774,9 +775,9 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
 
     if (node->next)
     {
-      ops[*ops_count].parent_score_index = node->clv_index;
-      ops[*ops_count].child1_score_index = node->next->back->clv_index;
-      ops[*ops_count].child2_score_index = node->next->next->back->clv_index;
+      ops[*ops_count].parent_score_index = node->node_index;
+      ops[*ops_count].child1_score_index = node->next->back->node_index;
+      ops[*ops_count].child2_score_index = node->next->next->back->node_index;
 
       *ops_count = *ops_count + 1;
     }

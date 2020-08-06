@@ -83,7 +83,7 @@ int main(int argc, char * argv[])
     printf("\tPLL_ATTRIB_PATTERN_TIP\n");
 
   unsigned int states = atoi(argv[4]);
-  unsigned const int * map = pll_map_nt;
+  const pll_state_t * map = pll_map_nt;
   if (states == 20)
   {
     map = pll_map_aa;

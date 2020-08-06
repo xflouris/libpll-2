@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2015 Tomas Flouri, Diego Darriba
+    Copyright (C) 2015-2020 Tomas Flouri, Diego Darriba, Alexey Kozlov
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -100,6 +100,7 @@
 #define PLL_ONE_EPSILON 1e-15
 #define PLL_ONE_MIN (1-PLL_ONE_EPSILON)
 #define PLL_ONE_MAX (1+PLL_ONE_EPSILON)
+#define PLL_EIGEN_MINFREQ 1e-6
 
 /* attribute flags */
 
@@ -126,6 +127,8 @@
 #define PLL_ATTRIB_SITE_REPEATS    (1 << 10)
 #define PLL_REPEATS_LOOKUP_SIZE  2000000 
 
+#define PLL_ATTRIB_MASK ((1 << 11) - 1)
+
 /* topological rearrangements */
 
 #define PLL_UTREE_MOVE_SPR                  1
@@ -142,14 +145,15 @@
 #define PLL_ERROR_FILE_OPEN                100
 #define PLL_ERROR_FILE_SEEK                101
 #define PLL_ERROR_FILE_EOF                 102
-#define PLL_ERROR_FASTA_ILLEGALCHAR        103
-#define PLL_ERROR_FASTA_UNPRINTABLECHAR    104
-#define PLL_ERROR_FASTA_INVALIDHEADER      105
-#define PLL_ERROR_PHYLIP_SYNTAX            106
-#define PLL_ERROR_PHYLIP_LONGSEQ           107
-#define PLL_ERROR_PHYLIP_NONALIGNED        108
-#define PLL_ERROR_PHYLIP_ILLEGALCHAR       109
-#define PLL_ERROR_PHYLIP_UNPRINTABLECHAR   110
+#define PLL_ERROR_FASTA_ILLEGALCHAR        201
+#define PLL_ERROR_FASTA_UNPRINTABLECHAR    202
+#define PLL_ERROR_FASTA_INVALIDHEADER      203
+#define PLL_ERROR_FASTA_NONALIGNED         204
+#define PLL_ERROR_PHYLIP_SYNTAX            231
+#define PLL_ERROR_PHYLIP_LONGSEQ           232
+#define PLL_ERROR_PHYLIP_NONALIGNED        233
+#define PLL_ERROR_PHYLIP_ILLEGALCHAR       234
+#define PLL_ERROR_PHYLIP_UNPRINTABLECHAR   235
 #define PLL_ERROR_NEWICK_SYNTAX            111
 #define PLL_ERROR_MEM_ALLOC                112
 #define PLL_ERROR_PARAM_INVALID            113
@@ -200,6 +204,7 @@
 #define PLL_STATE_CTZ    PLL_CTZ64
 
 typedef unsigned long long pll_state_t;
+typedef int pll_bool_t;
 
 typedef struct pll_hardware_s
 {
@@ -541,8 +546,10 @@ PLL_EXPORT extern __thread pll_hardware_t pll_hardware;
 PLL_EXPORT extern const pll_state_t pll_map_bin[256];
 PLL_EXPORT extern const pll_state_t pll_map_nt[256];
 PLL_EXPORT extern const pll_state_t pll_map_aa[256];
+PLL_EXPORT extern const pll_state_t pll_map_gt10[256];
 PLL_EXPORT extern const unsigned int pll_map_fasta[256];
 PLL_EXPORT extern const unsigned int pll_map_phylip[256];
+PLL_EXPORT extern const unsigned int pll_map_generic[256];
 
 PLL_EXPORT extern const double pll_aa_rates_dayhoff[190];
 PLL_EXPORT extern const double pll_aa_rates_lg[190];
@@ -563,6 +570,7 @@ PLL_EXPORT extern const double pll_aa_rates_hivw[190];
 PLL_EXPORT extern const double pll_aa_rates_jttdcmut[190];
 PLL_EXPORT extern const double pll_aa_rates_flu[190];
 PLL_EXPORT extern const double pll_aa_rates_stmtrev[190];
+PLL_EXPORT extern const double pll_aa_rates_den[190];
 PLL_EXPORT extern const double pll_aa_rates_lg4m[4][190];
 PLL_EXPORT extern const double pll_aa_rates_lg4x[4][190];
 
@@ -585,6 +593,7 @@ PLL_EXPORT extern const double pll_aa_freqs_hivw[20];
 PLL_EXPORT extern const double pll_aa_freqs_jttdcmut[20];
 PLL_EXPORT extern const double pll_aa_freqs_flu[20];
 PLL_EXPORT extern const double pll_aa_freqs_stmtrev[20];
+PLL_EXPORT extern const double pll_aa_freqs_den[20];
 PLL_EXPORT extern const double pll_aa_freqs_lg4m[4][20];
 PLL_EXPORT extern const double pll_aa_freqs_lg4x[4][20];
 
@@ -643,7 +652,8 @@ PLL_EXPORT void pll_fill_parent_scaler(unsigned int scaler_size,
 
 PLL_EXPORT int pll_repeats_enabled(const pll_partition_t *partition);
 
-PLL_EXPORT void pll_resize_repeats_lookup(pll_partition_t *partition, size_t size);
+PLL_EXPORT void pll_resize_repeats_lookup(pll_partition_t *partition,
+                                          unsigned int size);
 
 PLL_EXPORT unsigned int pll_get_sites_number(const pll_partition_t * partition,
                                              unsigned int clv_index);
@@ -754,6 +764,28 @@ PLL_EXPORT double pll_compute_edge_loglikelihood(pll_partition_t * partition,
                                                  const unsigned int * freqs_indices,
                                                  double * persite_lnl);
 
+PLL_EXPORT int pll_compute_node_ancestral(pll_partition_t * partition,
+                                          unsigned int node_clv_index,
+                                          int node_scaler_index,
+                                          unsigned int other_clv_index,
+                                          int other_scaler_index,
+                                          unsigned int matrix_index,
+                                          const unsigned int * freqs_indices,
+                                          double * ancestral);
+
+PLL_EXPORT int pll_compute_node_ancestral_extbuf(pll_partition_t * partition,
+                                                 unsigned int node_clv_index,
+                                                 int node_scaler_index,
+                                                 unsigned int other_clv_index,
+                                                 int other_scaler_index,
+                                                 unsigned int pmatrix_index,
+                                                 const unsigned int * freqs_indices,
+                                                 double * ancestral,
+                                                 double * temp_clv,
+                                                 unsigned int * temp_scaler,
+                                                 double * ident_pmat);
+
+
 /* functions in partials.c */
 
 PLL_EXPORT void pll_update_partials(pll_partition_t * partition,
@@ -818,6 +850,8 @@ PLL_EXPORT long pll_fasta_getfilesize(const pll_fasta_t * fd);
 PLL_EXPORT long pll_fasta_getfilepos(pll_fasta_t * fd);
 
 PLL_EXPORT int pll_fasta_rewind(pll_fasta_t * fd);
+
+pll_msa_t * pll_fasta_load(const char * fname);
 
 /* functions in parse_rtree.y */
 
@@ -923,6 +957,8 @@ PLL_EXPORT void pll_phylip_close(pll_phylip_t * fd);
 PLL_EXPORT pll_msa_t * pll_phylip_parse_interleaved(pll_phylip_t * fd);
 
 PLL_EXPORT pll_msa_t * pll_phylip_parse_sequential(pll_phylip_t * fd);
+
+pll_msa_t * pll_phylip_load(const char * fname, pll_bool_t interleaved);
 
 /* functions in rtree.c */
 
@@ -2416,6 +2452,11 @@ PLL_EXPORT unsigned int * pll_compress_site_patterns(char ** sequence,
                                                      int count,
                                                      int * length);
 
+PLL_EXPORT
+unsigned int * pll_compress_site_patterns_msa(pll_msa_t * msa,
+                                              const pll_state_t * map,
+                                              unsigned int * site_pattern_map);
+
 /* functions in utree_moves.c */
 
 PLL_EXPORT int pll_utree_spr(pll_unode_t * p,
@@ -2585,9 +2626,9 @@ PLL_EXPORT void pll_random_destroy(pll_random_state * rstate);
 
 PLL_EXPORT int pll_hardware_probe(void);
 
-PLL_EXPORT void pll_hardware_dump();
+PLL_EXPORT void pll_hardware_dump(void);
 
-PLL_EXPORT void pll_hardware_ignore();
+PLL_EXPORT void pll_hardware_ignore(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

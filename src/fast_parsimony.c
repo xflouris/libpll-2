@@ -29,7 +29,7 @@ static int alloc_pars_structs(pll_parsimony_t * parsimony,
   unsigned int i,j;
 
   /* TODO: Test this for compatibility with rooted and unrooted trees */
-  unsigned int nodes_count = parsimony->tips + parsimony->inner_nodes;
+  unsigned int nodes_count = parsimony->tips + 3*parsimony->inner_nodes;
 
   parsimony->node_cost = (unsigned int *)calloc(nodes_count,
                                                 sizeof(unsigned int));

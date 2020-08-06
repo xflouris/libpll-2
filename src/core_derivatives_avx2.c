@@ -71,6 +71,9 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx2(unsigned int sites,
   unsigned int states = 20;
   unsigned int states_padded = states;
 
+  double * tt_inv_eigenvecs = NULL;
+  double * tt_eigenvecs = NULL;
+
   /* scaling stuff */
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
@@ -98,24 +101,24 @@ PLL_EXPORT int pll_core_update_sumtable_ii_20x20_avx2(unsigned int sites,
   }
 
   /* padded eigenvecs */
-  double * tt_eigenvecs = (double *) pll_aligned_alloc (
+  tt_eigenvecs = (double *) pll_aligned_alloc (
         (states_padded * states_padded * rate_cats) * sizeof(double),
         PLL_ALIGNMENT_AVX);
 
-  if (!tt_eigenvecs)
-  {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
-    return PLL_FAILURE;
-  }
-
   /* transposed padded inv_eigenvecs */
-  double * tt_inv_eigenvecs = (double *) pll_aligned_alloc (
+  tt_inv_eigenvecs = (double *) pll_aligned_alloc (
       (states_padded * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
-  if (!tt_inv_eigenvecs)
+  if (!tt_eigenvecs || !tt_inv_eigenvecs)
   {
+    if (tt_eigenvecs)
+      pll_aligned_free(tt_eigenvecs);
+    if (tt_inv_eigenvecs)
+      pll_aligned_free(tt_inv_eigenvecs);
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
     return PLL_FAILURE;
@@ -313,6 +316,9 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx2(unsigned int states,
 
   unsigned int states_padded = (states+3) & 0xFFFFFFFC;
 
+  double * tt_inv_eigenvecs = NULL;
+  double * tt_eigenvecs = NULL;
+
   /* scaling stuff */
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
@@ -340,26 +346,26 @@ PLL_EXPORT int pll_core_update_sumtable_ii_avx2(unsigned int states,
   }
 
   /* padded eigenvecs */
-  double * tt_eigenvecs = (double *) pll_aligned_alloc (
+  tt_eigenvecs = (double *) pll_aligned_alloc (
         (states_padded * states_padded * rate_cats) * sizeof(double),
         PLL_ALIGNMENT_AVX);
 
-  if (!tt_eigenvecs)
-  {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
-    return PLL_FAILURE;
-  }
-
   /* transposed padded inv_eigenvecs */
-  double * tt_inv_eigenvecs = (double *) pll_aligned_alloc (
+  tt_inv_eigenvecs = (double *) pll_aligned_alloc (
       (states_padded * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
-  if (!tt_inv_eigenvecs)
+  if (!tt_eigenvecs || !tt_inv_eigenvecs)
   {
+    if (tt_eigenvecs)
+      pll_aligned_free(tt_eigenvecs);
+    if (tt_inv_eigenvecs)
+      pll_aligned_free(tt_inv_eigenvecs);
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
+    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
     return PLL_FAILURE;
   }
 
@@ -549,6 +555,9 @@ PLL_EXPORT int pll_core_update_sumtable_repeats_20x20_avx2(unsigned int sites,
   unsigned int states_padded = states;
   unsigned int span_padded = rate_cats * states_padded;
 
+  double * tt_inv_eigenvecs = NULL;
+  double * tt_eigenvecs = NULL;
+
   /* scaling stuff */
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
@@ -576,24 +585,24 @@ PLL_EXPORT int pll_core_update_sumtable_repeats_20x20_avx2(unsigned int sites,
   }
 
   /* padded eigenvecs */
-  double * tt_eigenvecs = (double *) pll_aligned_alloc (
+  tt_eigenvecs = (double *) pll_aligned_alloc (
         (states_padded * states_padded * rate_cats) * sizeof(double),
         PLL_ALIGNMENT_AVX);
 
-  if (!tt_eigenvecs)
-  {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
-    return PLL_FAILURE;
-  }
-
   /* transposed padded inv_eigenvecs */
-  double * tt_inv_eigenvecs = (double *) pll_aligned_alloc (
+  tt_inv_eigenvecs = (double *) pll_aligned_alloc (
       (states_padded * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
-  if (!tt_inv_eigenvecs)
+  if (!tt_eigenvecs || !tt_inv_eigenvecs)
   {
+    if (tt_eigenvecs)
+      pll_aligned_free(tt_eigenvecs);
+    if (tt_inv_eigenvecs)
+      pll_aligned_free(tt_inv_eigenvecs);
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
     return PLL_FAILURE;
@@ -787,6 +796,9 @@ PLL_EXPORT int pll_core_update_sumtable_repeats_generic_avx2(unsigned int states
   unsigned int states_padded = (states+3) & 0xFFFFFFFC;
   unsigned int span_padded = rate_cats * states_padded;
 
+  double * tt_eigenvecs = NULL;
+  double * tt_inv_eigenvecs = NULL;
+
   /* scaling stuff */
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
@@ -814,26 +826,26 @@ PLL_EXPORT int pll_core_update_sumtable_repeats_generic_avx2(unsigned int states
   }
 
   /* padded eigenvecs */
-  double * tt_eigenvecs = (double *) pll_aligned_alloc (
+  tt_eigenvecs = (double *) pll_aligned_alloc (
         (states_padded * states_padded * rate_cats) * sizeof(double),
         PLL_ALIGNMENT_AVX);
 
-  if (!tt_eigenvecs)
-  {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
-    return PLL_FAILURE;
-  }
-
   /* transposed padded inv_eigenvecs */
-  double * tt_inv_eigenvecs = (double *) pll_aligned_alloc (
+  tt_inv_eigenvecs = (double *) pll_aligned_alloc (
       (states_padded * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
-  if (!tt_inv_eigenvecs)
+  if (!tt_eigenvecs || !tt_inv_eigenvecs)
   {
+    if (tt_eigenvecs)
+      pll_aligned_free(tt_eigenvecs);
+    if (tt_inv_eigenvecs)
+      pll_aligned_free(tt_inv_eigenvecs);
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
+    snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_eigenvecs");
     return PLL_FAILURE;
   }
 
@@ -1037,6 +1049,9 @@ PLL_EXPORT int pll_core_update_sumtable_ti_20x20_avx2(unsigned int sites,
   unsigned int i, j, k, n;
   unsigned int tipstate;
 
+  double * eigenvecs_padded = NULL;
+  double * precomp_left = NULL;
+
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
   int per_rate_scaling = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 1 : 0;
@@ -1066,16 +1081,23 @@ PLL_EXPORT int pll_core_update_sumtable_ti_20x20_avx2(unsigned int sites,
   const double * t_rclv = parent_clv;
   const double * t_eigenvecs_padded;
 
-  double * eigenvecs_padded = (double *) pll_aligned_alloc (
+  eigenvecs_padded = (double *) pll_aligned_alloc (
       (states_padded * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
-  double * precomp_left = (double *) pll_aligned_alloc (
+  precomp_left = (double *) pll_aligned_alloc (
       (maxstates * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
   if (!eigenvecs_padded || !precomp_left)
   {
+    if (eigenvecs_padded)
+      pll_aligned_free(eigenvecs_padded);
+    if (precomp_left)
+      pll_aligned_free(precomp_left);
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
     return PLL_FAILURE;
@@ -1293,6 +1315,9 @@ PLL_EXPORT int pll_core_update_sumtable_ti_avx2(unsigned int states,
   unsigned int i, j, k, n;
   pll_state_t tipstate;
 
+  double * eigenvecs_padded = NULL;
+  double * precomp_left = NULL;
+
   unsigned int min_scaler = 0;
   unsigned int * rate_scalings = NULL;
   int per_rate_scaling = (attrib & PLL_ATTRIB_RATE_SCALERS) ? 1 : 0;
@@ -1322,16 +1347,23 @@ PLL_EXPORT int pll_core_update_sumtable_ti_avx2(unsigned int states,
   const double * t_clvc = parent_clv;
   const double * t_eigenvecs_padded;
 
-  double * eigenvecs_padded = (double *) pll_aligned_alloc (
+  eigenvecs_padded = (double *) pll_aligned_alloc (
       (states_padded * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
-  double * precomp_left = (double *) pll_aligned_alloc (
+  precomp_left = (double *) pll_aligned_alloc (
       (maxstates * states_padded * rate_cats) * sizeof(double),
       PLL_ALIGNMENT_AVX);
 
   if (!eigenvecs_padded || !precomp_left)
   {
+    if (eigenvecs_padded)
+      pll_aligned_free(eigenvecs_padded);
+    if (precomp_left)
+      pll_aligned_free(precomp_left);
+    if (rate_scalings)
+      free(rate_scalings);
+
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf (pll_errmsg, 200, "Cannot allocate memory for tt_inv_eigenvecs");
     return PLL_FAILURE;

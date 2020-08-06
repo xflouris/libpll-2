@@ -42,9 +42,16 @@ Header of sequence 39(39) Perionyx_excabatus  (492 sites)
 Header of sequence 40(40) Microscolex_phosphoreus  (492 sites)
 Header of sequence 41(41) Eudrilus_eugeniae  (492 sites)
 Header of sequence 42(42) Pontoscolex_corethurus  (492 sites)
-Big test OK
+Big test (low-level): OK
+
+Creating PLL partition
+Big test (one-liner): OK
 
 logL:      -6117.553841
-Small test OK
+Small test (low-level): OK
 
-Fail test OK
+logL:      -6117.553841
+Small test (one-liner): OK
+
+Fail test (low-level): OK
+Fail test (one-liner): OK

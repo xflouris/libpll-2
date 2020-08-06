@@ -36,11 +36,13 @@
 #define DATATYPE_ODD 2
 
 static char nt_alphabet[] = "ACGT-";
-static char aa_alphabet[] = "GALMFWKQESPVICYHRNDT";
-static char odd_alphabet[] = "ABCDE";
+static char aa_alphabet[] = "GALMFWKQESPVICYHRNDT-";
+static char odd_alphabet[] = "ABCDE-";
 
 static double alphas[] = {0.05, 0.2, 2.0, 99.0 };
 static size_t alpha_count = sizeof(alphas) / sizeof(double);
+static double pinvars[] = {0.00, 0.1};
+static size_t pinvar_count = sizeof(pinvars) / sizeof(double);
 static unsigned int n_cat_gamma = N_CAT_GAMMA;
 static unsigned int params_indices[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 static double base_freqs_nt[4] = { 0.4, 0.4, 0.1, 0.1 };
@@ -264,7 +266,7 @@ void comp_derivatives(pll_partition_t * partition, pll_unode_t * r,
   }
 }
 
-int eval(pll_partition_t * partition, double alpha)
+int eval(pll_partition_t * partition, double alpha, double pinv)
 {
   double rate_cats[N_CAT_GAMMA];
   unsigned int i;
@@ -272,6 +274,9 @@ int eval(pll_partition_t * partition, double alpha)
 
   pll_compute_gamma_cats(alpha, n_cat_gamma, rate_cats, PLL_GAMMA_RATES_MEAN);
   pll_set_category_rates(partition, rate_cats);
+
+  for (i=0; i<partition->rate_matrices; ++i)
+    pll_update_invariant_sites_proportion(partition, i, pinv);
 
   printf("datatype = ");
   if (partition->states == 4)
@@ -289,7 +294,7 @@ int eval(pll_partition_t * partition, double alpha)
   else
     printf("OFF");
 
-  printf(", alpha = %lf, rates = [ ", alpha);
+  printf(", alpha = %lf, pinv = %lf, rates = [ ", alpha, pinv);
   for (i = 0; i < n_cat_gamma; ++i)
     printf("%lf ", rate_cats[i]);
   printf("]\n");
@@ -398,15 +403,20 @@ int main(int argc, char * argv[])
 
   init(attributes);
 
-  unsigned int i;
+  unsigned int i, j;
   for (i = 0; i < alpha_count; ++i)
   {
-    eval(part_sitescale_nt, alphas[i]);
-    eval(part_ratescale_nt, alphas[i]);
-    eval(part_sitescale_aa, alphas[i]);
-    eval(part_ratescale_aa, alphas[i]);
-    eval(part_sitescale_odd, alphas[i]);
-    eval(part_ratescale_odd, alphas[i]);
+    for (j = 0; j < pinvar_count; ++j)
+    {
+      double alpha = alphas[i];
+      double pinv = pinvars[j];
+      eval(part_sitescale_nt, alpha, pinv);
+      eval(part_ratescale_nt, alpha, pinv);
+      eval(part_sitescale_aa, alpha, pinv);
+      eval(part_ratescale_aa, alpha, pinv);
+      eval(part_sitescale_odd, alpha, pinv);
+      eval(part_ratescale_odd, alpha, pinv);
+    }
   }
 
   cleanup();

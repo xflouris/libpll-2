@@ -30,11 +30,11 @@ static void print_node_info(const pll_rnode_t * root, int options)
   if (options & PLL_UTREE_SHOW_BRANCH_LENGTH)
     printf (" %f", root->length);
   if (options & PLL_UTREE_SHOW_CLV_INDEX)
-    printf (" %d", root->clv_index);
+    printf (" %u", root->clv_index);
   if (options & PLL_UTREE_SHOW_SCALER_INDEX)
     printf (" %d", root->scaler_index);
   if (options & PLL_UTREE_SHOW_PMATRIX_INDEX)
-    printf (" %d", root->pmatrix_index);
+    printf (" %u", root->pmatrix_index);
   printf("\n");
 }
 
@@ -136,7 +136,7 @@ static char * rtree_export_newick_recursive(const pll_rnode_t * root,
     if (cb_serialize)
     {
       newick = cb_serialize(root);
-      size_alloced = strlen(newick);
+      size_alloced = (int) strlen(newick);
     }
     else
     {
@@ -201,7 +201,7 @@ PLL_EXPORT char * pll_rtree_export_newick(const pll_rnode_t * root,
     if (cb_serialize)
     {
       newick = cb_serialize(root);
-      size_alloced = strlen(newick);
+      size_alloced = (int) strlen(newick);
     }
     else
     {

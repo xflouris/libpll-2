@@ -41,6 +41,14 @@ Header of sequence 19(19) R111_ARATH (113 sites)
    KIACYVTVRGEKAMQLLESGL-----KVKEYELL---RRNFSDTGCFGFGIQEHIDL-GIKYDPSTGIYGMDFYVVLERPGYRVARRRRCKA----RVGIQHRVTKDDAMKWF
 Header of sequence 20(20) RL11_TETTH (113 sites)
    KMAVHVTIRGDKARDILTRGL-----KVKEMELR---KKNFSNTGNFGFGIQEHIDL-GMKYDPSTGIFGMDFYVVLERPGTRVARRRRATS----RVGNNQMISKEECINWF
-Test OK
+Test (low-level): OK
 
-Fail test OK (sequence 1)
+Creating PLL partition
+Test (one-liner): OK
+
+ ERROR setting states (114): Illegal state code in tip "P"
+Fail test (low-level): OK (sequence 1)
+
+ ERROR setting states (114): Illegal state code in tip "P"
+Fail test (one-liner): OK (sequence 1)
+

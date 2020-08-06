@@ -65,8 +65,8 @@ static void dealloc_partition_data(pll_partition_t * partition)
 
   if (partition->clv)
   {
-    int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
-                    partition->tips : 0;
+    unsigned int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
+                          partition->tips : 0;
     for (i = start; i < partition->clv_buffers + partition->tips; ++i)
       pll_aligned_free(partition->clv[i]);
   }
@@ -156,8 +156,7 @@ PLL_EXPORT void pll_aligned_free(void * ptr)
 
 static int update_charmap(pll_partition_t * partition, const pll_state_t * map)
 {
-  unsigned int i,j;
-  pll_state_t k = 0;
+  unsigned int i,j,k;
   unsigned int new_states_count = 0;
   pll_state_t mapcopy[PLL_ASCII_SIZE];
 
@@ -227,14 +226,14 @@ static int update_charmap(pll_partition_t * partition, const pll_state_t * map)
         code = j;
       }
 
-      partition->charmap[i] = code;
+      partition->charmap[i] = (unsigned char) code;
 
       /* find all characters with the same state in the map */
       for (j=i+1; j < PLL_ASCII_SIZE; ++j)
       {
         if (mapcopy[i] == mapcopy[j])
         {
-          partition->charmap[j] = code;
+          partition->charmap[j] = (unsigned char) code;
           mapcopy[j] = 0;
         }
       }
@@ -249,8 +248,10 @@ static int update_charmap(pll_partition_t * partition, const pll_state_t * map)
     if (partition->states == 4)
     {
       for (k = 0, i = 0; partition->tipmap[i]; ++i)
+      {
         if (partition->tipmap[i] > k)
-          k = partition->tipmap[i];
+          k = (unsigned int) partition->tipmap[i];
+      }
 
       partition->maxstates = k+1;
     }
@@ -286,15 +287,15 @@ static int update_charmap(pll_partition_t * partition, const pll_state_t * map)
 
 /* create a bijective mapping from states to the range <1,maxstates> where
    maxstates is the maximum number of states (including ambiguities). It is
-   neeed to index the precomputed conditional likelihoods for each pair of
+   needed to index the precomputed conditional likelihoods for each pair of
    states. The sequences are then encoded using this charmap, and we store
    the precomputated CLV for a charmapped pair i and j, at index:
 
    (i << ceil(log(maxstate)) + j) << log(states) << log(rates) */
 static int create_charmap(pll_partition_t * partition, const pll_state_t * usermap)
 {
-  unsigned int i,j,m = 0;
-  unsigned char k = 0;
+  unsigned int i, j, k = 0;
+  pll_state_t m = 0;
   pll_state_t map[PLL_ASCII_SIZE];
 
   /* If ascertainment bias correction attribute is set, CLVs will be allocated
@@ -330,15 +331,16 @@ static int create_charmap(pll_partition_t * partition, const pll_state_t * userm
   {
     if (map[i])
     {
-      if (map[i] > m) m = map[i];
+      if (map[i] > m)
+        m = map[i];
 
-      partition->charmap[i] = k;
-      partition->tipmap[(unsigned int)k] = map[i];
+      partition->charmap[i] = (unsigned char) k;
+      partition->tipmap[k] = map[i];
       for (j = i+1; j < PLL_ASCII_SIZE; ++j)
       {
         if (map[i] == map[j])
         {
-          partition->charmap[j] = k;
+          partition->charmap[j] = (unsigned char) k;
           map[j] = 0;
         }
       }
@@ -349,11 +351,12 @@ static int create_charmap(pll_partition_t * partition, const pll_state_t * userm
   /* For all state settings for which remapping will not be done, we need to
      increment maxstates by one to account for a fictive state 0 which will
      never be used */
-  if (partition->states == 4) k = m+1;
+  if (partition->states == 4)
+    k = (unsigned int) m+1;
 
   /* set maximum number of states (including ambiguities), its logarithm,
      and the logarithm of states */
-  partition->maxstates = (unsigned int)k;
+  partition->maxstates = k;
 
   unsigned int l2_maxstates = (unsigned int)ceil(log2(partition->maxstates));
 
@@ -525,7 +528,7 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
                (partition->attributes &
                  (PLL_ATTRIB_AB_MASK | PLL_ATTRIB_AB_FLAG)) > 0;
   partition->asc_additional_sites = (partition->asc_bias_alloc ? states : 0);
-  sites_alloc = partition->asc_additional_sites + sites;
+  sites_alloc = (unsigned int) partition->asc_additional_sites + sites;
 
   /* allocate structures */
 
@@ -554,8 +557,8 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
   {
     /* if tip pattern precomputation is enabled, then do not allocate CLV space
        for the tip nodes */
-    int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
-                    partition->tips : 0;
+    unsigned int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
+                          partition->tips : 0;
 
     for (i = start; i < partition->tips + partition->clv_buffers; ++i)
     {
@@ -939,11 +942,15 @@ static int set_tipchars(pll_partition_t * partition,
        weights for the invariant sites would not match the correct character.
        For example, the expected order of amino acids is A,R,N,..., and the
        tipchars order is 1,16,13,... (i.e., not sequential)  */
-    for (i = 0; i < PLL_ASCII_SIZE; ++i)
+    for (i = 0; i < partition->maxstates; ++i)
     {
-      unsigned int state = partition->charmap[i];
-      if (state < partition->states && !tipchars[state])
-        tipchars[state] = (unsigned char)i;
+      pll_state_t state = partition->tipmap[i];
+      if (PLL_STATE_POPCNT(state) == 1)
+      {
+        unsigned int pos = PLL_STATE_CTZ(state);
+        assert(pos < partition->states);
+        tipchars[pos] = i;
+      }
     }
   }
   return PLL_SUCCESS;
@@ -959,7 +966,7 @@ static int set_tipclv(pll_partition_t * partition,
   double * tipclv = partition->clv[tip_index];
 
   pll_repeats_t * repeats = partition->repeats;
-  unsigned int use_repeats = pll_repeats_enabled(partition);
+  int use_repeats = pll_repeats_enabled(partition);
   unsigned int ids = use_repeats ?  
                     repeats->pernode_ids[tip_index] : partition->sites;
   /* iterate through sites */
@@ -1156,10 +1163,10 @@ PLL_EXPORT int pll_set_asc_bias_type(pll_partition_t * partition,
   }
 
   /* reset current ascertainment bias type (if any) */
-  partition->attributes &= ~PLL_ATTRIB_AB_MASK;
+  partition->attributes &= (unsigned int) ~PLL_ATTRIB_AB_MASK;
 
   /* set new ascertainment bias type */
-  partition->attributes |= asc_bias_attr;
+  partition->attributes |= (unsigned int) asc_bias_attr;
 
   return PLL_SUCCESS;
 }

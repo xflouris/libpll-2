@@ -125,6 +125,9 @@ pll_partition_t * parse_msa_reduced(const char * filename,
   if (pll_errno != PLL_ERROR_FILE_EOF)
   {
     printf("Error while reading file %s", filename);
+    free(headers);
+    free(seqdata);
+    pll_fasta_close(fp);
     return NULL;
   }
 
@@ -134,6 +137,8 @@ pll_partition_t * parse_msa_reduced(const char * filename,
   if (sites == -1)
   {
     printf("Unable to read alignment");
+    free(headers);
+    free(seqdata);
     return NULL;
   }
 
@@ -181,6 +186,8 @@ pll_partition_t * parse_msa_reduced(const char * filename,
     if (!found)
     {
       printf("Sequence with header %s does not appear in the tree", headers[i]);
+      free(headers);
+      free(seqdata);
       return NULL;
     }
 

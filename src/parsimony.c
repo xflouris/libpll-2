@@ -69,9 +69,12 @@ PLL_EXPORT int pll_set_parsimony_sequence(pll_parsimony_t * pars,
 PLL_EXPORT void pll_parsimony_destroy(pll_parsimony_t * parsimony)
 {
   unsigned int i;
-  unsigned int nodes_count = parsimony->tips + parsimony->inner_nodes;
+  unsigned int nodes_count = 0;
 
-  if (!parsimony) return;
+  if (!parsimony)
+    return;
+
+  nodes_count = parsimony->tips + 3*parsimony->inner_nodes;
 
   /* deallocate fast parsimony structures */
   if (parsimony->packedvector)
