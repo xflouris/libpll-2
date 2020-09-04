@@ -111,7 +111,9 @@ static double eval(pll_partition_t * partition,
   printf("Log-L: %f\n", logl);
 
   sumtable = pll_aligned_alloc(
-    (partition->sites + partition->states) * partition->rate_cats * partition->states_padded *
+    (partition->sites + partition->states)
+    * partition->rate_cats
+    * partition->states_padded *
     sizeof(double), partition->alignment);
 
   pll_update_sumtable(partition,

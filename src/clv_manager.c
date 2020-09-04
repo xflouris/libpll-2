@@ -370,7 +370,7 @@ void MRC_dealloc_cb(void* data)
  * 
  * @param  clv_man the pll_clv_manager struct 
  * @param  root    the root of the (utree) tree structure
- * @return         PLL_FAILURE if somethig went wrong, PLL_SUCCESS otherwise
+ * @return         PLL_FAILURE if something went wrong, PLL_SUCCESS otherwise
  */
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
                                                  pll_utree_t * const tree)
@@ -417,11 +417,10 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
              "Unable to allocate enough memory for cost_of_slot.");
     return PLL_FAILURE;
   }
-  
-  // next, we do the initial cost computation
-  // TODO this probably needs to be its own function so it can be called again
-  // after topology changes
 
+  // next, we do the initial cost computation
+  // TODO this should be also done in a separate MRC function, that recomputes
+  // the sizes and sets them in the MRC size arrays
   pll_utree_set_all_subtree_sizes(tree);
 
   const size_t nodes_count = tree->tip_count + tree->inner_count;

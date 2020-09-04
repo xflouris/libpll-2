@@ -309,7 +309,7 @@ typedef struct pll_clv_manager
   /**
    * Some upfront terminology:
    * - A slot is a buffer for one CLV that is held in memory
-   * - the clv_index worls like always, though now they function as 
+   * - the clv_index works like always, though now they function as
    *     "addressable" CLV indices
    * - a clv index that is slotted, means the CLV resides in memory
    * - a clv index that is pinned, means the CLV resides in memory and may not 
@@ -322,7 +322,7 @@ typedef struct pll_clv_manager
   size_t addressable_begin; // first clv_index that is addressable
   size_t addressable_end; // one past last clv index that is addressable
   unsigned int * clvid_of_slot;
-    // <addressable_size> entries, translates from slot_id to clv_index of node
+    // <slottable_size> entries, translates from slot_id to clv_index of node
     //  whos CLV is currently slotted here
     //  special value: PLL_CLV_SLOT_UNUSED if this slot isn't in use
   unsigned int * slot_of_clvid;
