@@ -70,6 +70,8 @@ static pll_operation_t * operations_pmat;
 static double * persite_lnl;
 static double * sumtable;
 
+unsigned int * subtree_sizes =  NULL;
+
 unsigned int scaler_idx(const pll_partition_t * p, unsigned int clv_idx)
 {
   return (p->scale_buffers > 0 && clv_idx >= p->tips) ?
@@ -198,7 +200,9 @@ pll_partition_t * init_partition(unsigned int attrs, int datatype)
     if (!pll_clv_manager_init(p, low_clv_num, NULL, NULL, NULL))
       fatal("clv_manager_init failed: %s\n", pll_errmsg);
 
-    if (!pll_clv_manager_MRC_strategy_init(p->clv_man, tree))
+    subtree_sizes = pll_utree_get_subtree_sizes(tree);
+
+    if (!pll_clv_manager_MRC_strategy_init(p->clv_man, tree, subtree_sizes))
       fatal("clv_manager_strategy_init failed: %s\n", pll_errmsg);
   }
 
@@ -266,6 +270,7 @@ void init(unsigned int attrs)
   if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
   {
     pll_utree_traverse_lsf(tree,
+                      subtree_sizes,
                       PLL_TREE_TRAVERSE_POSTORDER,
                       cb_full_traversal,
                       travbuffer,
@@ -443,6 +448,7 @@ int eval(pll_partition_t * partition, double alpha, double pinv)
 
 void cleanup()
 {
+  free(subtree_sizes);
   free(travbuffer);
   free(travbuffer_pmat);
   free(branch_lengths);
@@ -451,6 +457,7 @@ void cleanup()
   free(matrix_indices);
   free(persite_lnl);
   free(sumtable);
+  free(subtree_sizes);
   pll_partition_destroy(part_noscale_nt);
   pll_partition_destroy(part_sitescale_nt);
   pll_partition_destroy(part_ratescale_nt);

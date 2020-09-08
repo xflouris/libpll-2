@@ -37,8 +37,6 @@ static void print_node_info(const pll_unode_t * node, int options)
     printf (" %u", node->pmatrix_index);
   if (options & PLL_UTREE_SHOW_DATA)
     printf (" %p", node->data);
-  if (options & PLL_UTREE_SHOW_SUBTREE_SIZE)
-    printf (" %u", node->subtree_size);
   printf("\n");
 }
 
@@ -786,79 +784,49 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
   }
 }
 
-static int cb_traverse_empty_subtreesize(pll_unode_t * node)
+static int cb_full_traversal(pll_unode_t * node)
 {
-  // only keep traversing where the subtree size isn't set yet
-  return node->subtree_size == 0;
+  (void)node;
+  return 1;
 }
 
-/**
- * sets the subtree sizes in the direction of the vroot
- */
-static int utree_set_subtree_sizes(pll_utree_t * tree)
+PLL_EXPORT unsigned int * pll_utree_get_subtree_sizes(pll_utree_t * tree)
 {
-  const size_t nodes_count = tree->tip_count + tree->inner_count;
+  const size_t nodes_count = tree->tip_count + tree->inner_count * 3;
 
   pll_unode_t ** travbuffer = (pll_unode_t **)calloc(nodes_count,
                                                      sizeof(pll_unode_t *));
+
+  // the return value: the subtree size of each node, indexed by node_index
+  unsigned int * subtree_sizes = (unsigned int *)calloc(nodes_count,
+                                                     sizeof(unsigned int));
 
   // get list of nodes in the tree via postorder traversal
   unsigned int traversal_size;
   pll_utree_traverse(tree->vroot,
                      PLL_TREE_TRAVERSE_POSTORDER,
-                     cb_traverse_empty_subtreesize,
+                     cb_full_traversal,
                      travbuffer,
                      &traversal_size);
-
-  assert(traversal_size <= nodes_count);
 
   // go through the list, for each look up that node
   for (size_t i = 0; i < traversal_size; ++i)
   {
     pll_unode_t* node = travbuffer[i];
+
     // if node is leaf, set 1 in the cost array, otherwise add the children
-    node->subtree_size = (!node->next) ? 1 :
-      node->next->back->subtree_size + node->next->next->back->subtree_size;
+    subtree_sizes[ node->node_index ] = (!node->next) ? 1 :
+      subtree_sizes[ node->next->back->node_index ] +
+      subtree_sizes[ node->next->next->back->node_index ];
   }
 
   free(travbuffer);
 
-  return PLL_SUCCESS;
-}
-
-static int reset_subtree_sizes_cb(pll_utree_t * tree, pll_unode_t * node)
-{
-  (void)tree;
-  pll_unode_t * snode = node;
-  do
-  {
-    snode->subtree_size = 0;
-    snode = snode->next;
-  }
-  while (snode && snode != node);
-
-  return PLL_SUCCESS;
-}
-
-/**
- * Sets the subtree sizes in the direction of the vroot, overwriting existing
- * ones
- */
-PLL_EXPORT int pll_utree_set_all_subtree_sizes(pll_utree_t * tree)
-{
-  pll_utree_every(tree, reset_subtree_sizes_cb);
-  return utree_set_subtree_sizes(tree);
-}
-
-/**
- * Sets the missing subtree sizes in the direction of the vroot
- */
-PLL_EXPORT int pll_utree_set_missing_subtree_sizes(pll_utree_t * tree)
-{
-  return utree_set_subtree_sizes(tree);
+  return subtree_sizes;
 }
 
 static void utree_traverse_lsf_recursive(pll_unode_t * node,
+                                     unsigned int const * const subtree_sizes,
                                      int traversal,
                                      int (*cbtrav)(pll_unode_t *),
                                      unsigned int * index,
@@ -879,7 +847,8 @@ static void utree_traverse_lsf_recursive(pll_unode_t * node,
     pll_unode_t * first;
     pll_unode_t * second;
 
-    if (node->next->back->subtree_size >= node->next->next->back->subtree_size)
+    if (subtree_sizes[ node->next->back->node_index ]
+        >= subtree_sizes[ node->next->next->back->node_index ])
     {
       first   = node->next;
       second  = node->next->next;
@@ -892,11 +861,13 @@ static void utree_traverse_lsf_recursive(pll_unode_t * node,
 
     // this function is for bifurcating only
     utree_traverse_lsf_recursive(first->back,
+                                 subtree_sizes,
                                  traversal,
                                  cbtrav,
                                  index,
                                  outbuffer);
     utree_traverse_lsf_recursive(second->back,
+                                 subtree_sizes,
                                  traversal,
                                  cbtrav,
                                  index,
@@ -911,15 +882,23 @@ static void utree_traverse_lsf_recursive(pll_unode_t * node,
 }
 
 PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t * tree,
+                                  unsigned int const * const subtree_sizes,
                                   int traversal,
                                   int (*cbtrav)(pll_unode_t *),
                                   pll_unode_t ** outbuffer,
                                   unsigned int * trav_size)
 {
+  assert(subtree_sizes);
+  if (!subtree_sizes)
+  {
+    snprintf(pll_errmsg, 200, "Call requires subtree sizes array.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
   pll_unode_t * root = tree->vroot;
 
   assert(tree->binary);
-  assert(root->subtree_size);
 
   *trav_size = 0;
   if (!root->next) return PLL_FAILURE;
@@ -928,14 +907,14 @@ PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t * tree,
       traversal == PLL_TREE_TRAVERSE_PREORDER)
   {
     /* traverse down in the order of largest subtree first */
-
-    pll_unode_t * first = (root->back->subtree_size >= root->subtree_size) ?
+    pll_unode_t * first = (subtree_sizes[ root->back->node_index ]
+                        >= subtree_sizes[ root->node_index ]) ?
                         root->back : root;
 
     utree_traverse_lsf_recursive(
-                      first, traversal, cbtrav, trav_size, outbuffer);
+                      first, subtree_sizes, traversal, cbtrav, trav_size, outbuffer);
     utree_traverse_lsf_recursive(
-                      first->back, traversal, cbtrav, trav_size, outbuffer);
+                      first->back, subtree_sizes, traversal, cbtrav, trav_size, outbuffer);
   }
   else
   {

@@ -173,8 +173,12 @@ pll_partition_t * parse_msa_reduced(const char * filename,
     if (!pll_clv_manager_init(partition, low_clv_num, NULL, NULL, NULL))
       fatal("clv_manager_init failed: %s\n", pll_errmsg);
 
-    if (!pll_clv_manager_MRC_strategy_init(partition->clv_man, tree))
+    unsigned int * subtree_sizes = pll_utree_get_subtree_sizes(tree);
+
+    if (!pll_clv_manager_MRC_strategy_init(partition->clv_man, tree, subtree_sizes))
       fatal("clv_manager_strategy_init failed: %s\n", pll_errmsg);
+
+    free(subtree_sizes);
   }
 
   /* create a libc hash table of size tip_nodes_count */

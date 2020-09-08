@@ -219,6 +219,7 @@ int main(int argc, char * argv[])
                         tree, attributes);
   printf("Read %s: %u sites\n", MSA_FILENAME, partition->sites);
 
+  unsigned int * subtree_sizes = pll_utree_get_subtree_sizes(tree);
   for (i=0;i<3;++i)
   {
     root = root->next;
@@ -228,8 +229,8 @@ int main(int argc, char * argv[])
     if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
     {
       tree->vroot = root;
-      pll_utree_set_missing_subtree_sizes(tree);
       retval = pll_utree_traverse_lsf(tree,
+                        subtree_sizes,
                         PLL_TREE_TRAVERSE_POSTORDER,
                         cb_full_traversal,
                         travbuffer,
@@ -294,6 +295,7 @@ int main(int argc, char * argv[])
   }
 
   /* clean */
+  free(subtree_sizes);
   free(travbuffer);
   free(branch_lengths);
   free(operations);

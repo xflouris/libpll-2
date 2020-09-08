@@ -183,15 +183,12 @@
 #define PLL_ERROR_TREE_INVALID             133
 
 /* utree specific */
-
 #define PLL_UTREE_SHOW_LABEL             (1 << 0)
 #define PLL_UTREE_SHOW_BRANCH_LENGTH     (1 << 1)
 #define PLL_UTREE_SHOW_CLV_INDEX         (1 << 2)
 #define PLL_UTREE_SHOW_SCALER_INDEX      (1 << 3)
 #define PLL_UTREE_SHOW_PMATRIX_INDEX     (1 << 4)
 #define PLL_UTREE_SHOW_DATA              (1 << 5)
-#define PLL_UTREE_SHOW_SUBTREE_SIZE      (1 << 6)
-
 
 /* GAMMA discretization modes */
 #define PLL_GAMMA_RATES_MEAN             0
@@ -447,7 +444,6 @@ typedef struct pll_unode_s
   double length;
   unsigned int node_index;
   unsigned int clv_index;
-  unsigned int subtree_size;
   int scaler_index;
   unsigned int pmatrix_index;
   struct pll_unode_s * next;
@@ -1013,11 +1009,10 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
                                                pll_pars_buildop_t * ops,
                                                unsigned int * ops_count);
 
-PLL_EXPORT int pll_utree_set_all_subtree_sizes(pll_utree_t * tree);
-
-PLL_EXPORT int pll_utree_set_missing_subtree_sizes(pll_utree_t * tree);
+PLL_EXPORT unsigned int * pll_utree_get_subtree_sizes(pll_utree_t * tree);
 
 PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t * tree,
+                                  unsigned int const * const subtree_sizes,
                                   int traversal,
                                   int (*cbtrav)(pll_unode_t *),
                                   pll_unode_t ** outbuffer,
@@ -2735,8 +2730,10 @@ void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
                         const unsigned int clv_index);
 void MRC_dealloc_cb(void* clv_man);
 
-PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
-                                                 pll_utree_t* const tree);
+PLL_EXPORT int pll_clv_manager_MRC_strategy_init(
+                                      pll_clv_manager_t * clv_man,
+                                      pll_utree_t* const tree,
+                                      unsigned int const * const subtree_sizes);
 
 
 

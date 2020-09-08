@@ -368,13 +368,18 @@ void MRC_dealloc_cb(void* data)
  * their recomputation cost. Does so according to the structure of the tree:
  * each node's recomputation cost is essentially their subtree size.
  * 
- * @param  clv_man the pll_clv_manager struct 
- * @param  root    the root of the (utree) tree structure
- * @return         PLL_FAILURE if something went wrong, PLL_SUCCESS otherwise
+ * @param  clv_man        the pll_clv_manager struct
+ * @param  root           the root of the (utree) tree structure
+ * @param  subtree_sizes  array mapping from node_index to subtree size
+ *                        (see pll_utree_get_subtree_sizes)
+ * @return                PLL_FAILURE if something went wrong, PLL_SUCCESS otherwise
  */
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
-                                                 pll_utree_t * const tree)
+                                                 pll_utree_t * const tree,
+                                                 unsigned int const * const subtree_sizes)
 {
+  assert(subtree_sizes);
+
   const size_t addr_size  = clv_man->addressable_end;
   const size_t slots      = clv_man->slottable_size;
 
@@ -421,15 +426,14 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
   // next, we do the initial cost computation
   // TODO this should be also done in a separate MRC function, that recomputes
   // the sizes and sets them in the MRC size arrays
-  pll_utree_set_all_subtree_sizes(tree);
 
   const size_t nodes_count = tree->tip_count + tree->inner_count;
 
-  // go through all the nodes of the tree
+  // go through all the nodes of the tree and fill the cost array
   for (size_t i = 0; i < nodes_count; ++i)
   {
-    pll_unode_t* node = tree->nodes[i];
-    cost_of_clvid[node->clv_index] = node->subtree_size;
+    pll_unode_t* node = tree->nodes[ i ];
+    cost_of_clvid[ node->clv_index ] = subtree_sizes[ node->node_index ];
   }
 
   // finally, set up the cost per slot array
@@ -440,7 +444,7 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
     unsigned int clv_id = clvid_of_slot[slot_id];
     if (clv_id != PLL_CLV_SLOT_UNUSED)
     {
-      cost_of_slot[slot_id] = cost_of_clvid[clv_id];
+      cost_of_slot[ slot_id ] = cost_of_clvid[ clv_id ];
     }
   }
 
