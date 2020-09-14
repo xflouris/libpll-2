@@ -159,7 +159,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
 
   const size_t addressable_clvs = partition->nodes;
 
-  assert(concurrent_clvs <= addressable_clvs);
+  assert(concurrent_clvs <= partition->clv_buffers);
 
   if (pll_repeats_enabled(partition))
   {
@@ -361,25 +361,8 @@ void MRC_dealloc_cb(void* data)
   free(mrcd->cost_of_slot);
 }
 
-/**
- * Initializes the replacement strategy for the default MRC replacement.
- *
- * Basically just allocs / fills the array holding the clv indices sorted by
- * their recomputation cost. Does so according to the structure of the tree:
- * each node's recomputation cost is essentially their subtree size.
- * 
- * @param  clv_man        the pll_clv_manager struct
- * @param  root           the root of the (utree) tree structure
- * @param  subtree_sizes  array mapping from node_index to subtree size
- *                        (see pll_utree_get_subtree_sizes)
- * @return                PLL_FAILURE if something went wrong, PLL_SUCCESS otherwise
- */
-PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
-                                                 pll_utree_t * const tree,
-                                                 unsigned int const * const subtree_sizes)
+static int MRC_strategy_init(pll_clv_manager_t * clv_man)
 {
-  assert(subtree_sizes);
-
   const size_t addr_size  = clv_man->addressable_end;
   const size_t slots      = clv_man->slottable_size;
 
@@ -397,7 +380,6 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
   }
 
   // then, its parts
-  unsigned int * cost_of_clvid = 
   mrc->cost_of_clvid = (unsigned int*)calloc(addr_size, sizeof(unsigned int));
   if (!mrc->cost_of_clvid)
   {
@@ -409,7 +391,6 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
     return PLL_FAILURE;
   }
 
-  unsigned int * cost_of_slot =
   mrc->cost_of_slot = (unsigned int*)alloc_and_set(slots,
                                                    sizeof(unsigned int),
                                                    -1);
@@ -422,6 +403,33 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
              "Unable to allocate enough memory for cost_of_slot.");
     return PLL_FAILURE;
   }
+  return PLL_SUCCESS;
+}
+
+/**
+ * Initializes the replacement strategy for the default MRC replacement.
+ *
+ * Basically just allocs / fills the array holding the clv indices sorted by
+ * their recomputation cost. Does so according to the structure of the tree:
+ * each node's recomputation cost is essentially their subtree size.
+ * 
+ * @param  clv_man        the pll_clv_manager struct
+ * @param  root           the root of the (utree) tree structure
+ * @param  subtree_sizes  array mapping from node_index to subtree size
+ *                        (see pll_utree_get_subtree_sizes)
+ * @return                PLL_FAILURE if something went wrong, PLL_SUCCESS otherwise
+ */
+PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
+                                        pll_utree_t * const tree,
+                                        unsigned int const * const subtree_sizes)
+{
+  assert(subtree_sizes);
+
+  // initialize tree-independent data structures
+  if (!MRC_strategy_init(clv_man))
+    return PLL_FAILURE;
+
+  mrc_data_t * mrc = clv_man->repl_strat_data;
 
   // next, we do the initial cost computation
   // TODO this should be also done in a separate MRC function, that recomputes
@@ -433,20 +441,62 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
   for (size_t i = 0; i < nodes_count; ++i)
   {
     pll_unode_t* node = tree->nodes[ i ];
-    cost_of_clvid[ node->clv_index ] = subtree_sizes[ node->node_index ];
+    mrc->cost_of_clvid[ node->clv_index ] = subtree_sizes[ node->node_index ];
   }
 
   // finally, set up the cost per slot array
   // as this is used here as part of the init, probably they will all be unused 
   const unsigned int * const clvid_of_slot = clv_man->clvid_of_slot;
-  for (size_t slot_id = 0; slot_id < slots; ++slot_id)
+  for (size_t slot_id = 0; slot_id < clv_man->slottable_size; ++slot_id)
   {
     unsigned int clv_id = clvid_of_slot[slot_id];
     if (clv_id != PLL_CLV_SLOT_UNUSED)
     {
-      cost_of_slot[ slot_id ] = cost_of_clvid[ clv_id ];
+      mrc->cost_of_slot[ slot_id ] = mrc->cost_of_clvid[ clv_id ];
     }
   }
 
   return PLL_SUCCESS;
 }
+
+PLL_EXPORT int pll_clv_manager_MRC_strategy_rtree_init(
+                                        pll_clv_manager_t * clv_man,
+                                        pll_rtree_t * const tree,
+                                        unsigned int const * const subtree_sizes)
+{
+  assert(subtree_sizes);
+
+  // initialize tree-independent data structures
+  if (!MRC_strategy_init(clv_man))
+    return PLL_FAILURE;
+
+  mrc_data_t * mrc = clv_man->repl_strat_data;
+
+  // next, we do the initial cost computation
+  // TODO this should be also done in a separate MRC function, that recomputes
+  // the sizes and sets them in the MRC size arrays
+
+  const size_t nodes_count = tree->tip_count + tree->inner_count;
+
+  // go through all the nodes of the tree and fill the cost array
+  for (size_t i = 0; i < nodes_count; ++i)
+  {
+    pll_rnode_t* node = tree->nodes[ i ];
+    mrc->cost_of_clvid[ node->clv_index ] = subtree_sizes[ node->node_index ];
+  }
+
+  // finally, set up the cost per slot array
+  // as this is used here as part of the init, probably they will all be unused 
+  const unsigned int * const clvid_of_slot = clv_man->clvid_of_slot;
+  for (size_t slot_id = 0; slot_id < clv_man->slottable_size; ++slot_id)
+  {
+    unsigned int clv_id = clvid_of_slot[slot_id];
+    if (clv_id != PLL_CLV_SLOT_UNUSED)
+    {
+      mrc->cost_of_slot[ slot_id ] = mrc->cost_of_clvid[ clv_id ];
+    }
+  }
+
+  return PLL_SUCCESS;
+}
+

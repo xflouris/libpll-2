@@ -1048,6 +1048,15 @@ PLL_EXPORT int pll_rtree_traverse(pll_rnode_t * root,
                                   pll_rnode_t ** outbuffer,
                                   unsigned int * trav_size);
 
+PLL_EXPORT int pll_rtree_traverse_lsf(pll_rtree_t * tree,
+                                      unsigned int const * const subtree_sizes,
+                                      int const traversal,
+                                      int (*cbtrav)(pll_rnode_t *),
+                                      pll_rnode_t ** outbuffer,
+                                      unsigned int * trav_size);
+
+PLL_EXPORT unsigned int * pll_rtree_get_subtree_sizes(pll_rtree_t * tree);
+
 #if 0
 PLL_EXPORT unsigned int pll_rtree_query_tipnodes(pll_rtree_t * root,
                                                  pll_rtree_t ** node_list);
@@ -2733,6 +2742,10 @@ void MRC_dealloc_cb(void* clv_man);
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(
                                       pll_clv_manager_t * clv_man,
                                       pll_utree_t* const tree,
+                                      unsigned int const * const subtree_sizes);
+PLL_EXPORT int pll_clv_manager_MRC_strategy_rtree_init(
+                                      pll_clv_manager_t * clv_man,
+                                      pll_rtree_t* const tree,
                                       unsigned int const * const subtree_sizes);
 
 

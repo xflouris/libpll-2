@@ -295,13 +295,13 @@ int main(int argc, char * argv[])
   }
 
   /* clean */
-  free(subtree_sizes);
   free(travbuffer);
   free(branch_lengths);
   free(operations);
   free(matrix_indices);
   pll_partition_destroy(partition);
   pll_utree_destroy(tree, NULL);
+  free(subtree_sizes);
 
   return 0;
 }

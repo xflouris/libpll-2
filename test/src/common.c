@@ -168,7 +168,7 @@ pll_partition_t * parse_msa_reduced(const char * filename,
 
   if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
   {
-    const size_t low_clv_num = ceil(log2(tree->tip_count)) + 2;
+    const size_t low_clv_num = ceil(log2(tree->tip_count - 1)) + 2;
     // const size_t low_clv_num = taxa_count - 2;
     if (!pll_clv_manager_init(partition, low_clv_num, NULL, NULL, NULL))
       fatal("clv_manager_init failed: %s\n", pll_errmsg);
