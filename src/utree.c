@@ -928,43 +928,57 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
   }
 }
 
-static int cb_full_traversal(pll_unode_t * node)
+/**
+ * Callback function used with pll_utree_foreach to fill an array of per-node
+ * subtree sizes
+ * @param  node   the node for which the subtree size is to be set
+ * @param  data   pinter to the subtree sizes array
+ * @return        PLL_{SUCCESS|FAILURE}
+ */
+static int set_subtree_size(pll_unode_t * node, void * data)
 {
-  (void)node;
-  return 1;
+  unsigned int * subtree_sizes = data;
+  // if node is leaf, set 1 in the cost array, otherwise add the children
+  subtree_sizes[ node->node_index ] = (!node->next) ? 1 :
+    subtree_sizes[ node->next->back->node_index ] +
+    subtree_sizes[ node->next->next->back->node_index ];
+
+  return PLL_SUCCESS;
 }
 
-PLL_EXPORT unsigned int * pll_utree_get_subtree_sizes(pll_utree_t * tree)
+/**
+ * Partial Traversal callback ensuring we only calculate subtree sizes once
+ * @param  node   current node
+ * @param  data   void* to the subtree sizes array
+ * @return        if we should keep traversing
+ */
+static int set_subtree_size_partial_trav(pll_unode_t * node, void * data)
+{
+  unsigned int * subtree_sizes = data;
+  // if the subtree size of this node is already calculated, abort the traversal
+  return subtree_sizes[ node->node_index ] ? 0 : 1;
+}
+
+PLL_EXPORT unsigned int * pll_utree_get_subtree_sizes(pll_utree_t const * const tree)
 {
   const size_t nodes_count = tree->tip_count + tree->inner_count * 3;
-
-  pll_unode_t ** travbuffer = (pll_unode_t **)calloc(nodes_count,
-                                                     sizeof(pll_unode_t *));
 
   // the return value: the subtree size of each node, indexed by node_index
   unsigned int * subtree_sizes = (unsigned int *)calloc(nodes_count,
                                                      sizeof(unsigned int));
 
-  // get list of nodes in the tree via postorder traversal
-  unsigned int traversal_size;
-  pll_utree_traverse(tree->vroot,
-                     PLL_TREE_TRAVERSE_POSTORDER,
-                     cb_full_traversal,
-                     travbuffer,
-                     &traversal_size);
-
-  // go through the list, for each look up that node
-  for (size_t i = 0; i < traversal_size; ++i)
-  {
-    pll_unode_t* node = travbuffer[i];
-
-    // if node is leaf, set 1 in the cost array, otherwise add the children
-    subtree_sizes[ node->node_index ] = (!node->next) ? 1 :
-      subtree_sizes[ node->next->back->node_index ] +
-      subtree_sizes[ node->next->next->back->node_index ];
+  // start a traversal from each tip, ensuring we visit all internal directions
+  for( size_t tip_id = 0; tip_id < tree->tip_count; ++tip_id ) {
+    if(!pll_utree_foreach(tree->nodes[ tip_id ]->back,
+                          PLL_TREE_TRAVERSE_POSTORDER,
+                          set_subtree_size_partial_trav,
+                          subtree_sizes,
+                          set_subtree_size,
+                          subtree_sizes)) {
+      free(subtree_sizes);
+      return PLL_FAILURE;
+    }
   }
-
-  free(travbuffer);
 
   return subtree_sizes;
 }
