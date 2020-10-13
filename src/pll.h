@@ -1004,6 +1004,13 @@ PLL_EXPORT int pll_utree_every_const(const pll_utree_t * tree,
                                      int (*cb)(const pll_utree_t * tree,
                                                const pll_unode_t *));
 
+PLL_EXPORT int pll_utree_foreach(pll_unode_t * root,
+                                 const int traversal,
+                                 int (*keep_traversing)(pll_unode_t *, void *),
+                                 void* keep_traversing_data,
+                                 int (*cb)(pll_unode_t *, void *),
+                                 void* cb_data);
+
 PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
                                                unsigned int trav_buffer_size,
                                                pll_pars_buildop_t * ops,

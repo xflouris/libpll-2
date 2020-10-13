@@ -391,6 +391,150 @@ PLL_EXPORT int pll_utree_every_const(const pll_utree_t * tree,
   return (rc ? PLL_SUCCESS : PLL_FAILURE);
 }
 
+static int utree_foreach_recursive( pll_unode_t * node,
+                                    const int traversal,
+                                    int (*keep_traversing)(pll_unode_t *, void *),
+                                    void* keep_traversing_data,
+                                    int (*cb)(pll_unode_t *, void *),
+                                    void* cb_data)
+{
+  if (keep_traversing && !keep_traversing(node, keep_traversing_data))
+    return PLL_SUCCESS;
+
+  if (traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    if(!cb(node, cb_data))
+      return PLL_FAILURE;
+  }
+
+  if (node->next)
+  {
+    pll_unode_t * snode = node->next;
+    do
+    {
+      if(!utree_foreach_recursive(snode->back,
+                                    traversal,
+                                    keep_traversing,
+                                    keep_traversing_data,
+                                    cb,
+                                    cb_data))
+      {
+        return PLL_FAILURE;
+      }
+      snode = snode->next;
+    }
+    while (snode && snode != node);
+  }
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER)
+  {
+    if(!cb(node, cb_data))
+      return PLL_FAILURE;
+  }
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT int pll_utree_foreach(pll_unode_t * root,
+                                 const int traversal,
+                                 int (*keep_traversing)(pll_unode_t *, void *),
+                                 void* keep_traversing_data,
+                                 int (*cb)(pll_unode_t *, void *),
+                                 void* cb_data)
+{
+  if (!root->next)
+  {
+    snprintf(pll_errmsg, 200, "Traversal must start at an inner node.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER ||
+      traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    /* we will traverse an unrooted tree in the following way
+
+                2
+              /
+        1  --*
+              \
+                3
+
+       at each node the callback function is called to decide whether we
+       are going to traversing the subtree rooted at the specific node */
+
+    if(!utree_foreach_recursive(root->back,
+                                traversal,
+                                keep_traversing,
+                                keep_traversing_data,
+                                cb,
+                                cb_data))
+      return PLL_FAILURE;
+    if(!utree_foreach_recursive(root,
+                                traversal,
+                                keep_traversing,
+                                keep_traversing_data,
+                                cb,
+                                cb_data))
+      return PLL_FAILURE;
+  }
+  else
+  {
+    snprintf(pll_errmsg, 200, "Invalid traversal value.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
+  return PLL_SUCCESS;
+}
+
+typedef struct
+{
+  pll_unode_t ** outbuffer;
+  unsigned int * index;
+} traversal_data;
+
+static int fill_travbuffer(pll_unode_t * node, void * data)
+{
+  traversal_data * travstruct = (traversal_data *) data;
+  unsigned int* index = travstruct->index;
+
+  // this has a const cast because I prefer that over making the whole
+  // foreach function non-const
+  travstruct->outbuffer[*index] = (pll_unode_t *)node;
+  *index = *index + 1;
+
+  // this function "can't fail", but in general we want to allow error handling
+  return PLL_SUCCESS;
+}
+
+typedef int cbtrav_t(pll_unode_t *);
+
+static int cbtrav_callback_wrapper(pll_unode_t * node, void * cb)
+{
+  // cast to the old cbtrav function pointer, and call on the given node
+  return ((cbtrav_t*)cb)(node);
+}
+
+// TODO decide whether to actually switch to this
+PLL_EXPORT int EXPERIMENTAL_pll_utree_traverse(pll_unode_t * root,
+                                  int traversal,
+                                  int (*cbtrav)(pll_unode_t *),
+                                  pll_unode_t ** outbuffer,
+                                  unsigned int * trav_size)
+{
+  *trav_size = 0;
+
+  traversal_data travstruct = { .outbuffer = outbuffer,
+                                .index = trav_size};
+
+  return pll_utree_foreach( root,
+                            traversal,
+                            cbtrav_callback_wrapper,
+                            cbtrav,
+                            &fill_travbuffer,
+                            &travstruct);
+}
+
 static void utree_traverse_recursive(pll_unode_t * node,
                                      int traversal,
                                      int (*cbtrav)(pll_unode_t *),
