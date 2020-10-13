@@ -881,7 +881,7 @@ static void utree_traverse_lsf_recursive(pll_unode_t * node,
   }
 }
 
-PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t * tree,
+PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t const * tree,
                                   unsigned int const * const subtree_sizes,
                                   int traversal,
                                   int (*cbtrav)(pll_unode_t *),

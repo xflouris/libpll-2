@@ -1011,7 +1011,7 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
 
 PLL_EXPORT unsigned int * pll_utree_get_subtree_sizes(pll_utree_t * tree);
 
-PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t * tree,
+PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t const * tree,
                                   unsigned int const * const subtree_sizes,
                                   int traversal,
                                   int (*cbtrav)(pll_unode_t *),
