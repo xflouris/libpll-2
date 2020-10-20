@@ -89,9 +89,21 @@ int test_newick_string(const char * newick)
   if (!tree && pll_errno == PLL_ERROR_TREE_INVALID)
   {
     pll_errno = 0;
+
+    // tree must be rooted -> parse as rooted tree
+    tree = pll_utree_parse_newick_string_rooted(newick);
+    if (!tree || !pll_utree_is_rooted(tree))
+    {
+      printf("ERROR parsing newick string as ROOTED tree: %s\n", pll_errmsg);
+      return PLL_FAILURE;
+    }
+    pll_utree_destroy(tree, NULL);
+
     printf("NOTE: tree was automatically unrooted!\n");
     tree = pll_utree_parse_newick_string_unroot(newick);
   }
+
+  assert(!pll_utree_is_rooted(tree));
 
   if (!tree)
   {
@@ -109,9 +121,21 @@ int test_newick_file(const char * fname)
   if (!tree && pll_errno == PLL_ERROR_TREE_INVALID)
   {
     pll_errno = 0;
+    
+    // tree must be rooted -> parse as rooted tree
+    tree = pll_utree_parse_newick_rooted(fname);
+    if (!tree || !pll_utree_is_rooted(tree))
+    {
+      printf("ERROR parsing newick file as ROOTED tree: %s\n", pll_errmsg);
+      return PLL_FAILURE;
+    }
+    pll_utree_destroy(tree, NULL);
+
     printf("NOTE: tree was automatically unrooted!\n");
     tree = pll_utree_parse_newick_unroot(fname);
   }
+
+  assert(!pll_utree_is_rooted(tree));
 
   if (!tree)
   {

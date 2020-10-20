@@ -420,9 +420,14 @@ static unsigned int utree_count_nodes(pll_unode_t * root, unsigned int * tip_cou
   return count;
 }
 
-static int utree_is_rooted(const pll_unode_t * root)
+static int unode_is_rooted(const pll_unode_t * root)
 {
   return (root->next && root->next->next == root) ? 1 : 0;
+}
+
+PLL_EXPORT int pll_utree_is_rooted(const pll_utree_t * tree)
+{
+  return unode_is_rooted(tree->vroot);
 }
 
 static pll_utree_t * utree_wraptree(pll_unode_t * root,
@@ -502,7 +507,7 @@ static pll_utree_t * utree_wraptree(pll_unode_t * root,
   tree->tip_count = tip_count;
   tree->inner_count = inner_count;
   tree->edge_count = node_count - 1;
-  tree->binary = (inner_count == tip_count - (utree_is_rooted(root) ? 1 : 2));
+  tree->binary = (inner_count == tip_count - (unode_is_rooted(root) ? 1 : 2));
   tree->vroot = root;
 
   return tree;
@@ -525,10 +530,10 @@ PLL_EXPORT pll_utree_t * pll_utree_wraptree_multi(pll_unode_t * root,
   return utree_wraptree(root, tip_count, inner_count, 0);
 }
 
-pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root)
+PLL_EXPORT pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root)
 {
   /* check for a bifurcation at the root */
-  if (utree_is_rooted(root))
+  if (unode_is_rooted(root))
   {
     if (root->next == root)
     {
@@ -557,7 +562,8 @@ pll_unode_t * pll_utree_unroot_inplace(pll_unode_t * root)
   	return root;
 }
 
-static pll_utree_t * utree_parse_newick(const char * filename, int auto_unroot)
+static pll_utree_t * utree_parse_newick(const char * filename, int auto_unroot,
+                                        int allow_rooted)
 {
   pll_utree_t * tree;
 
@@ -594,15 +600,17 @@ static pll_utree_t * utree_parse_newick(const char * filename, int auto_unroot)
 
   pll_utree_lex_destroy();
   
-  if (auto_unroot){
-	root = pll_utree_unroot_inplace(root);
-        if(!root){
-          pll_utree_graph_destroy(root,NULL);
-          return PLL_FAILURE;
-        }
+  if (auto_unroot)
+  {
+  	root = pll_utree_unroot_inplace(root);
+    if(!root)
+    {
+      pll_utree_graph_destroy(root,NULL);
+      return PLL_FAILURE;
     }
+  }
 
-  if (utree_is_rooted(root))
+  if (unode_is_rooted(root) && !allow_rooted)
   {
     pll_utree_graph_destroy(root,NULL);
     pll_errno = PLL_ERROR_TREE_INVALID;
@@ -621,15 +629,21 @@ static pll_utree_t * utree_parse_newick(const char * filename, int auto_unroot)
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename)
 {
-  return utree_parse_newick(filename, 0);
+  return utree_parse_newick(filename, 0, 0);
+}
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_rooted(const char * filename)
+{
+  return utree_parse_newick(filename, 0, 1);
 }
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_unroot(const char * filename)
 {
-  return utree_parse_newick(filename, 1);
+  return utree_parse_newick(filename, 1, 0);
 }
 
-static pll_utree_t * utree_parse_newick_string(const char * s, int auto_unroot)
+static pll_utree_t * utree_parse_newick_string(const char * s, int auto_unroot, 
+                                               int allow_rooted)
 {
   int rc; 
   struct pll_unode_s * root;
@@ -658,16 +672,17 @@ static pll_utree_t * utree_parse_newick_string(const char * s, int auto_unroot)
     return PLL_FAILURE;
   }
   
-  if (auto_unroot){
-	root = pll_utree_unroot_inplace(root);
-        if(!root){
-          pll_utree_graph_destroy(root,NULL);
-          return PLL_FAILURE;
-        }
+  if (auto_unroot)
+  {
+    root = pll_utree_unroot_inplace(root);
+    if(!root)
+    {
+      pll_utree_graph_destroy(root,NULL);
+      return PLL_FAILURE;
     }
+  }
 
-
-  if (utree_is_rooted(root))
+  if (unode_is_rooted(root) && !allow_rooted)
   {
     pll_utree_graph_destroy(root,NULL);
     pll_errno = PLL_ERROR_TREE_INVALID;
@@ -685,12 +700,17 @@ static pll_utree_t * utree_parse_newick_string(const char * s, int auto_unroot)
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s)
 {
-  return utree_parse_newick_string(s, 0);
+  return utree_parse_newick_string(s, 0, 0);
+}
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string_rooted(const char * s)
+{
+  return utree_parse_newick_string(s, 0, 1);
 }
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string_unroot(const char * s)
 {
-  return utree_parse_newick_string(s, 1);
+  return utree_parse_newick_string(s, 1, 0);
 }
 
 
