@@ -111,6 +111,20 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
   }
 }
 
+PLL_EXPORT bool pll_clv_is_slotted( const pll_partition_t * const partition,
+                                    const unsigned int clv_index)
+{
+  if ( !(partition->attributes & PLL_ATTRIB_LIMIT_MEMORY) )
+  {
+    return true;
+  }
+  else
+  {
+    assert(partition->clv_man);
+    return  partition->clv_man->slot_of_clvid[clv_index] != PLL_CLV_CLV_UNSLOTTED;
+  }
+}
+
 ////////////////////////////
 // HANDLING PINNING       //
 ////////////////////////////
@@ -127,16 +141,6 @@ static int pinning_impl(pll_clv_manager_t* const clv_man,
              "Pinning only makes sense when using memory saver.");
     return PLL_FAILURE;
   }
-
-  // ensure the clv is actually slotted
-  // if (clv_man->slot_of_clvid[clv_index] == PLL_CLV_CLV_UNSLOTTED)
-  // {
-  //   pll_errno = PLL_ERROR_PARAM_INVALID;
-  //   snprintf(pll_errmsg,
-  //            200,
-  //            "Tried to change pinning of unslotted clv (index %lu).", clv_index);
-  //   return PLL_FAILURE;
-  // }
 
   // pin / unpin
   const bool was_pinned = clv_man->is_pinned[ clv_index ];

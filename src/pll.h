@@ -2727,6 +2727,9 @@ PLL_EXPORT const double * pll_get_clv_reading(
 PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
                                         const unsigned int clv_index);
 
+PLL_EXPORT bool pll_clv_is_slotted( const pll_partition_t * const partition,
+                                    const unsigned int clv_index);
+
 PLL_EXPORT int pll_pin_clv( pll_partition_t * const partition,
                             const unsigned int clv_index);
 
