@@ -328,6 +328,7 @@ typedef struct pll_clv_manager
     // currently
   bool * is_pinned;
     // tells if a given clv_index is marked as pinned
+  size_t num_pinned;
   pll_uint_stack_t * unused_slots;
     // holds slot_id of slots that are not yet used
   pll_clv_manager_replace_cb strat_replace;
@@ -2725,6 +2726,12 @@ PLL_EXPORT const double * pll_get_clv_reading(
 
 PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
                                         const unsigned int clv_index);
+
+PLL_EXPORT int pll_pin_clv( pll_partition_t * const partition,
+                            const unsigned int clv_index);
+
+PLL_EXPORT int pll_unpin_clv( pll_partition_t * const partition,
+                              const unsigned int clv_index);
 
 void dealloc_clv_manager(pll_clv_manager_t * clv_man);
 
