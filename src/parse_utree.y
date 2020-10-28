@@ -21,6 +21,10 @@
 %{
 #include "pll.h"
 
+/* prevent out-of-memory on large trees, see: 
+   https://www.gnu.org/software/bison/manual/html_node/Memory-Management.html */
+#define YYMAXDEPTH 10000000
+
 extern int pll_utree_lex();
 extern FILE * pll_utree_in;
 extern void pll_utree_lex_destroy();
