@@ -874,9 +874,13 @@ PLL_EXPORT pll_rtree_t * pll_rtree_wraptree(pll_rnode_t * root,
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick(const char * filename);
 
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_rooted(const char * filename);
+
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_unroot(const char * filename);
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string(const char * s);
+
+PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string_rooted(const char * s);
 
 PLL_EXPORT pll_utree_t * pll_utree_parse_newick_string_unroot(const char * s);
 
@@ -897,6 +901,8 @@ PLL_EXPORT pll_utree_t * pll_utree_wraptree(pll_unode_t * root,
 PLL_EXPORT pll_utree_t * pll_utree_wraptree_multi(pll_unode_t * root,
                                                   unsigned int tip_count,
                                                   unsigned int inner_count);
+
+PLL_EXPORT int pll_utree_is_rooted(const pll_utree_t * tree);
 
 /* functions in utree.c */
 
