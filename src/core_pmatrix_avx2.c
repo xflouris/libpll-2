@@ -34,6 +34,17 @@
             x = _mm256_fmadd_pd(xmm7,ymm3,x);                   \
             x = _mm256_fmadd_pd(xmm8,ymm4,x);                   \
 
+#define ONESTEP16(x,baseptr)                                      \
+            ymm0 = _mm256_load_pd(baseptr+0);                   \
+            ymm1 = _mm256_load_pd(baseptr+4);                   \
+            ymm2 = _mm256_load_pd(baseptr+8);                   \
+            ymm3 = _mm256_load_pd(baseptr+12);                  \
+                                                                \
+            x = _mm256_mul_pd(xmm4,ymm0);                       \
+            x = _mm256_fmadd_pd(xmm5,ymm1,x);                   \
+            x = _mm256_fmadd_pd(xmm6,ymm2,x);                   \
+            x = _mm256_fmadd_pd(xmm7,ymm3,x);                   \
+
 PLL_EXPORT
 int pll_core_update_pmatrix_20x20_avx2(double ** pmatrix,
                                        unsigned int rate_cats,
@@ -278,6 +289,249 @@ int pll_core_update_pmatrix_20x20_avx2(double ** pmatrix,
 
   for (i = 0; i < rate_cats; ++i)
     if (tran_evecs[i]) pll_aligned_free(tran_evecs[i]); 
+
+  free(tran_evecs);
+  return PLL_SUCCESS;
+}
+
+PLL_EXPORT
+int pll_core_update_pmatrix_16x16_avx2(double ** pmatrix,
+                                       unsigned int rate_cats,
+                                       const double * rates,
+                                       const double * branch_lengths,
+                                       const unsigned int * matrix_indices,
+                                       const unsigned int * params_indices,
+                                       const double * prop_invar,
+                                       double * const * eigenvals,
+                                       double * const * eigenvecs,
+                                       double * const * inv_eigenvecs,
+                                       unsigned int count)
+{
+  unsigned int i,n,j,k;
+  double pinvar;
+
+  int * transposed;
+  double * evecs;
+  double * inv_evecs;
+  double * evals;
+  double * pmat;
+  double * expd;
+  double * temp;
+  double ** tran_evecs;
+
+  expd = (double *)pll_aligned_alloc(16*sizeof(double), PLL_ALIGNMENT_AVX);
+  temp = (double *)pll_aligned_alloc(256*sizeof(double), PLL_ALIGNMENT_AVX);
+
+  /* transposed eigen vectors */
+  transposed = (int *)calloc((size_t)rate_cats, sizeof(int));
+  tran_evecs= (double **)calloc((size_t)rate_cats, sizeof(double *));
+
+  if (!expd || !temp || !transposed || !tran_evecs)
+  {
+    if (expd) pll_aligned_free(expd);
+    if (temp) pll_aligned_free(temp);
+    if (transposed) free(transposed);
+    if (tran_evecs) free(tran_evecs);
+
+    pll_errno = PLL_ERROR_MEM_ALLOC;
+    snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
+    return PLL_FAILURE;
+  }
+
+  /* transpose eigenvectors */
+  /* TODO: The same trick can be applied for exponentiations */
+  for (n = 0; n < rate_cats; ++n)
+  {
+    int index = params_indices[n];
+
+    if (!transposed[index])
+    {
+      /* allocate space for transposed eigenvectors and check that
+         allocation succeeds */
+      double * tran = (double *)pll_aligned_alloc(256*sizeof(double),
+                                                  PLL_ALIGNMENT_AVX);
+      if (!tran)
+      {
+        pll_aligned_free(expd);
+        pll_aligned_free(temp);
+        free(transposed);
+        for (i = 0; i < n; ++i)
+          if (tran_evecs[i]) pll_aligned_free(tran_evecs[i]);
+        free(tran_evecs);
+
+        pll_errno = PLL_ERROR_MEM_ALLOC;
+        snprintf(pll_errmsg, 200, "Unable to allocate enough memory.");
+        return PLL_FAILURE;
+      }
+
+      /* transpose eigen vectors */
+      evecs = eigenvecs[index];
+      for (i = 0; i < 16; ++i)
+      {
+        for (j = 0; j < 16; ++j)
+          tran[i*16+j] = evecs[j*16+i];
+      }
+
+      /* update pointers and indicate that the eigen vector for the current
+         rate matrix with index was updated */
+      tran_evecs[index] = tran;
+      transposed[index] = 1;
+    }
+  }
+  free(transposed);
+
+  __m256d xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7;
+  __m256d ymm0,ymm1,ymm2,ymm3,ymm4,ymm5,ymm6,ymm7,ymm8;
+  __m256d zmm0,zmm1,zmm2,zmm3;
+
+  double * tran = NULL;
+  for (i = 0; i < count; ++i)
+  {
+    assert(branch_lengths[i] >= 0);
+
+    xmm3 = _mm256_set1_pd(branch_lengths[i]);
+    pmat = pmatrix[matrix_indices[i]];
+
+    /* compute effective pmatrix location */
+    for (n = 0; n < rate_cats; ++n)
+    {
+      pinvar = prop_invar[params_indices[n]];
+      tran = tran_evecs[params_indices[n]];
+      inv_evecs = inv_eigenvecs[params_indices[n]];
+      evals = eigenvals[params_indices[n]];
+
+      /* if branch length is zero then set the p-matrix to identity matrix */
+      if (!branch_lengths[i])
+      {
+        xmm0 = _mm256_setzero_pd();
+        for (j = 0; j < 16; ++j)
+        {
+          _mm256_store_pd(pmat+0,xmm0);
+          _mm256_store_pd(pmat+4,xmm0);
+          _mm256_store_pd(pmat+8,xmm0);
+          _mm256_store_pd(pmat+12,xmm0);
+          pmat[j] = 1;
+          pmat += 16;
+        }
+        continue;
+      }
+
+      /* exponentiate eigenvalues */
+      xmm2 = _mm256_set1_pd(rates[n]);
+
+      if (pinvar > PLL_MISC_EPSILON)
+        xmm6 = _mm256_set1_pd(1.0 - pinvar);
+
+      for (k = 0; k < 4; ++k)
+      {
+        xmm1 = _mm256_load_pd(evals+k*4);
+
+        /* scalar multiplication with rates */
+        xmm4 = _mm256_mul_pd(xmm1,xmm2);
+
+        /* scalar multiplication with branch lengths */
+        xmm5 = _mm256_mul_pd(xmm4,xmm3);
+
+        if (pinvar > PLL_MISC_EPSILON)
+        {
+          xmm5 = _mm256_div_pd(xmm5,xmm6);
+        }
+
+        _mm256_store_pd(expd+k*4,xmm5);
+      }
+
+      /* NOTE: in order to deal with numerical issues in cases when Qt -> 0, we
+       * use a trick suggested by Ben Redelings and explained here:
+       * https://github.com/xflouris/libpll/issues/129#issuecomment-304004005
+       * In short, we use expm1() to compute (exp(Qt) - I), and then correct
+       * for this by adding an identity matrix I in the very end */
+
+      for (k = 0; k < 16; ++k)
+        expd[k] = expm1(expd[k]);
+
+      /* load expd */
+      xmm4 = _mm256_load_pd(expd+0);
+      xmm5 = _mm256_load_pd(expd+4);
+      xmm6 = _mm256_load_pd(expd+8);
+      xmm7 = _mm256_load_pd(expd+12);
+
+      /* compute temp matrix */
+      for (k = 0; k < 256; k += 16)
+      {
+        ymm0 = _mm256_load_pd(inv_evecs+k+0);
+        ymm1 = _mm256_load_pd(inv_evecs+k+4);
+        ymm2 = _mm256_load_pd(inv_evecs+k+8);
+        ymm3 = _mm256_load_pd(inv_evecs+k+12);
+
+        ymm5 = _mm256_mul_pd(xmm4,ymm0);
+        ymm6 = _mm256_mul_pd(xmm5,ymm1);
+        ymm7 = _mm256_mul_pd(xmm6,ymm2);
+        ymm8 = _mm256_mul_pd(xmm7,ymm3);
+
+        _mm256_store_pd(temp+k+0,ymm5);
+        _mm256_store_pd(temp+k+4,ymm6);
+        _mm256_store_pd(temp+k+8,ymm7);
+        _mm256_store_pd(temp+k+12,ymm8);
+      }
+
+      for (j = 0; j < 256; j += 16)
+      {
+        xmm4 = _mm256_load_pd(temp+j+0);
+        xmm5 = _mm256_load_pd(temp+j+4);
+        xmm6 = _mm256_load_pd(temp+j+8);
+        xmm7 = _mm256_load_pd(temp+j+12);
+
+        /* process four rows at a time */
+        for (k = 0; k < 256; k += 64)
+        {
+          /* row 0 */
+          ONESTEP16(zmm0,tran+k+0);
+
+          /* row 1 */
+          ONESTEP16(zmm1,tran+k+16);
+
+          /* row 2 */
+          ONESTEP16(zmm2,tran+k+32);
+
+          /* row 3 */
+          ONESTEP16(zmm3,tran+k+48);
+
+          /* create a vector with the sums of zmm0, zmm1, zmm2, zmm3 */
+          ymm4 = _mm256_unpackhi_pd(zmm0,zmm1);
+          ymm5 = _mm256_unpacklo_pd(zmm0,zmm1);
+
+          ymm6 = _mm256_unpackhi_pd(zmm2,zmm3);
+          ymm7 = _mm256_unpacklo_pd(zmm2,zmm3);
+
+          ymm0 = _mm256_add_pd(ymm4,ymm5);
+          ymm1 = _mm256_add_pd(ymm6,ymm7);
+
+          ymm2 = _mm256_permute2f128_pd(ymm0,ymm1, _MM_SHUFFLE(0,2,0,1));
+          ymm3 = _mm256_blend_pd(ymm0,ymm1,12);
+          ymm0 = _mm256_add_pd(ymm2,ymm3);
+
+          _mm256_store_pd(pmat,ymm0);
+
+          pmat += 4;
+        }
+      }
+
+      /* add identity matrix */
+      pmat -= 256;
+      for (j = 0; j < 16; ++j)
+      {
+        pmat[j] += 1.0;
+        pmat += 16;
+      }
+
+    }
+  }
+
+  pll_aligned_free(expd);
+  pll_aligned_free(temp);
+
+  for (i = 0; i < rate_cats; ++i)
+    if (tran_evecs[i]) pll_aligned_free(tran_evecs[i]);
 
   free(tran_evecs);
   return PLL_SUCCESS;

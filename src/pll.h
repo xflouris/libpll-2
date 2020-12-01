@@ -547,6 +547,7 @@ PLL_EXPORT extern const pll_state_t pll_map_bin[256];
 PLL_EXPORT extern const pll_state_t pll_map_nt[256];
 PLL_EXPORT extern const pll_state_t pll_map_aa[256];
 PLL_EXPORT extern const pll_state_t pll_map_gt10[256];
+PLL_EXPORT extern const pll_state_t pll_map_gt16[256];
 PLL_EXPORT extern const unsigned int pll_map_fasta[256];
 PLL_EXPORT extern const unsigned int pll_map_phylip[256];
 PLL_EXPORT extern const unsigned int pll_map_generic[256];
@@ -2393,6 +2394,19 @@ PLL_EXPORT int pll_core_update_pmatrix_20x20_avx2(double ** pmatrix,
                                                   double * const * eigenvecs,
                                                   double * const * inv_eigenvecs,
                                                   unsigned int count);
+
+PLL_EXPORT int pll_core_update_pmatrix_16x16_avx2(double ** pmatrix,
+                                                  unsigned int rate_cats,
+                                                  const double * rates,
+                                                  const double * branch_lengths,
+                                                  const unsigned int * matrix_indices,
+                                                  const unsigned int * params_indices,
+                                                  const double * prop_invar,
+                                                  double * const * eigenvals,
+                                                  double * const * eigenvecs,
+                                                  double * const * inv_eigenvecs,
+                                                  unsigned int count);
+
 #endif
 
 /* functions in core_pmatrix_avx.c */
