@@ -186,6 +186,7 @@ static void case_repeats(pll_partition_t * partition,
 {
   const double * left_matrix = partition->pmatrix[op->child1_matrix_index];
   const double * right_matrix = partition->pmatrix[op->child2_matrix_index];
+  // TODO use new guarded functions here for memsave mode
   double * parent_clv = partition->clv[op->parent_clv_index];
   double * left_clv = partition->clv[op->child1_clv_index];
   double * right_clv = partition->clv[op->child2_clv_index];

@@ -95,7 +95,7 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
       if (clv_man->unused_slots->empty)
       {
         // no slots available, need to run the replacement strategy
-        slot = clv_man->strat_replace(partition, clv_index);
+        slot = clv_man->strat_replace(clv_man);
       }
       else
       {
@@ -111,6 +111,13 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
   }
 }
 
+/**
+ * Check if given clv is slotted
+ *
+ * @param  partition the partition the clv_index belongs to
+ * @param  clv_index the index
+ * @return           whether the clv_index is slotted
+ */
 PLL_EXPORT bool pll_clv_is_slotted( const pll_partition_t * const partition,
                                     const unsigned int clv_index)
 {
@@ -200,8 +207,13 @@ static void* alloc_and_set(const size_t n, const size_t size, const int val)
 /**
  * Initializes the memory manager according to the selected maximum number of
  * CLVs that should be in memory concurrently.
- *
- * @return                 PLL_SUCCESS or PLL_FAILURE
+ * 
+ * @param  partition       partition for which the manager should be initialized
+ * @param  concurrent_clvs number of slots/clvs to be allocated
+ * @param  cb_replace      replacement strategy replace callback (NULL = MRC)
+ * @param  cb_update       replacement strategy slot update callback (NULL = MRC)
+ * @param  cb_dealloc      replacement strategy deallocation callback (NULL = MRC)
+ * @return                 PLL_{SUCCESS|FAILURE}
  */
 PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     const size_t concurrent_clvs,
@@ -328,9 +340,9 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
  *
  * Calls update function of the replacement strategy if one is set.
  *
- * @param clv_man   [description]
- * @param slot      [description]
- * @param clv_index [description]
+ * @param clv_man   pointer to the clv manager struct to be updated
+ * @param slot      slot to be updated
+ * @param clv_index clv_index that will occupy the given slot
  */
 void pll_clv_manager_update_slot(pll_clv_manager_t * clv_man,
                                  const unsigned int slot,
@@ -362,10 +374,14 @@ typedef struct mrc_data
     // of each slot. Has to be updated during replacement
 } mrc_data_t;
 
-unsigned int MRC_replace_cb(pll_partition_t* partition,
-                            const unsigned int new_clvid)
+/**
+ * MRC specific callback to determine which slot should be overwritten/replaced
+ *
+ * @param  clv_man pointer to the clv manager
+ * @return         slot to be overwritten, according to this strategy
+ */
+unsigned int MRC_replace_cb(pll_clv_manager_t* clv_man)
 {
-  pll_clv_manager_t * clv_man = partition->clv_man;
   assert(clv_man);
 
   // this function should only be called if there is no free slot
@@ -400,6 +416,13 @@ unsigned int MRC_replace_cb(pll_partition_t* partition,
   return cheapest_slot;
 }
 
+/**
+ * MRC strategy specific slot update function
+ *
+ * @param clv_man
+ * @param slot      slot to be updated
+ * @param clv_index index to update to
+ */
 void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
                         const unsigned int slot,
                         const unsigned int clv_index)
@@ -410,6 +433,11 @@ void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
   mrc->cost_of_slot[slot] = mrc->cost_of_clvid[clv_index];
 }
 
+/**
+ * Deallocates the custom data stored for the MRC strategy
+ *
+ * @param data the data pointer
+ */
 void MRC_dealloc_cb(void* data)
 {
   mrc_data_t* mrcd = (mrc_data_t*) data;
@@ -470,10 +498,11 @@ static int MRC_strategy_init(pll_clv_manager_t * clv_man)
  * each node's recomputation cost is essentially their subtree size.
  * 
  * @param  clv_man        the pll_clv_manager struct
- * @param  root           the root of the (utree) tree structure
+ * @param  tree           (utree) tree structure
  * @param  subtree_sizes  array mapping from node_index to subtree size
  *                        (see pll_utree_get_subtree_sizes)
- * @return                PLL_FAILURE if something went wrong, PLL_SUCCESS otherwise
+ *
+ * @return                PLL_{SUCCESS|FAILURE}
  */
 PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
                                         pll_utree_t * const tree,
@@ -515,6 +544,20 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
   return PLL_SUCCESS;
 }
 
+/**
+ * Initializes the replacement strategy for the default MRC replacement, rtree version.
+ *
+ * Basically just allocs / fills the array holding the clv indices sorted by
+ * their recomputation cost. Does so according to the structure of the tree:
+ * each node's recomputation cost is essentially their subtree size.
+ * 
+ * @param  clv_man        the pll_clv_manager struct
+ * @param  tree           (rtree) tree structure
+ * @param  subtree_sizes  array mapping from node_index to subtree size
+ *                        (see pll_utree_get_subtree_sizes)
+ *
+ * @return                PLL_{SUCCESS|FAILURE}
+ */
 PLL_EXPORT int pll_clv_manager_MRC_strategy_rtree_init(
                                         pll_clv_manager_t * clv_man,
                                         pll_rtree_t * const tree,

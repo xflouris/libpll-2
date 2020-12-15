@@ -434,6 +434,23 @@ static int utree_foreach_recursive( pll_unode_t * node,
   return PLL_SUCCESS;
 }
 
+/**
+ * Function to visit unodes by a given traversal order, using a separate
+ * callback to determine if the traversal should continue down (keep_traversing),
+ * and a callback defining what should be doen at each visited node. Both
+ * callbacks can be given some arbitrary data to work with (keep_traversing_data,
+ * cb_data)
+ *
+ * @param root              unode to start the traversal from
+ * @param traversal         what traversal to use (e.g. PLL_TREE_TRAVERSE_POSTORDER)
+ * @param keep_traversing   callback determining when to abort the traversal
+ * @param keep_traversing_data
+ *                          void* that can be used to pass extra parameters to cb
+ * @param cb                callback to apply to each traversed unode
+ * @cb_data                 void* that can be used to pass extra parameters to cb
+ *
+ * @return      PLL_{SUCCESS|FAILURE}
+ */
 PLL_EXPORT int pll_utree_foreach(pll_unode_t * root,
                                  const int traversal,
                                  int (*keep_traversing)(pll_unode_t *, void *),
@@ -516,6 +533,10 @@ static int cbtrav_callback_wrapper(pll_unode_t * node, void * cb)
 }
 
 // TODO decide whether to actually switch to this
+/**
+ * Experimental version of pll_utree_traverse that uses pll_utree_foreach
+ * internally, lowering redundancy. Needs more testing.
+ */
 PLL_EXPORT int EXPERIMENTAL_pll_utree_traverse(pll_unode_t * root,
                                   int traversal,
                                   int (*cbtrav)(pll_unode_t *),
@@ -931,6 +952,7 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
 /**
  * Callback function used with pll_utree_foreach to fill an array of per-node
  * subtree sizes
+ *
  * @param  node   the node for which the subtree size is to be set
  * @param  data   pinter to the subtree sizes array
  * @return        PLL_{SUCCESS|FAILURE}
@@ -948,6 +970,7 @@ static int set_subtree_size(pll_unode_t * node, void * data)
 
 /**
  * Partial Traversal callback ensuring we only calculate subtree sizes once
+ *
  * @param  node   current node
  * @param  data   void* to the subtree sizes array
  * @return        if we should keep traversing
@@ -959,6 +982,13 @@ static int set_subtree_size_partial_trav(pll_unode_t * node, void * data)
   return subtree_sizes[ node->node_index ] ? 0 : 1;
 }
 
+/**
+ * Returns an array with subtree sizes for each node_index (#tips + #inner * 3),
+ * assuming the subtree to start away from the virtual root (as set in tree)
+ *
+ * @param  tree   the tree for which to build the array
+ * @return        the subtree sizes array
+ */
 PLL_EXPORT unsigned int * pll_utree_get_subtree_sizes(pll_utree_t const * const tree)
 {
   const size_t nodes_count = tree->tip_count + tree->inner_count * 3;
@@ -984,8 +1014,8 @@ PLL_EXPORT unsigned int * pll_utree_get_subtree_sizes(pll_utree_t const * const 
 }
 
 static void utree_traverse_lsf_recursive(pll_unode_t * node,
-                                     unsigned int const * const subtree_sizes,
-                                     int traversal,
+                                     const unsigned int * const subtree_sizes,
+                                     const int traversal,
                                      int (*cbtrav)(pll_unode_t *),
                                      unsigned int * index,
                                      pll_unode_t ** outbuffer)
@@ -1039,9 +1069,23 @@ static void utree_traverse_lsf_recursive(pll_unode_t * node,
   }
 }
 
+/**
+ * Returns a traversal buffer, just like utree_traverse, however it uses a given
+ * subtree_sizes array to determine the larger of two subtrees, into which
+ * it will traverse first (hence lsf = larger subtree first)
+ *
+ * @param tree          tree to traverse, starting at tree->vroot
+ * @param subtree_sizes array specifying subtree sizes per node index
+ * @param traversal     what traversal to use (e.g. PLL_TREE_TRAVERSE_POSTORDER)
+ * @param cbtrav        callback determining when traversal should terminate
+ * @param outbuffer     (output) traversal buffer
+ * @param trav_size     (output) traversal size
+ *
+ * @return              PLL_{SUCCESS|FAILURE}
+ */
 PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t const * tree,
-                                  unsigned int const * const subtree_sizes,
-                                  int traversal,
+                                  const unsigned int * const subtree_sizes,
+                                  const int traversal,
                                   int (*cbtrav)(pll_unode_t *),
                                   pll_unode_t ** outbuffer,
                                   unsigned int * trav_size)
