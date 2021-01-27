@@ -1540,7 +1540,7 @@ int pll_core_likelihood_derivatives_avx2(unsigned int states,
                                          unsigned int states_padded,
                                          unsigned int rate_cats,
                                          unsigned int ef_sites,
-                                         const unsigned int * pattern_weights,
+                                         const double * pattern_weights,
                                          const double * rate_weights,
                                          const int * invariant,
                                          const double * prop_invar,
@@ -1764,8 +1764,10 @@ int pll_core_likelihood_derivatives_avx2(unsigned int states,
                                        _mm256_mul_pd(v_term2, v_recip0));
 
       /* assumption: no zero weights */
-      if ((pattern_weights[n-3] | pattern_weights[n-2] |
-           pattern_weights[n-1] | pattern_weights[n]) == 1)
+      //if ((pattern_weights[n-3] | pattern_weights[n-2] |
+      //     pattern_weights[n-1] | pattern_weights[n]) == 1)
+      if (pattern_weights[n-3] == 1.0 && pattern_weights[n-2] == 1.0 &&
+          pattern_weights[n-1] == 1.0 && pattern_weights[n] == 1.0)
       {
         /* all 4 weights are 1 -> no multiplication needed */
         v_df = _mm256_sub_pd (v_df, v_deriv1);

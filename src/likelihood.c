@@ -62,7 +62,7 @@ static double root_loglikelihood_asc_bias(pll_partition_t * partition,
    unsigned int states = partition->states;
    unsigned int states_padded = partition->states_padded;
    unsigned int scale_factors;
-   unsigned int * pattern_weights = partition->pattern_weights;
+   double * pattern_weights = partition->pattern_weights;
    double * rate_weights = partition->rate_weights;
 
    double logl_correction = 0;
@@ -205,7 +205,7 @@ static double edge_loglikelihood_asc_bias_ti(pll_partition_t * partition,
   unsigned int states = partition->states;
   unsigned int states_padded = partition->states_padded;
   unsigned int scale_factors;
-  unsigned int * pattern_weights = partition->pattern_weights;
+  double * pattern_weights = partition->pattern_weights;
   double * rate_weights = partition->rate_weights;
 
   double logl_correction = 0;
@@ -359,7 +359,7 @@ static double edge_loglikelihood_asc_bias_ii(pll_partition_t * partition,
   unsigned int states = partition->states;
   unsigned int states_padded = partition->states_padded;
   unsigned int scale_factors;
-  unsigned int * pattern_weights = partition->pattern_weights;
+  double * pattern_weights = partition->pattern_weights;
   double * rate_weights = partition->rate_weights;
 
   /* point clv, clvc, scalers and pattern weights to state sites */
