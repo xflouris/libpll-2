@@ -808,8 +808,8 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
   }
 
   /* site weights */
-  partition->pattern_weights = (unsigned int *)malloc(sites_alloc *
-                                                      sizeof(unsigned int));
+  partition->pattern_weights = (double *)malloc(sites_alloc *
+                                                      sizeof(double));
   if (!partition->pattern_weights)
   {
     dealloc_partition_data(partition);
@@ -1110,12 +1110,12 @@ PLL_EXPORT int pll_set_tip_clv(pll_partition_t * partition,
 }
 
 PLL_EXPORT void pll_set_pattern_weights(pll_partition_t * partition,
-                                        const unsigned int * pattern_weights)
+                                        const double * pattern_weights)
 {
   unsigned int i;
   memcpy(partition->pattern_weights,
          pattern_weights,
-         sizeof(unsigned int)*partition->sites);
+         sizeof(double)*partition->sites);
 
   /* recompute the sum of weights */
   partition->pattern_weight_sum = 0;
@@ -1172,12 +1172,12 @@ PLL_EXPORT int pll_set_asc_bias_type(pll_partition_t * partition,
 }
 
 PLL_EXPORT void pll_set_asc_state_weights(pll_partition_t * partition,
-                                          const unsigned int * state_weights)
+                                          const double * state_weights)
 {
   assert(partition->asc_bias_alloc);
   memcpy(partition->pattern_weights + partition->sites,
          state_weights,
-         sizeof(unsigned int)*partition->states);
+         sizeof(double)*partition->states);
 }
 
 PLL_EXPORT void pll_fill_parent_scaler(unsigned int scaler_size,

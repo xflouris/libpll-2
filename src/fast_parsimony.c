@@ -242,7 +242,7 @@ static int fill_parsimony_vectors(const pll_partition_t * partition,
   /* compute total number of bits required */
   for (i=0; i<parsimony->sites; ++i)
     if (parsimony->informative[i])
-      bitcount += partition->pattern_weights[i];
+      bitcount += (int)partition->pattern_weights[i];
 
   /* number of 32-bit bit-vectors required */
   bitvectors = (bitcount / PLL_BITVECTOR_SIZE) +
@@ -300,7 +300,7 @@ static int fill_parsimony_vectors(const pll_partition_t * partition,
       {
         /* TODO: check for tip map */
         unsigned int m;
-        for (m = 0; m < partition->pattern_weights[j]; ++m)
+        for (m = 0; m < (unsigned int)partition->pattern_weights[j]; ++m)
         {
           if (parsimony->attributes & PLL_ATTRIB_PATTERN_TIP)
           {
