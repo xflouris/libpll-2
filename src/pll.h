@@ -181,6 +181,7 @@
 #define PLL_ERROR_MSA_EMPTY                131
 #define PLL_ERROR_MSA_MAP_INVALID          132
 #define PLL_ERROR_TREE_INVALID             133
+#define PLL_ERROR_MEMSAVE_FAIL             134
 
 /* utree specific */
 #define PLL_UTREE_SHOW_LABEL             (1 << 0)
@@ -2741,6 +2742,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
                                     pll_clv_manager_replace_cb replace_cb,
                                     pll_clv_manager_update_cb update_cb,
                                     pll_clv_manager_dealloc_cb dealloc_cb);
+PLL_EXPORT bool pll_clv_manager_enabled(pll_partition_t const * const partition);
 
 void pll_clv_manager_update_slot(pll_clv_manager_t * clv_man,
                                  const unsigned int slot,

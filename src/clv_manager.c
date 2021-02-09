@@ -335,6 +335,11 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   return PLL_SUCCESS;
 }
 
+PLL_EXPORT bool pll_clv_manager_enabled(pll_partition_t const * const partition)
+{
+  return PLL_ATTRIB_LIMIT_MEMORY & partition->attributes;
+}
+
 /**
  * Update the tracked information about a given slot with a given clv_index.
  *
@@ -517,7 +522,7 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_init(pll_clv_manager_t * clv_man,
   mrc_data_t * mrc = clv_man->repl_strat_data;
 
   // next, we do the initial cost computation
-  // TODO this should be also done in a separate MRC function, that recomputes
+  // TODOCLV this should be also done in a separate MRC function, that recomputes
   // the sizes and sets them in the MRC size arrays
 
   const size_t nodes_count = tree->tip_count + tree->inner_count;
@@ -572,7 +577,7 @@ PLL_EXPORT int pll_clv_manager_MRC_strategy_rtree_init(
   mrc_data_t * mrc = clv_man->repl_strat_data;
 
   // next, we do the initial cost computation
-  // TODO this should be also done in a separate MRC function, that recomputes
+  // TODOCLV this should be also done in a separate MRC function, that recomputes
   // the sizes and sets them in the MRC size arrays
 
   const size_t nodes_count = tree->tip_count + tree->inner_count;
