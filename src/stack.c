@@ -42,7 +42,6 @@ pll_uint_stack_t* pll_uint_stack_create(const size_t size)
   // set other vars
   stack->size = size;
   stack->top  = stack->data - 1;
-  stack->empty= true;
 
   return stack;
 }
@@ -70,12 +69,11 @@ unsigned int pll_uint_stack_push(pll_uint_stack_t* stack,
     return PLL_FAILURE;
   }
 
-  ++stack->top;
+  ++(stack->top);
 
   *(stack->top) = val;
 
   // we are pushing, so the stack can't be empty afterwards
-  stack->empty = false;
   return PLL_SUCCESS;
 }
 
@@ -83,17 +81,19 @@ unsigned int pll_uint_stack_pop(pll_uint_stack_t* stack)
 {
   assert(stack);
 
-  if (stack->top < stack->data)
+  if (pll_uint_stack_empty(stack))
   {
     printf("Trying to pop from an empty pll_stack.");
     exit(PLL_FAILURE);
   }
 
-  // if the element being popped is the last remaining, the stack will be empty
-  stack->empty = (stack->top == stack->data);
-
   unsigned int ret = *stack->top;
   stack->top--;
 
   return ret;
+}
+
+bool pll_uint_stack_empty(pll_uint_stack_t const* const stack)
+{
+  return stack->top == (stack->data - 1);
 }

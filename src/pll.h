@@ -291,7 +291,6 @@ typedef struct pll_uint_stack
   unsigned int * data;
   unsigned int * top;
   size_t size;
-  bool empty;
 } pll_uint_stack_t;
 
 typedef unsigned int (*pll_clv_manager_replace_cb)(struct pll_clv_manager*);
@@ -2774,6 +2773,8 @@ unsigned int pll_uint_stack_push(pll_uint_stack_t* stack,
                                  const unsigned int val);
 
 unsigned int pll_uint_stack_pop(pll_uint_stack_t* stack);
+
+bool pll_uint_stack_empty(pll_uint_stack_t const* const stack);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -92,7 +92,7 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
     else
     {
       // CLV not slotted, check if any slots are completely unused so far
-      if (clv_man->unused_slots->empty)
+      if (pll_uint_stack_empty(clv_man->unused_slots))
       {
         // no slots available, need to run the replacement strategy
         slot = clv_man->strat_replace(clv_man);
@@ -385,7 +385,7 @@ unsigned int MRC_replace_cb(pll_clv_manager_t* clv_man)
   assert(clv_man);
 
   // this function should only be called if there is no free slot
-  assert(clv_man->unused_slots->empty);
+  assert(pll_uint_stack_empty(clv_man->unused_slots));
 
   // get a pointer to the data and cast it correctly
   // in this case our "data" is the mrc_data struct, through which we can access
