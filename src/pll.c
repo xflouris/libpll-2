@@ -1079,15 +1079,34 @@ PLL_EXPORT int pll_set_tip_clv(pll_partition_t * partition,
   }
 
   double * tipclv = partition->clv[tip_index];
+  unsigned int clv_states = padding ? partition->states_padded : partition->states;
 
-  for (i = 0; i < partition->sites; ++i)
+  if (pll_repeats_enabled(partition))
   {
-    for (j = 0; j < partition->rate_cats; ++j)
+    pll_repeats_t * repeats = partition->repeats;
+    unsigned int rep_sites = repeats->pernode_ids[tip_index];
+    for (i = 0; i < rep_sites; ++i)
     {
-      memcpy(tipclv, clv, partition->states*sizeof(double));
-      tipclv += partition->states_padded;
+      unsigned int index = repeats->pernode_id_site[tip_index][i];
+      const double * clvp = clv + index * partition->rate_cats * clv_states;
+      for (j = 0; j < partition->rate_cats; ++j)
+      {
+        memcpy(tipclv, clvp, partition->states*sizeof(double));
+        tipclv += partition->states_padded;
+      }
     }
-    clv += padding ? partition->states_padded : partition->states;
+  }
+  else
+  {
+    for (i = 0; i < partition->sites; ++i)
+    {
+      for (j = 0; j < partition->rate_cats; ++j)
+      {
+        memcpy(tipclv, clv, partition->states*sizeof(double));
+        tipclv += partition->states_padded;
+      }
+      clv += clv_states;
+    }
   }
 
   /* if asc_bias is set, we initialize the additional positions */
