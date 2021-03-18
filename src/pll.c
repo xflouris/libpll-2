@@ -1088,7 +1088,7 @@ PLL_EXPORT int pll_set_tip_clv(pll_partition_t * partition,
     for (i = 0; i < rep_sites; ++i)
     {
       unsigned int index = repeats->pernode_id_site[tip_index][i];
-      const double * clvp = clv + index * partition->rate_cats * clv_states;
+      const double * clvp = clv + index * clv_states;
       for (j = 0; j < partition->rate_cats; ++j)
       {
         memcpy(tipclv, clvp, partition->states*sizeof(double));
