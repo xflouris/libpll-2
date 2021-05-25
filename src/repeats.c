@@ -119,6 +119,17 @@ PLL_EXPORT unsigned int pll_no_enable_repeats(pll_partition_t *partition,
 
 PLL_EXPORT int pll_repeats_initialize(pll_partition_t *partition)
 {
+  // if memsaver mode is enabled, ensure that the CLVs were already allocated
+  if (pll_clv_manager_enabled(partition) && partition->clv == NULL)
+  {
+    assert(false); //developer short-circuit
+    pll_errno = PLL_ERROR_CLV_MANAGER_FAIL;
+    snprintf(pll_errmsg,
+             200,
+             "In memsave mode, repeats must have CLV slots allocated already.");
+    return PLL_FAILURE;
+  }
+
   unsigned int sites_alloc = (unsigned int) partition->asc_additional_sites +
                                             partition->sites;
   unsigned int i;
@@ -193,7 +204,7 @@ PLL_EXPORT int pll_update_repeats_tips(pll_partition_t * partition,
 {
   if (!partition->repeats->lookup_buffer)
     pll_resize_repeats_lookup(partition, PLL_REPEATS_LOOKUP_SIZE);
-   
+
   unsigned int s;
   pll_repeats_t * repeats = partition->repeats;
   unsigned int ** id_site = repeats->pernode_id_site;
@@ -232,11 +243,12 @@ PLL_EXPORT int pll_update_repeats_tips(pll_partition_t * partition,
   }
   unsigned int sizealloc = (ids + additional_sites) * partition->states_padded * 
                           partition->rate_cats * sizeof(double);
-  free(partition->clv[tip_index]); 
+
+  free(partition->clv[tip_index]);
   
   partition->clv[tip_index] = pll_aligned_alloc(sizealloc,
                                         partition->alignment);
-  if (!partition->clv[tip_index]) 
+  if (!partition->clv[tip_index])
   {
     pll_errno = PLL_ERROR_MEM_ALLOC;
     snprintf(pll_errmsg,
@@ -263,21 +275,43 @@ PLL_EXPORT void pll_default_reallocate_repeats(pll_partition_t * partition,
     return;
   repeats->pernode_allocated_clvs[parent] = sites_to_alloc; 
   unsigned int ** id_site = repeats->pernode_id_site;
+
   // reallocate clvs
-  pll_aligned_free(partition->clv[parent]);  
-  partition->clv[parent] = pll_aligned_alloc(
-      sites_to_alloc * partition->states_padded 
-      * partition->rate_cats * sizeof(double), 
-      partition->alignment);
-  
-  if (!partition->clv[parent]) 
+  double* clv = NULL;
+
+  if (!pll_clv_manager_enabled(partition))
   {
-    pll_errno = PLL_ERROR_MEM_ALLOC;
-    snprintf(pll_errmsg,
-             200,
-             "Unable to allocate enough memory for repeats structure.");
-    return;
+    pll_aligned_free(partition->clv[parent]);
+    clv = partition->clv[parent] = pll_aligned_alloc(
+        sites_to_alloc * partition->states_padded
+        * partition->rate_cats * sizeof(double),
+        partition->alignment);
+
+    if (!clv)
+    {
+      pll_errno = PLL_ERROR_MEM_ALLOC;
+      snprintf(pll_errmsg,
+               200,
+               "Unable to allocate enough memory for repeats structure.");
+      return;
+    }
   }
+  else
+  {
+    // if the clv manager is enabled, we expect the clv memory to be available already
+    clv = pll_get_clv_writing(partition, parent);
+
+    if (!clv)
+    {
+      pll_errno = PLL_ERROR_CLV_MANAGER_FAIL;
+      snprintf(pll_errmsg,
+               200,
+               "Failed to obtain valid CLV slot.");
+      return;
+    }
+
+  }
+
   // reallocate scales
   if (PLL_SCALE_BUFFER_NONE != scaler_index) 
   {
@@ -292,7 +326,7 @@ PLL_EXPORT void pll_default_reallocate_repeats(pll_partition_t * partition,
   free(id_site[parent]);
   id_site[parent] = malloc(sites_to_alloc * sizeof(unsigned int));
   // avoid valgrind errors
-  memset(partition->clv[parent], 0, sites_to_alloc);
+  memset(clv, 0, sites_to_alloc);
 }
 
 /* Fill the repeat structure in partition for the parent node of op */

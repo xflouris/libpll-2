@@ -181,7 +181,7 @@
 #define PLL_ERROR_MSA_EMPTY                131
 #define PLL_ERROR_MSA_MAP_INVALID          132
 #define PLL_ERROR_TREE_INVALID             133
-#define PLL_ERROR_MEMSAVE_FAIL             134
+#define PLL_ERROR_CLV_MANAGER_FAIL         134
 
 /* utree specific */
 #define PLL_UTREE_SHOW_LABEL             (1 << 0)

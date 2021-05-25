@@ -216,13 +216,22 @@ static int sumtable_repeats(pll_partition_t * partition,
   unsigned int parent_ids = pll_get_sites_number(partition, parent_clv_index);
   unsigned int child_ids = pll_get_sites_number(partition, child_clv_index);
   unsigned int inv = parent_ids > child_ids;
+
+  double const* lclv = pll_get_clv_reading(partition,
+                                    inv ? child_clv_index : parent_clv_index);
+  double const* rclv = pll_get_clv_reading(partition,
+                                    !inv ? child_clv_index : parent_clv_index);
+
+  assert(lclv);
+  assert(rclv);
+
   retval =
     pll_core_update_sumtable_repeats(partition->states,
                         sites,
                         inv ? child_ids : parent_ids,
                         partition->rate_cats,
-                        partition->clv[inv ? child_clv_index : parent_clv_index],
-                        partition->clv[!inv ? child_clv_index : parent_clv_index],
+                        lclv,
+                        rclv,
                         inv ? child_scaler : parent_scaler,
                         !inv ? child_scaler : parent_scaler,
                         eigenvecs,

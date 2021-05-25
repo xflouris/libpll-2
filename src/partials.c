@@ -28,6 +28,7 @@ static void case_tiptip(pll_partition_t * partition,
   const double * right_matrix = partition->pmatrix[op->child2_matrix_index];
 
   double * parent_clv = pll_get_clv_writing(partition, op->parent_clv_index);
+  assert(parent_clv);
 
   unsigned int * parent_scaler;
   unsigned int sites = partition->sites;
@@ -71,6 +72,7 @@ static void case_tipinner(pll_partition_t * partition,
                           const pll_operation_t * op)
 {
   double * parent_clv = pll_get_clv_writing(partition, op->parent_clv_index);
+  assert(parent_clv);
   unsigned int tip_clv_index;
   unsigned int inner_clv_index;
   unsigned int tip_matrix_index;
@@ -114,6 +116,7 @@ static void case_tipinner(pll_partition_t * partition,
   }
 
   const double * inner_clv = pll_get_clv_reading(partition, inner_clv_index);
+  assert(inner_clv);
 
   pll_core_update_partial_ti(partition->states,
                              sites,
@@ -141,6 +144,9 @@ static void case_innerinner(pll_partition_t * partition,
                                                  op->child1_clv_index);
   const double * right_clv = pll_get_clv_reading(partition,
                                                  op->child2_clv_index);
+  assert(parent_clv);
+  assert(left_clv);
+  assert(right_clv);
   unsigned int * parent_scaler;
   unsigned int * left_scaler;
   unsigned int * right_scaler;
@@ -186,10 +192,15 @@ static void case_repeats(pll_partition_t * partition,
 {
   const double * left_matrix = partition->pmatrix[op->child1_matrix_index];
   const double * right_matrix = partition->pmatrix[op->child2_matrix_index];
-  // TODO use new guarded functions here for memsave mode
-  double * parent_clv = partition->clv[op->parent_clv_index];
-  double * left_clv = partition->clv[op->child1_clv_index];
-  double * right_clv = partition->clv[op->child2_clv_index];
+  double * parent_clv      = pll_get_clv_writing(partition,
+                                                 op->parent_clv_index);
+  const double * left_clv  = pll_get_clv_reading(partition,
+                                                 op->child1_clv_index);
+  const double * right_clv = pll_get_clv_reading(partition,
+                                                 op->child2_clv_index);
+  assert(parent_clv);
+  assert(left_clv);
+  assert(right_clv);
   unsigned int * parent_scaler;
   unsigned int * left_scaler;
   unsigned int * right_scaler;
@@ -270,7 +281,7 @@ PLL_EXPORT void pll_update_partials_rep(pll_partition_t * partition,
 
     // in the memory saver case, make sure to pin the clv we are about to
     // calculate before deciding which slot it should be in (avoids RC)
-    if (partition->attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    if (pll_clv_manager_enabled(partition))
       pll_pin_clv( partition, op->parent_clv_index );
 
     if (pll_repeats_enabled(partition) && update_repeats) 
@@ -309,7 +320,7 @@ PLL_EXPORT void pll_update_partials_rep(pll_partition_t * partition,
     }
 
     // memory saver: reading of the children CLV definitely done now, so unpin
-    if (partition->attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    if (pll_clv_manager_enabled(partition))
     {
       pll_unpin_clv( partition, op->child1_clv_index );
       pll_unpin_clv( partition, op->child2_clv_index );

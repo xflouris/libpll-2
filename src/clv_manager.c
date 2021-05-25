@@ -21,6 +21,21 @@
 
 #include "pll.h"
 
+// Helper functions
+static bool is_addressable( const pll_partition_t * const partition,
+                            const unsigned int clv_index)
+{
+  assert(partition->clv_man);
+  return (clv_index >= partition->clv_man->addressable_begin)
+      && (clv_index < partition->clv_man->addressable_end);
+}
+
+static bool is_tip( const pll_partition_t * const partition,
+                    const unsigned int clv_index )
+{
+  return clv_index < partition->tips;
+}
+
 ///////////////////////
 // GETTERS / SETTERS //
 ///////////////////////
@@ -39,12 +54,21 @@ PLL_EXPORT const double * pll_get_clv_reading(
 {
   assert(partition);
 
-  if ( !(partition->attributes & PLL_ATTRIB_LIMIT_MEMORY) )
+  if ( is_tip(partition, clv_index) || !pll_clv_manager_enabled(partition) )
   {
     return partition->clv[clv_index];
   }
   else
   {
+    if (!is_addressable(partition, clv_index))
+    {
+      pll_errno = PLL_ERROR_CLV_MANAGER_FAIL;
+      snprintf(pll_errmsg,
+               200,
+               "clv_index not in addressable range (tipchar?).");
+      return NULL;
+    }
+
     pll_clv_manager_t * clv_man = partition->clv_man;
     assert(clv_man);
     const size_t offset = clv_man->addressable_begin;
@@ -72,12 +96,21 @@ PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
 {
   assert(partition);
 
-  if ( !(partition->attributes & PLL_ATTRIB_LIMIT_MEMORY) )
+  if ( is_tip(partition, clv_index) || !pll_clv_manager_enabled(partition))
   {
     return partition->clv[clv_index];
   }
   else
   {
+    if (!is_addressable(partition, clv_index))
+    {
+      pll_errno = PLL_ERROR_CLV_MANAGER_FAIL;
+      snprintf(pll_errmsg,
+               200,
+               "clv_index not in addressable range (tipchar?).");
+      return NULL;
+    }
+
     pll_clv_manager_t * clv_man = partition->clv_man;
     assert(clv_man);
 
@@ -224,17 +257,21 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   assert(partition);
 
   const size_t addressable_clvs = partition->nodes;
+  const bool pattern_tip = (partition->attributes & PLL_ATTRIB_PATTERN_TIP);
 
-  assert(concurrent_clvs <= partition->clv_buffers);
+  const size_t partition_clv_bufs = partition->clv_buffers
+                                  + (pattern_tip ? 0 : partition->tips);
 
-  if (pll_repeats_enabled(partition))
-  {
-    pll_errno = PLL_ERROR_PARAM_INVALID;
-    snprintf(pll_errmsg,
-             200,
-             "Memory management not yet possible together with site repeats");
-    return PLL_FAILURE;
-  }
+  assert(concurrent_clvs <= partition_clv_bufs);
+
+  // if (pll_repeats_enabled(partition))
+  // {
+  //   pll_errno = PLL_ERROR_PARAM_INVALID;
+  //   snprintf(pll_errmsg,
+  //            200,
+  //            "Memory management not yet possible together with site repeats");
+  //   return PLL_FAILURE;
+  // }
 
   ///////////////////////
   // MEMORY ALLOCATION //
@@ -255,8 +292,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
   // set member fields to defaults
   clv_man->slottable_size     = concurrent_clvs;
   clv_man->addressable_end    = addressable_clvs;
-  clv_man->addressable_begin  = (partition->attributes & PLL_ATTRIB_PATTERN_TIP)
-                                ? partition->tips : 0;
+  clv_man->addressable_begin  = pattern_tip ? partition->tips : 0;
   // if replacement func was null, use default
   clv_man->strat_replace      = cb_replace ? cb_replace : &MRC_replace_cb;
   clv_man->strat_update_slot  = cb_update ? cb_update : &MRC_update_slot_cb;
@@ -337,7 +373,7 @@ PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
 
 PLL_EXPORT bool pll_clv_manager_enabled(pll_partition_t const * const partition)
 {
-  return PLL_ATTRIB_LIMIT_MEMORY & partition->attributes;
+  return (partition->attributes & PLL_ATTRIB_LIMIT_MEMORY);
 }
 
 /**

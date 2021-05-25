@@ -141,7 +141,7 @@ PLL_EXPORT double pll_compute_root_loglikelihood(pll_partition_t * partition,
     logl = pll_core_root_loglikelihood_repeats(partition->states,
                                      partition->sites,
                                      partition->rate_cats,
-                                     partition->clv[clv_index],
+                                     pll_get_clv_reading(partition, clv_index),
                                      partition->repeats->pernode_site_id[clv_index],
                                      scaler,
                                      partition->frequencies,
@@ -517,8 +517,11 @@ static double edge_loglikelihood_repeats(pll_partition_t * partition,
 {
   double logl = 0;
 
-  const double * clvp = partition->clv[parent_clv_index];
-  const double * clvc = partition->clv[child_clv_index];
+  const double * clvp = pll_get_clv_reading(partition, parent_clv_index);
+  const double * clvc = pll_get_clv_reading(partition, child_clv_index);
+
+  assert(clvp);
+  assert(clvc);
 
   const unsigned int * parent_site_id =
     pll_get_site_id(partition, parent_clv_index);

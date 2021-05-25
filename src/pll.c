@@ -65,10 +65,22 @@ static void dealloc_partition_data(pll_partition_t * partition)
 
   if (partition->clv)
   {
-    unsigned int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
-                          partition->tips : 0;
-    for (i = start; i < partition->clv_buffers + partition->tips; ++i)
+    unsigned int start, end;
+    if (pll_clv_manager_enabled(partition))
+    {
+      start = partition->clv_man->addressable_begin;
+      end = start + partition->clv_man->slottable_size;
+    }
+    else
+    {
+      start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
+        partition->tips : 0;
+      end = partition->clv_buffers + partition->tips;
+    }
+    for (i = start; i < end; ++i)
+    {
       pll_aligned_free(partition->clv[i]);
+    }
   }
   free(partition->clv);
 
@@ -474,15 +486,6 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
   {
     pll_errno = PLL_ERROR_PARAM_INVALID;
     snprintf(pll_errmsg, 200, "Multiple architecture flags specified.");
-    return PLL_FAILURE;
-  }
-
-  // ensure pattern_tip was set when trying to use memory saver
-  if ((attributes & PLL_ATTRIB_LIMIT_MEMORY)
-    && !(attributes & PLL_ATTRIB_PATTERN_TIP))
-  {
-    pll_errno = PLL_ERROR_PARAM_INVALID;
-    snprintf(pll_errmsg, 200, "Memory saver must be used with pattern_tip.");
     return PLL_FAILURE;
   }
 
@@ -992,7 +995,8 @@ static int set_tipclv(pll_partition_t * partition,
 {
   pll_state_t c;
   unsigned int i,j;
-  double * tipclv = partition->clv[tip_index];
+  double * tipclv = pll_get_clv_writing(partition, tip_index);
+  assert(tipclv);
 
   pll_repeats_t * repeats = partition->repeats;
   int use_repeats = pll_repeats_enabled(partition);
