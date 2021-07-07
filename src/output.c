@@ -60,7 +60,8 @@ PLL_EXPORT void pll_show_clv(const pll_partition_t * partition,
 {
   unsigned int s,i,j,k;
 
-  double * clv = partition->clv[clv_index];
+  double const * clv = pll_get_clv_reading(partition, clv_index);
+  assert(clv);
   unsigned int * scaler = (scaler_index == PLL_SCALE_BUFFER_NONE) ?
                           NULL : partition->scale_buffer[scaler_index];
   unsigned int states = partition->states;

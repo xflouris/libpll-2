@@ -195,6 +195,9 @@ int main (int argc, char * argv[])
   unsigned int attributes = get_attributes(argc, argv);
   int fail_retval;
 
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    skip_test();
+
   if (proteintest (attributes, PLL_FALSE))
     printf ("Test (low-level): OK\n\n");
 

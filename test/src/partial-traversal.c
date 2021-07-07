@@ -102,6 +102,9 @@ int main(int argc, char * argv[])
 
   unsigned int attributes = get_attributes(argc, argv);
 
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    skip_test();
+
   /* fix all missing branch lengths (i.e. those that did not appear in the
      newick) to 0.000001 */
   set_missing_branch_length(tree, 0.000001);

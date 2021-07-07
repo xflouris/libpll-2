@@ -14,29 +14,18 @@ How to create a new test:
   Use a descriptive but short name. 
   You could also write a long description into this file
 
-2. Add the filename to CFILES variable in the Makefile
-
-  e.g.,
-  
-  ```
-  CFILES = src/alpha-cats.c \
-           src/blopt-minimal.c \
-           ...
-           src/newtest.c
-  ```
-  
-3. Compile with the provided Makefile
+2. Compile with the provided Makefile
 
   A binary with the same name (%) should be created in obj/
 
-4. Validate it propertly!
+3. Validate it properly!
 
   Every time you place a buggy test case, god kills a kitten
   (and we do not want that)
 
-5. Pipe the output into out/%.out
+4. Pipe the output into out/%.out
 
-6. Proceed to next section and verify it matches the output and there are no leaks
+5. Proceed to next section and verify it matches the output and there are no leaks
 
 ## Run the test framework
 

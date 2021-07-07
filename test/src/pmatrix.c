@@ -224,7 +224,8 @@ int main(int argc, char * argv[])
   unsigned int attributes = get_attributes(argc, argv);
 
   /* pattern tip is not relevant for pmatrix computation */
-  if (attributes & PLL_ATTRIB_PATTERN_TIP)
+  if ((attributes & PLL_ATTRIB_PATTERN_TIP)
+    ||(attributes & PLL_ATTRIB_LIMIT_MEMORY))
     skip_test();
 
   init(attributes);

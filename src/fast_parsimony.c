@@ -83,6 +83,8 @@ static int check_informative_extended(const pll_partition_t * partition,
                                       unsigned int index,
                                       unsigned int * singleton)
 {
+  assert(!pll_clv_manager_enabled(partition));
+
   unsigned int c;
   int count = 0;
   unsigned int * map;
@@ -129,6 +131,8 @@ static int check_informative(const pll_partition_t * partition,
                              unsigned int index,
                              unsigned int * singleton)
 {
+  assert(!pll_clv_manager_enabled(partition));
+
   unsigned int i,j;
   unsigned int map[256];
   int count = 0;
@@ -196,6 +200,8 @@ static int check_informative(const pll_partition_t * partition,
 static int fill_parsimony_vectors(const pll_partition_t * partition,
                                   pll_parsimony_t * parsimony)
 {
+  assert(!pll_clv_manager_enabled(partition));
+
   pll_state_t c;
   unsigned int i,j,k;
   unsigned int bitcount = 0;

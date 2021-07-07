@@ -62,6 +62,9 @@ int main (int argc, char * argv[])
 
   unsigned int attributes = get_attributes (argc, argv);
 
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    skip_test();
+
   operations = (pll_operation_t *) malloc (4 * sizeof(pll_operation_t));
   
   unsigned int params_indices[6] = {0,0,0,0,0,0};

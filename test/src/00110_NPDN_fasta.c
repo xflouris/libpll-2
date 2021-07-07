@@ -173,7 +173,6 @@ static int smalltest (unsigned int attributes, pll_bool_t oneliner)
                                    1, 
                                    attributes);
 
-
   if (oneliner)
   {
     load_fasta_and_set_tips(SMALL_FASTA, partition);
@@ -251,6 +250,9 @@ static int smalltest (unsigned int attributes, pll_bool_t oneliner)
 int main (int argc, char * argv[])
 {
   unsigned int attributes = get_attributes(argc, argv);
+
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    skip_test();
 
   if (bigtest (attributes, PLL_FALSE))
     printf ("Big test (low-level): OK\n\n");
