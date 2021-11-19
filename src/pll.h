@@ -140,6 +140,10 @@
 #define PLL_TREE_TRAVERSE_POSTORDER         1
 #define PLL_TREE_TRAVERSE_PREORDER          2
 
+#define PLL_TREE_TRAVERSE_FULL              1
+#define PLL_TREE_TRAVERSE_PARTIAL           2
+#define PLL_TREE_TRAVERSE_NONE              3
+
 /* error codes */
 
 #define PLL_ERROR_FILE_OPEN                100
@@ -2605,6 +2609,22 @@ PLL_EXPORT pll_utree_t * pll_fastparsimony_stepwise(pll_parsimony_t ** list,
                                                     unsigned int * score,
                                                     unsigned int count,
                                                     unsigned int seed);
+
+PLL_EXPORT int pll_fastparsimony_stepwise_spr_round(pll_utree_t * tree,
+                                                   pll_parsimony_t ** pars_list,
+                                                   unsigned int pars_count,
+                                                   const unsigned int * tip_msa_idmap,
+                                                   unsigned int seed,
+                                                   const int * clv_index_map,
+                                                   unsigned int * cost);
+
+PLL_EXPORT int pll_fastparsimony_stepwise_extend(pll_utree_t * tree,
+                                                 pll_parsimony_t ** pars_list,
+                                                 unsigned int pars_count,
+                                                 char * const * labels,
+                                                 const unsigned int * tip_msa_idmap,
+                                                 unsigned int seed,
+                                                 unsigned int * cost);
 
 /* functions in random.c */
 
