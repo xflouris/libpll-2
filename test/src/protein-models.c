@@ -81,6 +81,9 @@ int main(int argc, char * argv[])
 
   unsigned int attributes = get_attributes(argc, argv);
 
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    skip_test();
+
   printf ("Creating PLL partition\n");
 
   partition = pll_partition_create(5,                            /* tips */

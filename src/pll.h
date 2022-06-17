@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -125,9 +126,12 @@
 /* site repeats */
 
 #define PLL_ATTRIB_SITE_REPEATS    (1 << 10)
-#define PLL_REPEATS_LOOKUP_SIZE  2000000 
+#define PLL_REPEATS_LOOKUP_SIZE  2000000
 
-#define PLL_ATTRIB_MASK ((1 << 11) - 1)
+/* memory management */
+#define PLL_ATTRIB_LIMIT_MEMORY    (1 << 11)
+
+#define PLL_ATTRIB_MASK ((1 << 12) - 1)
 
 /* topological rearrangements */
 
@@ -181,16 +185,15 @@
 #define PLL_ERROR_MSA_EMPTY                131
 #define PLL_ERROR_MSA_MAP_INVALID          132
 #define PLL_ERROR_TREE_INVALID             133
+#define PLL_ERROR_CLV_MANAGER_FAIL         134
 
 /* utree specific */
-
 #define PLL_UTREE_SHOW_LABEL             (1 << 0)
 #define PLL_UTREE_SHOW_BRANCH_LENGTH     (1 << 1)
 #define PLL_UTREE_SHOW_CLV_INDEX         (1 << 2)
 #define PLL_UTREE_SHOW_SCALER_INDEX      (1 << 3)
 #define PLL_UTREE_SHOW_PMATRIX_INDEX     (1 << 4)
 #define PLL_UTREE_SHOW_DATA              (1 << 5)
-
 
 /* GAMMA discretization modes */
 #define PLL_GAMMA_RATES_MEAN             0
@@ -208,7 +211,7 @@
 #define PLL_STATE_CTZ    PLL_CTZ64
 
 typedef unsigned long long pll_state_t;
-typedef int pll_bool_t;
+typedef bool pll_bool_t;
 
 typedef struct pll_hardware_s
 {
@@ -230,6 +233,7 @@ typedef struct pll_hardware_s
 } pll_hardware_t;
 
 struct pll_repeats;
+struct pll_clv_manager;
 
 typedef struct pll_partition
 {
@@ -274,19 +278,79 @@ typedef struct pll_partition
 
   /* ascertainment bias correction */
   int asc_bias_alloc;
-  int asc_additional_sites; // partition->asc_bias_alloc ? states : 0 
+  int asc_additional_sites; // partition->asc_bias_alloc ? states : 0
 
   /* site repeats */
   struct pll_repeats *repeats;
+
+  /* memory management */
+  struct pll_clv_manager * clv_man;
 } pll_partition_t;
+
+/* memory management */
+#define PLL_CLV_CLV_UNSLOTTED     -1u
+#define PLL_CLV_SLOT_UNUSED       -1u
+
+typedef struct pll_uint_stack
+{
+  unsigned int * data;
+  unsigned int * top;
+  size_t size;
+} pll_uint_stack_t;
+
+typedef unsigned int (*pll_clv_manager_replace_cb)(struct pll_clv_manager*);
+typedef void (*pll_clv_manager_update_cb)(struct pll_clv_manager*,
+                                          const unsigned int,
+                                          const unsigned int);
+typedef void (*pll_clv_manager_dealloc_cb)(void*);
+
+typedef struct pll_clv_manager
+{
+  /**
+   * Some upfront terminology:
+   * - A slot is a buffer for one CLV that is held in memory
+   * - the clv_index works like always, though now they function as
+   *     "addressable" CLV indices
+   * - a clv index that is slotted, means the CLV resides in memory
+   * - a clv index that is pinned, means the CLV resides in memory and may not 
+   *     be overwritten
+   * - a clv index that is unslottable, means the CLV may be overwritten by the 
+   *     strategy
+   */
+
+  size_t slottable_size; // max number of CLVs to hold in partition
+  size_t addressable_begin; // first clv_index that is addressable
+  size_t addressable_end; // one past last clv index that is addressable
+  unsigned int * clvid_of_slot;
+    // <slottable_size> entries, translates from slot_id to clv_index of node
+    //  whos CLV is currently slotted here
+    //  special value: PLL_CLV_SLOT_UNUSED if this slot isn't in use
+  unsigned int * slot_of_clvid;
+    // the reverse: indexed by clv_index, returns slot_id of a node
+    // special value: PLL_CLV_CLV_UNSLOTTED if the node's clv isn't slotted 
+    // currently
+  bool * is_pinned;
+    // tells if a given clv_index is marked as pinned
+  size_t num_pinned;
+  pll_uint_stack_t * unused_slots;
+    // holds slot_id of slots that are not yet used
+  pll_clv_manager_replace_cb strat_replace;
+    // replacement strategy: replace function
+  pll_clv_manager_update_cb strat_update_slot;
+    // replacement strategy: update a slot with a clv_id function
+  pll_clv_manager_dealloc_cb strat_data_dealloc;
+    // replacement strategy: dealloc the custom data
+  void* repl_strat_data;
+    // void pointer to whatever data your replacement data might need
+} pll_clv_manager_t;
 
 typedef struct pll_repeats
 {
   /* (node,site) -> class identifier (starts at 1) */
-  unsigned int ** pernode_site_id; 
-  // (node,id) -> class site   
-  unsigned int ** pernode_id_site; 
-  // (node) -> numer of class ids 
+  unsigned int ** pernode_site_id;
+  // (node,id) -> class site
+  unsigned int ** pernode_id_site;
+  // (node) -> numer of class ids
   unsigned int * pernode_ids;
   // (scale) -> number of class ids
   unsigned int * perscale_ids;
@@ -295,19 +359,19 @@ typedef struct pll_repeats
 
   /* return true if we should compute repeats on the current node
    default is pll_default_enable_repeats */
-  unsigned int (*enable_repeats) (struct pll_partition *partition, 
-      unsigned int left_clv, 
+  unsigned int (*enable_repeats) (struct pll_partition *partition,
+      unsigned int left_clv,
       unsigned int right_clv);
- 
+
   /* reallocate repeats callback */
   void (*reallocate_repeats) (struct pll_partition *partition,
                               unsigned int parent,
                               int scaler_index,
                               unsigned int sites_to_alloc);
-  /* temporary buffers */ 
-  unsigned int * lookup_buffer;  
-  unsigned int * toclean_buffer; 
-  unsigned int * id_site_buffer; 
+  /* temporary buffers */
+  unsigned int * lookup_buffer;
+  unsigned int * toclean_buffer;
+  unsigned int * id_site_buffer;
   double * bclv_buffer;
   unsigned int lookup_buffer_size;
   char * charmap;
@@ -626,6 +690,8 @@ extern "C" {
 #endif
 
 /* functions in pll.c */
+int alloc_clvs( pll_partition_t * partition,
+                const size_t num_clvs);
 
 PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
                                                   unsigned int clv_buffers,
@@ -961,17 +1027,33 @@ PLL_EXPORT pll_utree_t * pll_utree_clone(const pll_utree_t * root);
 PLL_EXPORT pll_utree_t * pll_rtree_unroot(pll_rtree_t * tree);
 
 PLL_EXPORT int pll_utree_every(pll_utree_t * tree,
-                               int (*cb)(const pll_utree_t *,
-                                         const pll_unode_t *));
+                               int (*cb)(pll_utree_t *,
+                                         pll_unode_t *));
 
 PLL_EXPORT int pll_utree_every_const(const pll_utree_t * tree,
                                      int (*cb)(const pll_utree_t * tree,
                                                const pll_unode_t *));
 
+PLL_EXPORT int pll_utree_foreach(pll_unode_t * root,
+                                 const int traversal,
+                                 int (*keep_traversing)(pll_unode_t *, void *),
+                                 void* keep_traversing_data,
+                                 int (*cb)(pll_unode_t *, void *),
+                                 void* cb_data);
+
 PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
                                                unsigned int trav_buffer_size,
                                                pll_pars_buildop_t * ops,
                                                unsigned int * ops_count);
+
+PLL_EXPORT unsigned int * pll_utree_get_subtree_sizes(pll_utree_t const * const tree);
+
+PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t const * tree,
+                                  unsigned int const * const subtree_sizes,
+                                  const int traversal,
+                                  int (*cbtrav)(pll_unode_t *),
+                                  pll_unode_t ** outbuffer,
+                                  unsigned int * trav_size);
 
 /* functions in phylip.c */
 
@@ -988,7 +1070,7 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_interleaved(pll_phylip_t * fd);
 
 PLL_EXPORT pll_msa_t * pll_phylip_parse_sequential(pll_phylip_t * fd);
 
-pll_msa_t * pll_phylip_load(const char * fname, pll_bool_t interleaved);
+pll_msa_t * pll_phylip_load(const char * fname, bool interleaved);
 
 /* functions in rtree.c */
 
@@ -1002,6 +1084,15 @@ PLL_EXPORT int pll_rtree_traverse(pll_rnode_t * root,
                                   int (*cbtrav)(pll_rnode_t *),
                                   pll_rnode_t ** outbuffer,
                                   unsigned int * trav_size);
+
+PLL_EXPORT int pll_rtree_traverse_lsf(pll_rtree_t * tree,
+                                      unsigned int const * const subtree_sizes,
+                                      int const traversal,
+                                      int (*cbtrav)(pll_rnode_t *),
+                                      pll_rnode_t ** outbuffer,
+                                      unsigned int * trav_size);
+
+PLL_EXPORT unsigned int * pll_rtree_get_subtree_sizes(pll_rtree_t * tree);
 
 #if 0
 PLL_EXPORT unsigned int pll_rtree_query_tipnodes(pll_rtree_t * root,
@@ -1656,7 +1747,7 @@ PLL_EXPORT void pll_core_update_partial_repeats_4x4_avx(unsigned int states,
                                                         double * bclv_buffer,
                                                         unsigned int attrib);
 
-                                                        
+
 PLL_EXPORT void pll_core_update_partial_repeatsbclv_4x4_avx(unsigned int states,
                                                             unsigned int parent_sites,
                                                             unsigned int left_sites,
@@ -2348,7 +2439,7 @@ double pll_core_edge_loglikelihood_ii_avx2(unsigned int states,
                                            double * persite_lnl,
                                            unsigned int attrib);
 
-PLL_EXPORT 
+PLL_EXPORT
 double pll_core_root_loglikelihood_repeats_avx2(unsigned int states,
                                                 unsigned int sites,
                                                 unsigned int rate_cats,
@@ -2675,6 +2766,68 @@ PLL_EXPORT int pll_hardware_probe(void);
 PLL_EXPORT void pll_hardware_dump(void);
 
 PLL_EXPORT void pll_hardware_ignore(void);
+
+
+/* functions in clv_manager.c */
+
+PLL_EXPORT const double * pll_get_clv_reading(
+                                        const pll_partition_t * const partition,
+                                        const unsigned int clv_index);
+
+PLL_EXPORT double * pll_get_clv_writing(pll_partition_t * const partition,
+                                        const unsigned int clv_index);
+
+PLL_EXPORT bool pll_clv_is_slotted( const pll_partition_t * const partition,
+                                    const unsigned int clv_index);
+
+PLL_EXPORT int pll_pin_clv( pll_partition_t * const partition,
+                            const unsigned int clv_index);
+
+PLL_EXPORT int pll_unpin_clv( pll_partition_t * const partition,
+                              const unsigned int clv_index);
+
+void dealloc_clv_manager(pll_clv_manager_t * clv_man);
+
+PLL_EXPORT int pll_clv_manager_init(pll_partition_t * const partition,
+                                    const size_t concurrent_clvs,
+                                    pll_clv_manager_replace_cb replace_cb,
+                                    pll_clv_manager_update_cb update_cb,
+                                    pll_clv_manager_dealloc_cb dealloc_cb);
+PLL_EXPORT bool pll_clv_manager_enabled(pll_partition_t const * const partition);
+
+void pll_clv_manager_update_slot(pll_clv_manager_t * clv_man,
+                                 const unsigned int slot,
+                                 const unsigned int clv_index);
+
+unsigned int MRC_replace_cb(pll_clv_manager_t* clv_man);
+
+void MRC_update_slot_cb(pll_clv_manager_t * clv_man,
+                        const unsigned int slot,
+                        const unsigned int clv_index);
+void MRC_dealloc_cb(void* clv_man);
+
+PLL_EXPORT int pll_clv_manager_MRC_strategy_init(
+                                      pll_clv_manager_t * clv_man,
+                                      pll_utree_t* const tree,
+                                      unsigned int const * const subtree_sizes);
+PLL_EXPORT int pll_clv_manager_MRC_strategy_rtree_init(
+                                      pll_clv_manager_t * clv_man,
+                                      pll_rtree_t* const tree,
+                                      unsigned int const * const subtree_sizes);
+
+
+
+/* stack.c */
+pll_uint_stack_t* pll_uint_stack_create(const size_t size);
+
+void pll_uint_stack_destroy(pll_uint_stack_t* stack);
+
+unsigned int pll_uint_stack_push(pll_uint_stack_t* stack,
+                                 const unsigned int val);
+
+unsigned int pll_uint_stack_pop(pll_uint_stack_t* stack);
+
+bool pll_uint_stack_empty(pll_uint_stack_t const* const stack);
 
 #ifdef __cplusplus
 } /* extern "C" */

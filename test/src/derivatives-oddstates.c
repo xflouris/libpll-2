@@ -97,6 +97,9 @@ int main(int argc, char * argv[])
   /* check attributes */
   unsigned int attributes = get_attributes(argc, argv);
 
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    skip_test();
+
   for (k = 0; k < NUM_CATS; ++k) {
     pll_partition_t * partition;
     printf("FREE CREATE\n");

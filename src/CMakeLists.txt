@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 
 include(CheckIncludeFile) 
 
-set (LIBPLL_BASE_FLAGS "-Wall -Wsign-compare -D_GNU_SOURCE -O3 -fPIC ")
+set (LIBPLL_BASE_FLAGS "-Wall -Wsign-compare -D_GNU_SOURCE -O3 -fPIC -g")
 
 if(PLLMOD_DEBUG)
   set(LIBPLL_BASE_FLAGS "${LIBPLL_BASE_FLAGS} -DDEBUG")
@@ -71,6 +71,8 @@ set(LIBPLL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/compress.c
   ${CMAKE_CURRENT_SOURCE_DIR}/utree.c
   ${CMAKE_CURRENT_SOURCE_DIR}/utree_moves.c
   ${CMAKE_CURRENT_SOURCE_DIR}/utree_svg.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/clv_manager.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/stack.c
   )
 
 file(GLOB LIBPLL_SSE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/core_derivatives_sse.c
@@ -185,7 +187,10 @@ if(NOT DEFINED BUILD_LIBPLL_SHARED AND NOT DEFINED BUILD_LIBPLL_STATIC)
 endif()
 
 add_library(pll_obj OBJECT ${LIBPLL_SOURCES})
-  
+
+# set the C standard
+set_property(TARGET pll_obj PROPERTY C_STANDARD 99)
+
 # Build shared library
 if(BUILD_LIBPLL_SHARED)
   message(STATUS "Libpll shared build enabled")

@@ -28,6 +28,7 @@ int main(int argc, char * argv[])
   pll_rnode_t ** travbuffer;
   pll_rnode_t ** inner_nodes_list;
   unsigned int params_indices[N_RATE_CATS] = {0,0,0,0};
+  unsigned int * subtree_sizes = NULL;
 
   /* parse the unrooted binary tree in newick format, and store the number
      of tip nodes in tip_nodes_count */
@@ -134,6 +135,25 @@ int main(int argc, char * argv[])
                                    attributes
                                    );
 
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+  {
+    const size_t low_clv_num = ceil(log2(tree->tip_count - 1)) + 2;
+    // printf("low clv num: %lu vs inner nodes count: %u\n", low_clv_num, inner_nodes_count);
+    // const size_t low_clv_num = inner_nodes_count;
+    if (!pll_clv_manager_init(partition, low_clv_num, NULL, NULL, NULL))
+      fatal("clv_manager_init failed: %s\n", pll_errmsg);
+
+    subtree_sizes = pll_rtree_get_subtree_sizes(tree);
+
+    if (!pll_clv_manager_MRC_strategy_rtree_init(
+          partition->clv_man,
+          tree,
+          subtree_sizes)
+      )
+      fatal("clv_manager_strategy_init failed: %s\n", pll_errmsg);
+
+  }
+
   /* initialize the array of base frequencies */
   double frequencies[4] = { 0.17, 0.19, 0.25, 0.39 };
 
@@ -211,12 +231,24 @@ int main(int argc, char * argv[])
   /* compute a partial traversal starting from the randomly selected
      inner node */
 
-  if (!pll_rtree_traverse(tree->root,
-                          PLL_TREE_TRAVERSE_POSTORDER,
-                          cb_rfull_traversal,
-                          travbuffer,
-                          &traversal_size))
-    fatal("Function pll_rtree_traverse() root node as parameter");
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+  {
+    pll_rtree_traverse_lsf(tree,
+                      subtree_sizes,
+                      PLL_TREE_TRAVERSE_POSTORDER,
+                      cb_rfull_traversal,
+                      travbuffer,
+                      &traversal_size);
+  }
+  else
+  {
+    if (!pll_rtree_traverse(tree->root,
+                            PLL_TREE_TRAVERSE_POSTORDER,
+                            cb_rfull_traversal,
+                            travbuffer,
+                            &traversal_size))
+      fatal("Function pll_rtree_traverse() root node as parameter");
+  }
 
   /* given the computed traversal descriptor, generate the operations
      structure, and the corresponding probability matrix indices that
@@ -291,6 +323,7 @@ int main(int argc, char * argv[])
   free(branch_lengths);
   free(matrix_indices);
   free(operations);
+  free(subtree_sizes);
 
   /* we will no longer need the tree structure */
   pll_rtree_destroy(tree,NULL);

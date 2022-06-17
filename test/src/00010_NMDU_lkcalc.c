@@ -70,6 +70,9 @@ int main(int argc, char * argv[])
   /* check attributes */
   unsigned int attributes = get_attributes(argc, argv);
 
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    skip_test();
+
   pll_partition_t * partition;
   partition = pll_partition_create(
                               n_tips,      /* numer of tips */
@@ -83,12 +86,13 @@ int main(int argc, char * argv[])
                               attributes
                               );          /* attributes */
 
+
   if (!partition)
   {
     printf("Error %d: %s\n", pll_errno, pll_errmsg);
     fatal("Fail creating partition");
   }
-
+  
   double branch_lengths[4] = { 0.1, 0.2, 1, 1};
   double frequencies[4] = { 0.3, 0.4, 0.1, 0.2 };
   unsigned int matrix_indices[4] = { 0, 1, 2, 3 };

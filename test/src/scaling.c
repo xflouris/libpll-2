@@ -20,6 +20,8 @@
 */
 #include "common.h"
 
+#include <math.h> 
+
 #define N_STATES_NT 4
 #define N_STATES_AA 20
 #define N_STATES_ODD 5
@@ -58,18 +60,33 @@ static pll_unode_t * root;
 static pll_partition_t *part_noscale_nt, *part_sitescale_nt, *part_ratescale_nt;
 static pll_partition_t *part_noscale_aa, *part_sitescale_aa, *part_ratescale_aa;
 static pll_partition_t *part_noscale_odd, *part_sitescale_odd, *part_ratescale_odd;
-static unsigned int traversal_size, matrix_count, ops_count;
+static unsigned int traversal_size, matrix_count, ops_count, traversal_size_pmat;
 static pll_unode_t ** travbuffer;
+static pll_unode_t ** travbuffer_pmat;
 static unsigned int * matrix_indices;
 static double * branch_lengths;
 static pll_operation_t * operations;
+static pll_operation_t * operations_pmat;
 static double * persite_lnl;
 static double * sumtable;
+
+unsigned int * subtree_sizes =  NULL;
 
 unsigned int scaler_idx(const pll_partition_t * p, unsigned int clv_idx)
 {
   return (p->scale_buffers > 0 && clv_idx >= p->tips) ?
       clv_idx - p->tips : PLL_SCALE_BUFFER_NONE;
+}
+
+void show_operation(pll_operation_t const op)
+{
+  printf("[pclv: %u, c1clv: %u, c1mat: %u, c2clv: %u, c2mat: %u]\n",
+    op.parent_clv_index,
+    op.child1_clv_index,
+    op.child1_matrix_index,
+    op.child2_clv_index,
+    op.child2_matrix_index
+  );
 }
 
 void show_scaler(const pll_partition_t * p, unsigned int clv_idx)
@@ -114,10 +131,18 @@ void show_clv(const pll_partition_t * p, unsigned int clv_idx, unsigned int site
 {
   unsigned int i;
   unsigned int clv_span = p->states * p->rate_cats;
-  printf("CLV %u site %u (size=%u): [ ", clv_idx, site, clv_span);
-  for (i = (site-1)*clv_span; i < site*clv_span; ++i)
-    printf("%e ", p->clv[clv_idx][i]);
-  printf("]\n");
+  const double * clv = pll_get_clv_reading(p, clv_idx);
+  if (clv)
+  {
+    printf("CLV %u site %u (size=%u): [ ", clv_idx, site, clv_span);
+    for (i = (site-1)*clv_span; i < site*clv_span; ++i)
+      printf("%e ", clv[i]);
+    printf("]\n");
+  }
+  else
+  {
+    printf("CLV %u not in memory.\n", clv_idx);
+  }
 
 }
 
@@ -168,6 +193,20 @@ pll_partition_t * init_partition(unsigned int attrs, int datatype)
                                              tree->inner_count,
                                              attrs);
 
+
+  if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
+  {
+    const size_t low_clv_num = ceil(log2(tree->tip_count)) + 2;
+    if (!pll_clv_manager_init(p, low_clv_num, NULL, NULL, NULL))
+      fatal("clv_manager_init failed: %s\n", pll_errmsg);
+
+    free(subtree_sizes);
+    subtree_sizes = pll_utree_get_subtree_sizes(tree);
+
+    if (!pll_clv_manager_MRC_strategy_init(p->clv_man, tree, subtree_sizes))
+      fatal("clv_manager_strategy_init failed: %s\n", pll_errmsg);
+  }
+
   if (!p)
     fatal("ERROR creating partition: %s\n", pll_errmsg);
 
@@ -213,9 +252,12 @@ void init(unsigned int attrs)
   unsigned int nodes_count = tree->inner_count + tree->tip_count;
   unsigned int branch_count = nodes_count - 1;
   travbuffer = (pll_unode_t **)malloc(nodes_count * sizeof(pll_unode_t *));
+  travbuffer_pmat = (pll_unode_t **)malloc(nodes_count * sizeof(pll_unode_t *));
   branch_lengths = (double *)malloc(branch_count * sizeof(double));
   matrix_indices = (unsigned int *)malloc(branch_count * sizeof(unsigned int));
   operations = (pll_operation_t *)malloc(tree->inner_count *
+                                                sizeof(pll_operation_t));
+  operations_pmat = (pll_operation_t *)malloc(tree->inner_count *
                                                 sizeof(pll_operation_t));
   persite_lnl = (double *)malloc(part_sitescale_aa->sites * sizeof(double));
   sumtable = pll_aligned_alloc(part_sitescale_aa->sites *
@@ -223,20 +265,50 @@ void init(unsigned int attrs)
                                part_sitescale_aa->states_padded * sizeof(double),
                                part_sitescale_aa->alignment);
 
-  root = tree->nodes[tree->tip_count+tree->inner_count-1];
+  root = tree->vroot;
 
   /* get full traversal */
-  pll_utree_traverse(root,
-                     PLL_TREE_TRAVERSE_POSTORDER,
-                     cb_full_traversal,
-                     travbuffer,
-                     &traversal_size);
+  if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
+  {
+    pll_utree_traverse_lsf(tree,
+                      subtree_sizes,
+                      PLL_TREE_TRAVERSE_POSTORDER,
+                      cb_full_traversal,
+                      travbuffer,
+                      &traversal_size);
+
+    // for the right order of branch lengths (see end of this function)
+    pll_utree_traverse(root,
+                      PLL_TREE_TRAVERSE_POSTORDER,
+                      cb_full_traversal,
+                      travbuffer_pmat,
+                      &traversal_size_pmat);
+  }
+  else
+  {
+    pll_utree_traverse(root,
+                      PLL_TREE_TRAVERSE_POSTORDER,
+                      cb_full_traversal,
+                      travbuffer,
+                      &traversal_size);
+
+  }
 
   pll_utree_create_operations(travbuffer,
                               traversal_size,
                               branch_lengths,
                               matrix_indices,
                               operations,
+                              &matrix_count,
+                              &ops_count);
+
+  // again but just for getting the right "branch"
+  if (attrs & PLL_ATTRIB_LIMIT_MEMORY)
+    pll_utree_create_operations(travbuffer_pmat,
+                              traversal_size_pmat,
+                              branch_lengths,
+                              matrix_indices,
+                              operations_pmat,
                               &matrix_count,
                               &ops_count);
 
@@ -377,9 +449,12 @@ int eval(pll_partition_t * partition, double alpha, double pinv)
 
 void cleanup()
 {
+  free(subtree_sizes);
   free(travbuffer);
+  free(travbuffer_pmat);
   free(branch_lengths);
   free(operations);
+  free(operations_pmat);
   free(matrix_indices);
   free(persite_lnl);
   free(sumtable);

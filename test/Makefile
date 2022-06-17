@@ -20,6 +20,7 @@
 CC = gcc
 CFLAGS = -L. -g -O3 -Wall -std=c99
 CLIBS = -lpll -lm
+CLIBS = ../build/src/libpll.a -lm
 
 CFILES = $(shell find src -name '*.c' ! -name 'common.c')
 
@@ -30,14 +31,14 @@ OBJCOMMON = src/common.o
 DATADIR = testdata
 RESULTDIR = result
 
-DEPFILES = worms16s.fas \
-					 small.fas small.tree small.rooted.tree small.rooted.tip.tree \
-					 246x4465.fas 246x4465.tree \
-					 ribosomal_l5_pf00673.fas ribosomal_l5_pf00673.tree \
-					 medium.fas medium.tree \
-					 2000.fas 2000.tree \
-					 200.fas 200.tree \
-					 1000x5.dna.fas 1000.tree
+DEPFILES =	worms16s.fas \
+			small.fas small.tree small.rooted.tree small.rooted.tip.tree \
+			246x4465.fas 246x4465.tree \
+			ribosomal_l5_pf00673.fas ribosomal_l5_pf00673.tree \
+			medium.fas medium.tree \
+			2000.fas 2000.tree \
+			200.fas 200.tree \
+			1000x5.dna.fas 1000.tree
 
 REQFILES = $(patsubst %, $(DATADIR)/%, $(DEPFILES))
 ASSETS = https://raw.githubusercontent.com/xflouris/assets/master/libpll
@@ -49,12 +50,12 @@ $(DATADIR)/%:
 	@mkdir -p "$(@D)"
 	wget -O $@ $(ASSETS)/$@
 
-obj/%: src/%.c $(DEPS)
+obj/%: src/%.c $(OBJCOMMON)
 	@mkdir -p "$(@D)"
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(OBJCOMMON) $(CLIBS) $(LDFLAGS) -DDATADIR=\"$(DATADIR)\"
 
-%.o: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $< $(CLIBS) $(LDFLAGS) -DDATADIR=\"$(DATADIR)\"
-	
+$(OBJCOMMON): src/common.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $< $(CLIBS) $(LDFLAGS)
+
 clean:
 	rm -rf obj result/* $(OBJCOMMON)

@@ -38,7 +38,9 @@ stepwise.c \
 random.c \
 phylip.c \
 hardware.c \
-repeats.c 
+repeats.c \
+clv_manager.c \
+stack.c 
 
 libpll_la_CFLAGS = $(AM_CFLAGS)
 

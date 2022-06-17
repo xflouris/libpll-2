@@ -141,7 +141,7 @@ PLL_EXPORT double pll_compute_root_loglikelihood(pll_partition_t * partition,
     logl = pll_core_root_loglikelihood_repeats(partition->states,
                                      partition->sites,
                                      partition->rate_cats,
-                                     partition->clv[clv_index],
+                                     pll_get_clv_reading(partition, clv_index),
                                      partition->repeats->pernode_site_id[clv_index],
                                      scaler,
                                      partition->frequencies,
@@ -159,7 +159,7 @@ PLL_EXPORT double pll_compute_root_loglikelihood(pll_partition_t * partition,
     logl = pll_core_root_loglikelihood(partition->states,
                                      partition->sites,
                                      partition->rate_cats,
-                                     partition->clv[clv_index],
+                                     pll_get_clv_reading(partition, clv_index),
                                      scaler,
                                      partition->frequencies,
                                      partition->rate_weights,
@@ -180,7 +180,7 @@ PLL_EXPORT double pll_compute_root_loglikelihood(pll_partition_t * partition,
     identifiers = pll_get_sites_number(partition, clv_index) - partition->rate_cats;
     logl += root_loglikelihood_asc_bias(partition,
                                         identifiers,
-                                        partition->clv[clv_index],
+                                        pll_get_clv_reading(partition, clv_index),
                                         scaler,
                                         freqs_indices);
   }
@@ -199,7 +199,7 @@ static double edge_loglikelihood_asc_bias_ti(pll_partition_t * partition,
   double terma, terma_r;
   double site_lk;
 
-  const double * clvp = partition->clv[parent_clv_index];
+  const double * clvp = pll_get_clv_reading(partition, parent_clv_index);
   const double * freqs = NULL;
   const double * pmatrix = partition->pmatrix[matrix_index];
   unsigned int states = partition->states;
@@ -285,13 +285,16 @@ static double edge_loglikelihood_tipinner(pll_partition_t * partition,
   else
     parent_scaler = partition->scale_buffer[parent_scaler_index];
 
+  const double * parent_clv = pll_get_clv_reading(partition, parent_clv_index);
+  const unsigned char * child_tipchars  = partition->tipchars[child_clv_index];
+
   if (states == 4)
   {
     logl = pll_core_edge_loglikelihood_ti_4x4(partition->sites,
                                               partition->rate_cats,
-                                              partition->clv[parent_clv_index],
+                                              parent_clv,
                                               parent_scaler,
-                                              partition->tipchars[child_clv_index],
+                                              child_tipchars,
                                               partition->pmatrix[matrix_index],
                                               partition->frequencies,
                                               partition->rate_weights,
@@ -307,9 +310,9 @@ static double edge_loglikelihood_tipinner(pll_partition_t * partition,
     logl = pll_core_edge_loglikelihood_ti(partition->states,
                                           partition->sites,
                                           partition->rate_cats,
-                                          partition->clv[parent_clv_index],
+                                          parent_clv,
                                           parent_scaler,
-                                          partition->tipchars[child_clv_index],
+                                          child_tipchars,
                                           partition->tipmap,
                                           partition->maxstates,
                                           partition->pmatrix[matrix_index],
@@ -450,8 +453,8 @@ static double edge_loglikelihood(pll_partition_t * partition,
 {
   double logl = 0;
 
-  const double * clvp = partition->clv[parent_clv_index];
-  const double * clvc = partition->clv[child_clv_index];
+  const double * clvp = pll_get_clv_reading(partition, parent_clv_index);
+  const double * clvc = pll_get_clv_reading(partition, child_clv_index);
 
   unsigned int * parent_scaler;
   unsigned int * child_scaler;
@@ -514,8 +517,11 @@ static double edge_loglikelihood_repeats(pll_partition_t * partition,
 {
   double logl = 0;
 
-  const double * clvp = partition->clv[parent_clv_index];
-  const double * clvc = partition->clv[child_clv_index];
+  const double * clvp = pll_get_clv_reading(partition, parent_clv_index);
+  const double * clvc = pll_get_clv_reading(partition, child_clv_index);
+
+  assert(clvp);
+  assert(clvc);
 
   const unsigned int * parent_site_id =
     pll_get_site_id(partition, parent_clv_index);
@@ -680,7 +686,7 @@ PLL_EXPORT int pll_compute_node_ancestral_extbuf(pll_partition_t * partition,
 
   const double * pmat = partition->pmatrix[pmatrix_index];
 
-  const double * node_clv = partition->clv[node_clv_index];
+  const double * node_clv = pll_get_clv_reading(partition, node_clv_index);
 
   unsigned int * node_scaler = (node_scaler_index == PLL_SCALE_BUFFER_NONE) ?
                             NULL : partition->scale_buffer[node_scaler_index];
@@ -704,7 +710,7 @@ PLL_EXPORT int pll_compute_node_ancestral_extbuf(pll_partition_t * partition,
   }
   else
   {
-    const double * other_clv = partition->clv[other_clv_index];
+    const double * other_clv = pll_get_clv_reading(partition, other_clv_index);
     unsigned int * other_scaler = (other_scaler_index == PLL_SCALE_BUFFER_NONE) ?
                               NULL : partition->scale_buffer[other_scaler_index];
 

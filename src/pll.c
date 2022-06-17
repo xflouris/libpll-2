@@ -65,10 +65,22 @@ static void dealloc_partition_data(pll_partition_t * partition)
 
   if (partition->clv)
   {
-    unsigned int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
-                          partition->tips : 0;
-    for (i = start; i < partition->clv_buffers + partition->tips; ++i)
+    unsigned int start, end;
+    if (pll_clv_manager_enabled(partition))
+    {
+      start = partition->clv_man->addressable_begin;
+      end = start + partition->clv_man->slottable_size;
+    }
+    else
+    {
+      start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
+        partition->tips : 0;
+      end = partition->clv_buffers + partition->tips;
+    }
+    for (i = start; i < end; ++i)
+    {
       pll_aligned_free(partition->clv[i]);
+    }
   }
   free(partition->clv);
 
@@ -107,11 +119,11 @@ static void dealloc_partition_data(pll_partition_t * partition)
   if (partition->pattern_weights)
     free(partition->pattern_weights);
 
-  if (partition->repeats) 
+  if (partition->repeats)
   {
     pll_repeats_t *repeats = partition->repeats;
-    for (i = 0; i < partition->nodes; ++i) 
-    { 
+    for (i = 0; i < partition->nodes; ++i)
+    {
       free(repeats->pernode_site_id[i]);
       free(repeats->pernode_id_site[i]);
     }
@@ -127,6 +139,8 @@ static void dealloc_partition_data(pll_partition_t * partition)
     free(repeats->charmap);
     free(repeats);
   }
+
+  dealloc_clv_manager(partition->clv_man);
 
   free(partition);
 }
@@ -421,6 +435,39 @@ static int create_charmap(pll_partition_t * partition, const pll_state_t * userm
   return PLL_SUCCESS;
 }
 
+int alloc_clvs(pll_partition_t * partition, const size_t num_clvs)
+{
+  unsigned int states_padded  = partition->states_padded;
+  unsigned int sites          = partition->sites;
+  unsigned int rate_cats      = partition->rate_cats;
+  unsigned int sites_alloc    = partition->asc_additional_sites + sites;
+
+  /*  if tip pattern precomputation is enabled, then do not allocate CLV space
+      for the tip nodes */
+  unsigned int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
+                        partition->tips : 0;
+
+  for (size_t i = start; i < partition->tips + num_clvs; ++i)
+  {
+    partition->clv[i] = pll_aligned_alloc(sites_alloc * states_padded *
+                                          rate_cats * sizeof(double),
+                                          partition->alignment);
+    if (!partition->clv[i])
+    {
+      pll_errno = PLL_ERROR_MEM_ALLOC;
+      snprintf(pll_errmsg, 200, "Unable to allocate enough memory for CLVs.");
+      return PLL_FAILURE;
+    }
+    /* zero-out CLV vectors to avoid valgrind warnings when using odd number of
+       states with vectorized code */
+    memset(partition->clv[i],
+           0,
+           (size_t)sites_alloc*states_padded*rate_cats*sizeof(double));
+  }
+
+  return PLL_SUCCESS;
+}
+
 PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
                                                   unsigned int clv_buffers,
                                                   unsigned int states,
@@ -441,9 +488,9 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
     snprintf(pll_errmsg, 200, "Multiple architecture flags specified.");
     return PLL_FAILURE;
   }
- 
+
   /* disable repeats if there are to few sites */
-  if (sites < 16 && (attributes & PLL_ATTRIB_SITE_REPEATS)) 
+  if (sites < 16 && (attributes & PLL_ATTRIB_SITE_REPEATS))
   {
     attributes &= ~PLL_ATTRIB_SITE_REPEATS;
   }
@@ -519,8 +566,9 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
   partition->tipchars = NULL;
   partition->charmap = NULL;
   partition->tipmap = NULL;
-  
+
   partition->repeats = NULL;
+  partition->clv_man = NULL;
 
   /* If ascertainment bias correction attribute is set, CLVs will be allocated
      with additional sites for each state */
@@ -552,31 +600,14 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
     return PLL_FAILURE;
   }
 
-  /* if site repeats are enabled, we allocate CLVs dynamically */
-  if (!pll_repeats_enabled(partition)) 
+  /* if site repeats or memory management are enabled,
+     we allocate CLVs dynamically / later */
+  if (!pll_repeats_enabled(partition) && !(attributes & PLL_ATTRIB_LIMIT_MEMORY))
   {
-    /* if tip pattern precomputation is enabled, then do not allocate CLV space
-       for the tip nodes */
-    unsigned int start = (partition->attributes & PLL_ATTRIB_PATTERN_TIP) ?
-                          partition->tips : 0;
-
-    for (i = start; i < partition->tips + partition->clv_buffers; ++i)
+    if (!alloc_clvs(partition, partition->clv_buffers))
     {
-      partition->clv[i] = pll_aligned_alloc(sites_alloc * states_padded *
-                                            rate_cats * sizeof(double),
-                                            partition->alignment);
-      if (!partition->clv[i])
-      {
-        dealloc_partition_data(partition);
-        pll_errno = PLL_ERROR_MEM_ALLOC;
-        snprintf(pll_errmsg, 200, "Unable to allocate enough memory for CLVs.");
-        return PLL_FAILURE;
-      }
-      /* zero-out CLV vectors to avoid valgrind warnings when using odd number of
-         states with vectorized code */
-      memset(partition->clv[i],
-             0,
-             (size_t)sites_alloc*states_padded*rate_cats*sizeof(double));
+      dealloc_partition_data(partition);
+      return PLL_FAILURE;
     }
   }
   /* pmatrix */
@@ -836,7 +867,7 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
     return PLL_FAILURE;
   }
   /* if we use site repeats, we allocate scales dynamically (later) */
-  if(!pll_repeats_enabled(partition)) 
+  if(!pll_repeats_enabled(partition))
   {
     for (i = 0; i < partition->scale_buffers; ++i)
     {
@@ -856,7 +887,7 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
     }
   }
 
-  if (pll_repeats_enabled(partition)) 
+  if (pll_repeats_enabled(partition))
   {
     if (PLL_FAILURE == pll_repeats_initialize(partition))
     {
@@ -864,6 +895,7 @@ PLL_EXPORT pll_partition_t * pll_partition_create(unsigned int tips,
       return PLL_FAILURE;
     }
   }
+
   return partition;
 }
 
@@ -963,16 +995,17 @@ static int set_tipclv(pll_partition_t * partition,
 {
   pll_state_t c;
   unsigned int i,j;
-  double * tipclv = partition->clv[tip_index];
+  double * tipclv = pll_get_clv_writing(partition, tip_index);
+  assert(tipclv);
 
   pll_repeats_t * repeats = partition->repeats;
   int use_repeats = pll_repeats_enabled(partition);
-  unsigned int ids = use_repeats ?  
+  unsigned int ids = use_repeats ?
                     repeats->pernode_ids[tip_index] : partition->sites;
   /* iterate through sites */
   for (i = 0; i < ids; ++i)
   {
-    unsigned int index = use_repeats ? 
+    unsigned int index = use_repeats ?
                     repeats->pernode_id_site[tip_index][i] : i;
     if ((c = map[(int)sequence[index]]) == 0)
     {
@@ -1032,7 +1065,7 @@ PLL_EXPORT int pll_set_tip_states(pll_partition_t * partition,
 
   if (pll_repeats_enabled(partition))
   {
-    if (PLL_FAILURE == pll_update_repeats_tips(partition, tip_index, map, sequence)) 
+    if (PLL_FAILURE == pll_update_repeats_tips(partition, tip_index, map, sequence))
       return PLL_FAILURE;
   }
   if (partition->attributes & PLL_ATTRIB_PATTERN_TIP)

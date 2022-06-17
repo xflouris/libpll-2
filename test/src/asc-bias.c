@@ -93,6 +93,7 @@ static double eval(pll_partition_t * partition,
                            branch_lengths,
                            matrix_count);
   pll_update_partials(partition, operations, ops_count);
+
   logl = pll_compute_edge_loglikelihood(partition,
                                         node->clv_index,
                                         node->scaler_index,
@@ -110,7 +111,9 @@ static double eval(pll_partition_t * partition,
   printf("Log-L: %f\n", logl);
 
   sumtable = pll_aligned_alloc(
-    (partition->sites + partition->states) * partition->rate_cats * partition->states_padded *
+    (partition->sites + partition->states)
+    * partition->rate_cats
+    * partition->states_padded *
     sizeof(double), partition->alignment);
 
   pll_update_sumtable(partition,
@@ -216,17 +219,31 @@ int main(int argc, char * argv[])
                         tree, attributes);
   printf("Read %s: %u sites\n", MSA_FILENAME, partition->sites);
 
+  unsigned int * subtree_sizes = pll_utree_get_subtree_sizes(tree);
   for (i=0;i<3;++i)
   {
     root = root->next;
 
     pll_set_asc_bias_type(partition, 0);
 
-    retval = pll_utree_traverse(root,
-                                PLL_TREE_TRAVERSE_POSTORDER,
-                                cb_full_traversal,
-                                travbuffer,
-                                &traversal_size);
+    if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    {
+      tree->vroot = root;
+      retval = pll_utree_traverse_lsf(tree,
+                        subtree_sizes,
+                        PLL_TREE_TRAVERSE_POSTORDER,
+                        cb_full_traversal,
+                        travbuffer,
+                        &traversal_size);
+    }
+    else
+    {
+      retval = pll_utree_traverse(root,
+                                  PLL_TREE_TRAVERSE_POSTORDER,
+                                  cb_full_traversal,
+                                  travbuffer,
+                                  &traversal_size);
+    }
 
     if (!retval)
     {
@@ -276,14 +293,15 @@ int main(int argc, char * argv[])
     lnl_test[3] = eval(partition, root, alpha, lnl_test[3]);
 
   }
-    /* clean */
-    free(travbuffer);
-    free(branch_lengths);
-    free(operations);
-    free(matrix_indices);
-    pll_partition_destroy(partition);
 
-  pll_utree_destroy(tree,NULL);
+  /* clean */
+  free(travbuffer);
+  free(branch_lengths);
+  free(operations);
+  free(matrix_indices);
+  pll_partition_destroy(partition);
+  pll_utree_destroy(tree, NULL);
+  free(subtree_sizes);
 
   return 0;
 }

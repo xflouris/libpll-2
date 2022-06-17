@@ -516,3 +516,142 @@ PLL_EXPORT void pll_rtree_create_pars_recops(pll_rnode_t * const* trav_buffer,
   }
 }
 
+static int cb_full_traversal(pll_rnode_t * node)
+{
+  (void)node;
+  return 1;
+}
+
+PLL_EXPORT unsigned int * pll_rtree_get_subtree_sizes(pll_rtree_t * tree)
+{
+  const size_t nodes_count = tree->tip_count + tree->inner_count;
+
+  pll_rnode_t ** travbuffer = (pll_rnode_t **)calloc(nodes_count,
+                                                     sizeof(pll_rnode_t *));
+
+  // the return value: the subtree size of each node, indexed by node_index
+  unsigned int * subtree_sizes = (unsigned int *)calloc(nodes_count,
+                                                     sizeof(unsigned int));
+
+  // get list of nodes in the tree via postorder traversal
+  unsigned int traversal_size;
+  pll_rtree_traverse(tree->root,
+                     PLL_TREE_TRAVERSE_POSTORDER,
+                     cb_full_traversal,
+                     travbuffer,
+                     &traversal_size);
+
+  assert(traversal_size == nodes_count);
+
+  // go through the list, for each look up that node
+  for (size_t i = 0; i < traversal_size; ++i)
+  {
+    pll_rnode_t* node = travbuffer[i];
+    
+    // if node is leaf, set 1 in the cost array, otherwise add the children
+    subtree_sizes[ node->node_index ] = (!node->left) ? 1 :
+      subtree_sizes[ node->left->node_index ] +
+      subtree_sizes[ node->right->node_index ];
+  }
+
+  free(travbuffer);
+
+  return subtree_sizes;
+}
+
+static void rtree_traverse_recursive_lsf(pll_rnode_t * node,
+                                       unsigned int const * const subtree_sizes,
+                                       int const traversal,
+                                       int (*cbtrav)(pll_rnode_t *),
+                                       unsigned int * index,
+                                       pll_rnode_t ** outbuffer)
+{
+  if (!node->left)
+  {
+    if (cbtrav(node))
+    {
+      outbuffer[*index] = node;
+      *index = *index + 1;
+    }
+    return;
+  }
+  if (!cbtrav(node))
+    return;
+
+  if (traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    outbuffer[*index] = node;
+    *index = *index + 1;
+  }
+
+  pll_rnode_t * first;
+  pll_rnode_t * second;
+
+  if (subtree_sizes[ node->left->node_index ] 
+    >= subtree_sizes[ node->right->node_index ])
+  {
+    first   = node->left;
+    second  = node->right;
+  }
+  else
+  {
+    first   = node->right;
+    second  = node->left;
+  }
+
+  rtree_traverse_recursive_lsf(first, subtree_sizes, traversal,
+                              cbtrav, index, outbuffer);
+  rtree_traverse_recursive_lsf(second, subtree_sizes, traversal,
+                              cbtrav, index, outbuffer);
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER)
+  {
+    outbuffer[*index] = node;
+    *index = *index + 1;
+  }
+}
+
+PLL_EXPORT int pll_rtree_traverse_lsf(pll_rtree_t * tree,
+                                      unsigned int const * const subtree_sizes,
+                                      int const traversal,
+                                      int (*cbtrav)(pll_rnode_t *),
+                                      pll_rnode_t ** outbuffer,
+                                      unsigned int * trav_size)
+{
+  assert(subtree_sizes);
+  if (!subtree_sizes)
+  {
+    snprintf(pll_errmsg, 200, "Call requires subtree sizes array.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
+  if ( traversal != PLL_TREE_TRAVERSE_POSTORDER
+    && traversal != PLL_TREE_TRAVERSE_PREORDER)
+  {
+    snprintf(pll_errmsg, 200, "Invalid traversal value.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
+  pll_rnode_t * root = tree->root;
+
+  *trav_size = 0;
+  if (!root->left) return PLL_FAILURE;
+
+  /* we will traverse an unrooted tree in the order of the largest subtree
+
+     at each node the callback function is called to decide whether we
+     are going to traversing the subtree rooted at the specific node */
+
+  rtree_traverse_recursive_lsf(root,
+                              subtree_sizes,
+                              traversal,
+                              cbtrav,
+                              trav_size,
+                              outbuffer);
+
+
+  return PLL_SUCCESS;
+}
+

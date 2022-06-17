@@ -51,13 +51,24 @@ unsigned int get_attributes(int argc, char **argv)
       /* avx2 vectorization */
       attributes |= PLL_ATTRIB_ARCH_AVX2;
     }
+    else if (!strcmp (argv[i], "mem"))
+    {
+      /* memory management */
+      attributes |= PLL_ATTRIB_LIMIT_MEMORY;
+      attributes |= PLL_ATTRIB_PATTERN_TIP;
+    }
     else
     {
       printf("Unrecognised attribute: %s\n", argv[i]);
       exit(1);
     }
   }
-    return attributes;
+
+  if ((attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    && !(attributes & PLL_ATTRIB_PATTERN_TIP))
+    skip_test();
+
+  return attributes;
 }
 
 void skip_test ()
@@ -94,7 +105,7 @@ pll_partition_t * parse_msa_reduced(const char * filename,
                             unsigned int max_sites)
 {
   unsigned int i;
-  unsigned int taxa_count = tree->tip_count;
+  const unsigned int taxa_count = tree->tip_count;
   pll_partition_t * partition;
   long hdrlen, seqlen, seqno;
   char * seq = NULL,
@@ -154,6 +165,21 @@ pll_partition_t * parse_msa_reduced(const char * filename,
                                    rate_cats,            /* rate categories */
                                    taxa_count - 2,       /* scale buffers */
                                    attributes);
+
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+  {
+    const size_t low_clv_num = ceil(log2(tree->tip_count)) + 2;
+    // const size_t low_clv_num = taxa_count - 2;
+    if (!pll_clv_manager_init(partition, low_clv_num, NULL, NULL, NULL))
+      fatal("clv_manager_init failed: %s\n", pll_errmsg);
+
+    unsigned int * subtree_sizes = pll_utree_get_subtree_sizes(tree);
+
+    if (!pll_clv_manager_MRC_strategy_init(partition->clv_man, tree, subtree_sizes))
+      fatal("clv_manager_strategy_init failed: %s\n", pll_errmsg);
+
+    free(subtree_sizes);
+  }
 
   /* create a libc hash table of size tip_nodes_count */
   hcreate(taxa_count);

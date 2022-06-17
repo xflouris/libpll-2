@@ -366,8 +366,8 @@ PLL_EXPORT void pll_utree_create_operations(pll_unode_t * const* trav_buffer,
 }
 
 PLL_EXPORT int pll_utree_every(pll_utree_t * tree,
-                               int (*cb)(const pll_utree_t *,
-                                         const pll_unode_t *))
+                               int (*cb)(pll_utree_t *,
+                                         pll_unode_t *))
 {
   unsigned int i;
   int rc = 1;
@@ -389,6 +389,171 @@ PLL_EXPORT int pll_utree_every_const(const pll_utree_t * tree,
     rc &= cb(tree, tree->nodes[i]);
 
   return (rc ? PLL_SUCCESS : PLL_FAILURE);
+}
+
+static int utree_foreach_recursive( pll_unode_t * node,
+                                    const int traversal,
+                                    int (*keep_traversing)(pll_unode_t *, void *),
+                                    void* keep_traversing_data,
+                                    int (*cb)(pll_unode_t *, void *),
+                                    void* cb_data)
+{
+  if (keep_traversing && !keep_traversing(node, keep_traversing_data))
+    return PLL_SUCCESS;
+
+  if (traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    if(!cb(node, cb_data))
+      return PLL_FAILURE;
+  }
+
+  if (node->next)
+  {
+    pll_unode_t * snode = node->next;
+    do
+    {
+      if(!utree_foreach_recursive(snode->back,
+                                    traversal,
+                                    keep_traversing,
+                                    keep_traversing_data,
+                                    cb,
+                                    cb_data))
+      {
+        return PLL_FAILURE;
+      }
+      snode = snode->next;
+    }
+    while (snode && snode != node);
+  }
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER)
+  {
+    if(!cb(node, cb_data))
+      return PLL_FAILURE;
+  }
+  return PLL_SUCCESS;
+}
+
+/**
+ * Function to visit unodes by a given traversal order, using a separate
+ * callback to determine if the traversal should continue down (keep_traversing),
+ * and a callback defining what should be doen at each visited node. Both
+ * callbacks can be given some arbitrary data to work with (keep_traversing_data,
+ * cb_data)
+ *
+ * @param root              unode to start the traversal from
+ * @param traversal         what traversal to use (e.g. PLL_TREE_TRAVERSE_POSTORDER)
+ * @param keep_traversing   callback determining when to abort the traversal
+ * @param keep_traversing_data
+ *                          void* that can be used to pass extra parameters to cb
+ * @param cb                callback to apply to each traversed unode
+ * @cb_data                 void* that can be used to pass extra parameters to cb
+ *
+ * @return      PLL_{SUCCESS|FAILURE}
+ */
+PLL_EXPORT int pll_utree_foreach(pll_unode_t * root,
+                                 const int traversal,
+                                 int (*keep_traversing)(pll_unode_t *, void *),
+                                 void* keep_traversing_data,
+                                 int (*cb)(pll_unode_t *, void *),
+                                 void* cb_data)
+{
+  if (!root->next)
+  {
+    snprintf(pll_errmsg, 200, "Traversal must start at an inner node.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER ||
+      traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    /* we will traverse an unrooted tree in the following way
+
+                2
+              /
+        1  --*
+              \
+                3
+
+       at each node the callback function is called to decide whether we
+       are going to traversing the subtree rooted at the specific node */
+
+    if(!utree_foreach_recursive(root->back,
+                                traversal,
+                                keep_traversing,
+                                keep_traversing_data,
+                                cb,
+                                cb_data))
+      return PLL_FAILURE;
+    if(!utree_foreach_recursive(root,
+                                traversal,
+                                keep_traversing,
+                                keep_traversing_data,
+                                cb,
+                                cb_data))
+      return PLL_FAILURE;
+  }
+  else
+  {
+    snprintf(pll_errmsg, 200, "Invalid traversal value.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
+  return PLL_SUCCESS;
+}
+
+typedef struct
+{
+  pll_unode_t ** outbuffer;
+  unsigned int * index;
+} traversal_data;
+
+static int fill_travbuffer(pll_unode_t * node, void * data)
+{
+  traversal_data * travstruct = (traversal_data *) data;
+  unsigned int* index = travstruct->index;
+
+  // this has a const cast because I prefer that over making the whole
+  // foreach function non-const
+  travstruct->outbuffer[*index] = (pll_unode_t *)node;
+  *index = *index + 1;
+
+  // this function "can't fail", but in general we want to allow error handling
+  return PLL_SUCCESS;
+}
+
+typedef int cbtrav_t(pll_unode_t *);
+
+static int cbtrav_callback_wrapper(pll_unode_t * node, void * cb)
+{
+  // cast to the old cbtrav function pointer, and call on the given node
+  return ((cbtrav_t*)cb)(node);
+}
+
+// TODO decide whether to actually switch to this
+/**
+ * Experimental version of pll_utree_traverse that uses pll_utree_foreach
+ * internally, lowering redundancy. Needs more testing.
+ */
+PLL_EXPORT int EXPERIMENTAL_pll_utree_traverse(pll_unode_t * root,
+                                  int traversal,
+                                  int (*cbtrav)(pll_unode_t *),
+                                  pll_unode_t ** outbuffer,
+                                  unsigned int * trav_size)
+{
+  *trav_size = 0;
+
+  traversal_data travstruct = { .outbuffer = outbuffer,
+                                .index = trav_size};
+
+  return pll_utree_foreach( root,
+                            traversal,
+                            cbtrav_callback_wrapper,
+                            cbtrav,
+                            &fill_travbuffer,
+                            &travstruct);
 }
 
 static void utree_traverse_recursive(pll_unode_t * node,
@@ -782,4 +947,183 @@ PLL_EXPORT void pll_utree_create_pars_buildops(pll_unode_t * const* trav_buffer,
       *ops_count = *ops_count + 1;
     }
   }
+}
+
+/**
+ * Callback function used with pll_utree_foreach to fill an array of per-node
+ * subtree sizes
+ *
+ * @param  node   the node for which the subtree size is to be set
+ * @param  data   pinter to the subtree sizes array
+ * @return        PLL_{SUCCESS|FAILURE}
+ */
+static int set_subtree_size(pll_unode_t * node, void * data)
+{
+  unsigned int * subtree_sizes = data;
+  // if node is leaf, set 1 in the cost array, otherwise add the children
+  subtree_sizes[ node->node_index ] = (!node->next) ? 1 :
+    subtree_sizes[ node->next->back->node_index ] +
+    subtree_sizes[ node->next->next->back->node_index ];
+
+  return PLL_SUCCESS;
+}
+
+/**
+ * Partial Traversal callback ensuring we only calculate subtree sizes once
+ *
+ * @param  node   current node
+ * @param  data   void* to the subtree sizes array
+ * @return        if we should keep traversing
+ */
+static int set_subtree_size_partial_trav(pll_unode_t * node, void * data)
+{
+  unsigned int * subtree_sizes = data;
+  // if the subtree size of this node is already calculated, abort the traversal
+  return subtree_sizes[ node->node_index ] ? 0 : 1;
+}
+
+/**
+ * Returns an array with subtree sizes for each node_index (#tips + #inner * 3),
+ * assuming the subtree to start away from the virtual root (as set in tree)
+ *
+ * @param  tree   the tree for which to build the array
+ * @return        the subtree sizes array
+ */
+PLL_EXPORT unsigned int * pll_utree_get_subtree_sizes(pll_utree_t const * const tree)
+{
+  const size_t nodes_count = tree->tip_count + tree->inner_count * 3;
+
+  // the return value: the subtree size of each node, indexed by node_index
+  unsigned int * subtree_sizes = (unsigned int *)calloc(nodes_count,
+                                                     sizeof(unsigned int));
+
+  // start a traversal from each tip, ensuring we visit all internal directions
+  for( size_t tip_id = 0; tip_id < tree->tip_count; ++tip_id ) {
+    if(!pll_utree_foreach(tree->nodes[ tip_id ]->back,
+                          PLL_TREE_TRAVERSE_POSTORDER,
+                          set_subtree_size_partial_trav,
+                          subtree_sizes,
+                          set_subtree_size,
+                          subtree_sizes)) {
+      free(subtree_sizes);
+      return PLL_FAILURE;
+    }
+  }
+
+  return subtree_sizes;
+}
+
+static void utree_traverse_lsf_recursive(pll_unode_t * node,
+                                     const unsigned int * const subtree_sizes,
+                                     const int traversal,
+                                     int (*cbtrav)(pll_unode_t *),
+                                     unsigned int * index,
+                                     pll_unode_t ** outbuffer)
+{
+  if (!cbtrav(node))
+    return;
+
+  if (traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    outbuffer[*index] = node;
+    *index = *index + 1;
+  }
+
+  if (node->next)
+  {
+    // largest subtree first: determine which one
+    pll_unode_t * first;
+    pll_unode_t * second;
+
+    if (subtree_sizes[ node->next->back->node_index ]
+        >= subtree_sizes[ node->next->next->back->node_index ])
+    {
+      first   = node->next;
+      second  = node->next->next;
+    }
+    else
+    {
+      first   = node->next->next;
+      second  = node->next;
+    }
+
+    // this function is for bifurcating only
+    utree_traverse_lsf_recursive(first->back,
+                                 subtree_sizes,
+                                 traversal,
+                                 cbtrav,
+                                 index,
+                                 outbuffer);
+    utree_traverse_lsf_recursive(second->back,
+                                 subtree_sizes,
+                                 traversal,
+                                 cbtrav,
+                                 index,
+                                 outbuffer);
+  }
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER)
+  {
+    outbuffer[*index] = node;
+    *index = *index + 1;
+  }
+}
+
+/**
+ * Returns a traversal buffer, just like utree_traverse, however it uses a given
+ * subtree_sizes array to determine the larger of two subtrees, into which
+ * it will traverse first (hence lsf = larger subtree first)
+ *
+ * @param tree          tree to traverse, starting at tree->vroot
+ * @param subtree_sizes array specifying subtree sizes per node index
+ * @param traversal     what traversal to use (e.g. PLL_TREE_TRAVERSE_POSTORDER)
+ * @param cbtrav        callback determining when traversal should terminate
+ * @param outbuffer     (output) traversal buffer
+ * @param trav_size     (output) traversal size
+ *
+ * @return              PLL_{SUCCESS|FAILURE}
+ */
+PLL_EXPORT int pll_utree_traverse_lsf(pll_utree_t const * tree,
+                                  const unsigned int * const subtree_sizes,
+                                  const int traversal,
+                                  int (*cbtrav)(pll_unode_t *),
+                                  pll_unode_t ** outbuffer,
+                                  unsigned int * trav_size)
+{
+  assert(subtree_sizes);
+  if (!subtree_sizes)
+  {
+    snprintf(pll_errmsg, 200, "Call requires subtree sizes array.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
+  pll_unode_t * root = tree->vroot;
+
+  assert(tree->binary);
+
+  *trav_size = 0;
+  if (!root->next) return PLL_FAILURE;
+
+  if (traversal == PLL_TREE_TRAVERSE_POSTORDER ||
+      traversal == PLL_TREE_TRAVERSE_PREORDER)
+  {
+    /* traverse down in the order of largest subtree first */
+    pll_unode_t * first = (subtree_sizes[ root->back->node_index ]
+                        >= subtree_sizes[ root->node_index ]) ?
+                        root->back : root;
+
+    utree_traverse_lsf_recursive(
+                      first, subtree_sizes, traversal, cbtrav, trav_size, outbuffer);
+    utree_traverse_lsf_recursive(
+                      first->back, subtree_sizes, traversal, cbtrav, trav_size, outbuffer);
+  }
+  else
+  {
+    snprintf(pll_errmsg, 200, "Invalid traversal value.");
+    pll_errno = PLL_ERROR_PARAM_INVALID;
+    return PLL_FAILURE;
+  }
+
+  return PLL_SUCCESS;
 }

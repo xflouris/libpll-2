@@ -96,6 +96,9 @@ int main(int argc, char * argv[])
   /* check attributes */
   unsigned int attributes = get_attributes(argc, argv);
 
+  if (attributes & PLL_ATTRIB_LIMIT_MEMORY)
+    skip_test();
+
   pll_partition_t * partition;
   partition = pll_partition_create(
                               n_tips,      /* numer of tips */
