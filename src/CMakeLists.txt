@@ -11,6 +11,7 @@ endif()
 set (SSE_FLAGS "-msse3")
 set (AVX_FLAGS "-mavx")
 set (AVX2_FLAGS "-mfma -mavx2")
+set (NEON_FLAGS "-march=armv8-a+fp+simd")
 
 find_package(BISON)
 find_package(FLEX)
@@ -104,8 +105,11 @@ endif ()
 if (NOT DEFINED ENABLE_AVX2)
   SET(ENABLE_AVX2 "True")
 endif ()
+if (NOT DEFINED ENABLE_SSE2NEON)
+  SET(ENABLE_SSE2NEON "True")
+endif ()
 
-# check simd installed 
+# check simd supported by the compiler 
 if (ENABLE_SSE)
   SET(_code " #include <immintrin.h>
   int main() {__m128d a = _mm_setzero_pd();  return 1;}")
@@ -142,7 +146,18 @@ if (ENABLE_AVX2)
     set(ENABLE_AVX2 "False")
   endif()
 endif()
-
+if (ENABLE_SSE2NEON)
+  SET(_code " #include <sse2neon.h>
+  int main() {__m128d a = _mm_setzero_pd();  return 1;}")
+  SET(_file ${CMAKE_CURRENT_BINARY_DIR}/testsse2neon.c)
+  FILE(WRITE "${_file}" "${_code}")
+  TRY_COMPILE(SSE2NEON_COMPILED ${CMAKE_CURRENT_BINARY_DIR} ${_file}
+    COMPILE_DEFINITIONS "${NEON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}")
+  if (NOT SSE2NEON_COMPILED)
+    message(STATUS "Disable sse2neon simd, because not supported")
+    set(ENABLE_SSE2NEON "False")
+  endif()
+endif()
 
 # set simd flags
 if (ENABLE_SSE)
@@ -151,7 +166,15 @@ if (ENABLE_SSE)
   message(STATUS "SSE enabled. To disable it, run cmake with -DENABLE_SSE=false")
   set(LIBPLL_SOURCES ${LIBPLL_SOURCES} ${LIBPLL_SSE_SOURCES})
   SET_SOURCE_FILES_PROPERTIES( ${LIBPLL_SSE_SOURCES} PROPERTIES COMPILE_FLAGS ${SSE_FLAGS} )
+elseif (ENABLE_SSE2NEON)
+  # atm either SSE or SSE2NEON kernels can be built, since the share the same function and object names
+  add_definitions(-DHAVE_SSE3 -DHAVE_SSE2NEON)
+  set(SIMD_FLAGS "${SIMD_FLAGS} ${NEON_FLAGS}")
+  message(STATUS "SSE2NEON enabled. To disable it, run cmake with -DENABLE_SSE2NEON=false")
+  set(LIBPLL_SOURCES ${LIBPLL_SOURCES} ${LIBPLL_SSE_SOURCES})
+  SET_SOURCE_FILES_PROPERTIES( ${LIBPLL_SSE_SOURCES} PROPERTIES COMPILE_FLAGS ${NEON_FLAGS} )
 endif ()
+
 if (ENABLE_AVX)
   add_definitions(-DHAVE_AVX)
   set(SIMD_FLAGS "${SIMD_FLAGS} ${AVX_FLAGS}")
