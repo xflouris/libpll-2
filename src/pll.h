@@ -882,7 +882,7 @@ PLL_EXPORT long pll_fasta_getfilepos(pll_fasta_t * fd);
 
 PLL_EXPORT int pll_fasta_rewind(pll_fasta_t * fd);
 
-pll_msa_t * pll_fasta_load(const char * fname);
+PLL_EXPORT pll_msa_t * pll_fasta_load(const char * fname);
 
 /* functions in parse_rtree.y */
 
@@ -995,7 +995,7 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_interleaved(pll_phylip_t * fd);
 
 PLL_EXPORT pll_msa_t * pll_phylip_parse_sequential(pll_phylip_t * fd);
 
-pll_msa_t * pll_phylip_load(const char * fname, pll_bool_t interleaved);
+PLL_EXPORT pll_msa_t * pll_phylip_load(const char * fname, pll_bool_t interleaved);
 
 /* functions in rtree.c */
 
