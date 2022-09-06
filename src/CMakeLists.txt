@@ -15,7 +15,7 @@ set (NEON_FLAGS "-march=armv8-a+fp+simd")
 
 find_package(BISON)
 find_package(FLEX)
-set(LIBPLL_BISON_FLAGS "-y -d -p pll_utree_")
+set(LIBPLL_BISON_FLAGS "-d -p pll_utree_")
 set(LIBPLL_FLEX_FLAGS "-P pll_utree_")
 BISON_TARGET(parse_utree_t 
   ${CMAKE_CURRENT_SOURCE_DIR}/parse_utree.y ${CMAKE_CURRENT_BINARY_DIR}/parse_utree.c
@@ -24,7 +24,7 @@ FLEX_TARGET(lex_utree_t
   ${CMAKE_CURRENT_SOURCE_DIR}/lex_utree.l ${CMAKE_CURRENT_BINARY_DIR}/lex_utree.c
   COMPILE_FLAGS ${LIBPLL_FLEX_FLAGS})
 ADD_FLEX_BISON_DEPENDENCY(lex_utree_t parse_utree_t)
-set(LIBPLL_BISON_FLAGS "-y -d -p pll_rtree_")
+set(LIBPLL_BISON_FLAGS "-d -p pll_rtree_")
 set(LIBPLL_FLEX_FLAGS "-P pll_rtree_")
 BISON_TARGET(parse_rtree_t 
   ${CMAKE_CURRENT_SOURCE_DIR}/parse_rtree.y ${CMAKE_CURRENT_BINARY_DIR}/parse_rtree.c
