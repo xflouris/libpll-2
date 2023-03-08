@@ -50,6 +50,13 @@
 #include <x86intrin.h>
 #endif
 
+#if (defined(__aarch64__) && defined(HAVE_SSE2NEON))
+  #define SSE2NEON_PRECISE_MINMAX 1
+  #define SSE2NEON_PRECISE_DIV 1
+  #define SSE2NEON_PRECISE_SQRT 1
+  #include "sse2neon.h"
+#endif
+
 /* platform specific */
 
 #if (!defined(__APPLE__) && !defined(__WIN32__) && !defined(__WIN64__))
@@ -139,6 +146,10 @@
 
 #define PLL_TREE_TRAVERSE_POSTORDER         1
 #define PLL_TREE_TRAVERSE_PREORDER          2
+
+#define PLL_TREE_TRAVERSE_FULL              1
+#define PLL_TREE_TRAVERSE_PARTIAL           2
+#define PLL_TREE_TRAVERSE_NONE              3
 
 /* error codes */
 
@@ -572,6 +583,16 @@ PLL_EXPORT extern const double pll_aa_rates_jttdcmut[190];
 PLL_EXPORT extern const double pll_aa_rates_flu[190];
 PLL_EXPORT extern const double pll_aa_rates_stmtrev[190];
 PLL_EXPORT extern const double pll_aa_rates_den[190];
+
+PLL_EXPORT extern const double pll_aa_rates_q_pfam[190];
+PLL_EXPORT extern const double pll_aa_rates_q_pfam_gb[190];
+PLL_EXPORT extern const double pll_aa_rates_q_lg[190];
+PLL_EXPORT extern const double pll_aa_rates_q_bird[190];
+PLL_EXPORT extern const double pll_aa_rates_q_insect[190];
+PLL_EXPORT extern const double pll_aa_rates_q_mammal[190];
+PLL_EXPORT extern const double pll_aa_rates_q_plant[190];
+PLL_EXPORT extern const double pll_aa_rates_q_yeast[190];
+
 PLL_EXPORT extern const double pll_aa_rates_lg4m[4][190];
 PLL_EXPORT extern const double pll_aa_rates_lg4x[4][190];
 
@@ -595,6 +616,16 @@ PLL_EXPORT extern const double pll_aa_freqs_jttdcmut[20];
 PLL_EXPORT extern const double pll_aa_freqs_flu[20];
 PLL_EXPORT extern const double pll_aa_freqs_stmtrev[20];
 PLL_EXPORT extern const double pll_aa_freqs_den[20];
+
+PLL_EXPORT extern const double pll_aa_freqs_q_pfam[20];
+PLL_EXPORT extern const double pll_aa_freqs_q_pfam_gb[20];
+PLL_EXPORT extern const double pll_aa_freqs_q_lg[20];
+PLL_EXPORT extern const double pll_aa_freqs_q_bird[20];
+PLL_EXPORT extern const double pll_aa_freqs_q_insect[20];
+PLL_EXPORT extern const double pll_aa_freqs_q_mammal[20];
+PLL_EXPORT extern const double pll_aa_freqs_q_plant[20];
+PLL_EXPORT extern const double pll_aa_freqs_q_yeast[20];
+
 PLL_EXPORT extern const double pll_aa_freqs_lg4m[4][20];
 PLL_EXPORT extern const double pll_aa_freqs_lg4x[4][20];
 
@@ -852,7 +883,7 @@ PLL_EXPORT long pll_fasta_getfilepos(pll_fasta_t * fd);
 
 PLL_EXPORT int pll_fasta_rewind(pll_fasta_t * fd);
 
-pll_msa_t * pll_fasta_load(const char * fname);
+PLL_EXPORT pll_msa_t * pll_fasta_load(const char * fname);
 
 /* functions in parse_rtree.y */
 
@@ -965,7 +996,7 @@ PLL_EXPORT pll_msa_t * pll_phylip_parse_interleaved(pll_phylip_t * fd);
 
 PLL_EXPORT pll_msa_t * pll_phylip_parse_sequential(pll_phylip_t * fd);
 
-pll_msa_t * pll_phylip_load(const char * fname, pll_bool_t interleaved);
+PLL_EXPORT pll_msa_t * pll_phylip_load(const char * fname, pll_bool_t interleaved);
 
 /* functions in rtree.c */
 
@@ -2619,6 +2650,22 @@ PLL_EXPORT pll_utree_t * pll_fastparsimony_stepwise(pll_parsimony_t ** list,
                                                     unsigned int * score,
                                                     unsigned int count,
                                                     unsigned int seed);
+
+PLL_EXPORT int pll_fastparsimony_stepwise_spr_round(pll_utree_t * tree,
+                                                   pll_parsimony_t ** pars_list,
+                                                   unsigned int pars_count,
+                                                   const unsigned int * tip_msa_idmap,
+                                                   unsigned int seed,
+                                                   const int * clv_index_map,
+                                                   unsigned int * cost);
+
+PLL_EXPORT int pll_fastparsimony_stepwise_extend(pll_utree_t * tree,
+                                                 pll_parsimony_t ** pars_list,
+                                                 unsigned int pars_count,
+                                                 char * const * labels,
+                                                 const unsigned int * tip_msa_idmap,
+                                                 unsigned int seed,
+                                                 unsigned int * cost);
 
 /* functions in random.c */
 

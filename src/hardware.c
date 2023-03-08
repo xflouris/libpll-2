@@ -28,7 +28,7 @@
     https://github.com/xflouris/libpll/issues/138
 
 */
-#if (defined(__APPLE__)) || \
+#if (defined(__APPLE__) && !defined(__aarch64__)) || \
     (!defined(__clang__) && defined(__GNUC__) && (__GNUC__ < 4 || \
       (__GNUC__ == 4 && __GNUC_MINOR__ < 8))) || \
     (defined(__clang__) && (__clang_major__ < 3 || \
@@ -112,6 +112,13 @@ static void cpu_features_detect()
   pll_hardware.init            = 1;
 #if defined(__PPC__)
   pll_hardware.altivec_present = __builtin_cpu_supports("altivec");
+#elif defined(__aarch64__) && defined(HAVE_SSE2NEON)
+  pll_hardware.sse_present     = 1;
+  pll_hardware.sse2_present    = 1;
+  pll_hardware.sse3_present    = 1;
+  pll_hardware.ssse3_present   = 1;
+  pll_hardware.sse41_present   = 1;
+  pll_hardware.sse42_present   = 1;
 #elif defined(__x86_64__) || defined(__i386__)
   pll_hardware.mmx_present     = __builtin_cpu_supports("mmx");
   pll_hardware.sse_present     = __builtin_cpu_supports("sse");

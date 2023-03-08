@@ -103,7 +103,7 @@ static void pll_rtree_error(pll_rnode_t * node, const char * s)
   struct pll_rnode_s * tree;
 }
 
-%error-verbose
+%define parse.error verbose
 %parse-param {struct pll_rnode_s * tree}
 %destructor { pll_rtree_graph_destroy($$,NULL); } subtree
 %destructor { free($$); } STRING

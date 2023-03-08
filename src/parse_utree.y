@@ -165,7 +165,7 @@ static void pll_utree_error(pll_unode_t * node, const char * s)
   struct pll_unode_s * tree;
 }
 
-%error-verbose
+%define parse.error verbose
 %parse-param {struct pll_unode_s * tree}
 %destructor { pll_utree_graph_destroy($$,NULL); } subtree
 %destructor { free($$); } STRING
