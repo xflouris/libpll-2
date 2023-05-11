@@ -33,8 +33,8 @@ The library can be compiled using either of the following two ways.
 using the following commands.
 
 ```bash
-git clone https://github.com/xflouris/libpll.git
-cd libpll
+git clone https://github.com/xflouris/libpll-2.git
+cd libpll-2
 ./autogen.sh
 ./configure
 make
