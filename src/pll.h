@@ -283,6 +283,10 @@ typedef struct pll_partition
   int asc_bias_alloc;
   int asc_additional_sites; // partition->asc_bias_alloc ? states : 0 
 
+  /* clv re-use */
+  unsigned int * clv_map;
+
+
   /* site repeats */
   struct pll_repeats *repeats;
 } pll_partition_t;
