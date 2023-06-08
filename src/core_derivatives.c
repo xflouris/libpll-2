@@ -702,7 +702,7 @@ PLL_EXPORT int pll_core_likelihood_derivatives(unsigned int states,
                                                unsigned int parent_sites,
                                                unsigned int child_ids,
                                                const int * invariant,
-                                               const unsigned int * pattern_weights,
+                                               const double * pattern_weights,
                                                double branch_length,
                                                const double * prop_invar,
                                                double * const * freqs,
@@ -897,7 +897,7 @@ PLL_EXPORT int pll_core_likelihood_derivatives(unsigned int states,
         case PLL_ATTRIB_AB_LEWIS:
         {
           // TODO: pattern_weight_sum should be stored somewhere!
-          unsigned int pattern_weight_sum = 0;
+          double pattern_weight_sum = 0;
           for (n = 0; n < ef_sites; ++n)
             pattern_weight_sum += pattern_weights[n];
 
