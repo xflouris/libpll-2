@@ -32,7 +32,7 @@ extern int pll_utree_lineno;
 extern int pll_utree_colstart;
 extern int pll_utree_colend;
 
-extern int pll_utree_parse();
+extern int pll_utree_parse(pll_unode_t *);
 extern struct pll_utree_buffer_state * pll_utree__scan_string(const char * str);
 extern void pll_utree__delete_buffer(struct pll_utree_buffer_state * buffer);
 
