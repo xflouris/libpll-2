@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8.10 FATAL_ERROR)
+cmake_minimum_required (VERSION 2.8.10...3.20)
 
 project (Libpll)
 
