@@ -32,7 +32,7 @@ extern int pll_rtree_lineno;
 extern int pll_rtree_colstart;
 extern int pll_rtree_colend;
 
-extern int pll_rtree_parse();
+extern int pll_rtree_parse(pll_rnode_t *);
 extern struct pll_rtree_buffer_state * pll_rtree__scan_string(const char * str);
 extern void pll_rtree__delete_buffer(struct pll_rtree_buffer_state * buffer);
 
